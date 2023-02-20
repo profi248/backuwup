@@ -1,63 +1,28 @@
-use std::thread::sleep_ms;
+#![deny(unused_must_use, deprecated)]
+#![warn(clippy::pedantic)]
+
+mod net;
+mod ui;
+
 use std::time::Duration;
-use async_channel::{Receiver, Sender};
-use console::Term;
-use tokio::time::sleep;
-use dialoguer::{ theme::ColorfulTheme, Input };
+use tokio::time::{sleep};
+
+use tokio::sync::broadcast::channel;
+
+// todo: consider putting the log sender in a once_cell
 
 #[tokio::main]
 async fn main() {
-    let (input_sender, input_receiver) = async_channel::unbounded();
-    let (server_sender, server_receiver) = async_channel::unbounded();
-    let (evt_sender, evt_receiver) = async_channel::unbounded();
+    // create a queue for sending all log messages to web clients
+    let (log_sender, _) = channel(100);
 
+    tokio::spawn(net::init());
+    tokio::spawn(ui::run(log_sender.clone()));
 
-    tokio::spawn(server(evt_sender.clone(), server_receiver.clone()));
-    // tokio::spawn(waker(queue_sender.clone(), queue_receiver.clone()));
-
-
-    // use evt_receiver from all threads, or reconsider using a different queue type
+    let mut i = 0;
     loop {
-        tokio::spawn(input_handler(input_sender.clone(), input_receiver.clone()));
-        let msg = input_receiver.recv().await.unwrap();
-
-        server_sender.send(msg).await;
-        evt_receiver.recv().await.unwrap();
-    }
-
-
-}
-
-async fn input_handler(queue_sender: Sender<String>, queue_receiver: Receiver<String>) {
-    let input: String = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("Your name")
-        .interact_text()
-        .unwrap();
-
-    queue_sender.send(input).await;
-}
-
-async fn server(queue_sender: Sender<String>, queue_receiver: Receiver<String>) {
-    loop {
-        let string = queue_receiver.recv().await.unwrap();
-        println!("hii {string} :3");
-
-        let bar = indicatif::ProgressBar::new(100);
-        for _ in 0..100 {
-            bar.inc(1);
-            sleep(Duration::from_millis(10)).await;
-        }
-
-        bar.finish();
-        queue_sender.send("a".to_string()).await;
-    }
-}
-
-async fn waker(queue_sender: Sender<String>, queue_receiver: Receiver<String>) {
-    loop {
-        // queue_sender.send("hii from waker :3".to_string()).await;
-        let term = Term::stdout();
-        term.write_line("hii from waker :3");
+        let _ = log_sender.send(format!("helloo {i}"));
+        i += 1;
         sleep(Duration::from_secs(2)).await;
     }
 }

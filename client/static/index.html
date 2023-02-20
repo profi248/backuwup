@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    hiii
+    <script>
+        const socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+        // // Connection opened
+        // socket.addEventListener('open', (event) => {
+        //     socket.send('Hello Server!');
+        // });
+
+        socket.addEventListener('message', (event) => {
+            console.log('Message from server ', event.data);
+        });
+    </script>
+</body>
+</html>

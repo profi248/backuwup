@@ -6,3 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Async runtime
+tokio = { version = "1.25.0", features = ["full"] }
+
+# Networking
+tokio-tungstenite = { version = "0.18.0", features = ["rustls-tls-native-roots"] }
