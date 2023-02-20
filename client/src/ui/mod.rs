@@ -1,6 +1,6 @@
 mod ws;
 
-use poem::{EndpointExt, Route, Server, listener::TcpListener, endpoint::EmbeddedFilesEndpoint };
+use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, EndpointExt, Route, Server};
 use rust_embed::RustEmbed;
 
 use tokio::sync::broadcast::Sender;
@@ -16,7 +16,7 @@ async fn run_server(log_sender: Sender<String>) {
 
     let app = Route::new()
         .at("/", EmbeddedFilesEndpoint::<Static>::new())
-        .at("/ws", ws::handle.data(log_sender));
+        .at("/ws", ws::handler.data(log_sender));
 
     let listener = TcpListener::bind("127.0.0.1:3000");
     let server = Server::new(listener);

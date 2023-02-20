@@ -4,8 +4,9 @@
 mod net;
 mod ui;
 
+use std::{panic, process};
 use std::time::Duration;
-use tokio::time::{sleep};
+use tokio::time::sleep;
 
 use tokio::sync::broadcast::channel;
 
@@ -13,6 +14,14 @@ use tokio::sync::broadcast::channel;
 
 #[tokio::main]
 async fn main() {
+    // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
+    let orig_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // invoke the default handler and exit the process
+        orig_hook(panic_info);
+        process::exit(1);
+    }));
+
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
 
