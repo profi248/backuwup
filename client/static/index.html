@@ -1,22 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+    <meta charset="utf-8">
+    <title>Peer-to-peer backup</title>
+    <style>
+        #app {
+            display: none;
+        }
+
+        #logs {
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: scroll;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 16px;
+            display: block;
+            font-size: 1.1em;
+        }
+    </style>
 </head>
 <body>
-    hiii
+    <div id="app">
+        <div id="status">{{ status }}</div>
+        <textarea cols="80" rows="30" id="logs" disabled>{{ logs }}</textarea>
+    </div>
+
+    <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.47/vue.global.min.js"
+            integrity="sha512-DJ2+sosWB5FnZAIeCWAHu2gxQ7Gi438oOZLcBQSOrW8gD0s7LIXDv/5RW76B3FcljF40BXnfqNIo6Dhp7dFHJg=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        const socket = new WebSocket(`ws://${window.location.host}/ws`);
+        const { createApp } = Vue;
 
-        // // Connection opened
-        // socket.addEventListener('open', (event) => {
-        //     socket.send('Hello Server!');
-        // });
+        createApp({
+            data() {
+                return {
+                    logs: "",
+                    status: false,
+                    socket: null,
+                    reconnector: null
+                }
+            },
+            methods: {
+                connect_ws() {
+                    this.socket = new WebSocket(`ws://${window.location.host}/ws`);
 
-        socket.addEventListener('message', (event) => {
-            console.log('Message from server ', event.data);
-        });
+                    this.socket.addEventListener('message', (event) => {
+                        console.log('Message from server ', event.data);
+                        this.logs += event.data + "\n";
+
+                        let el = document.querySelector("#logs");
+                        el.scrollTo(0, el.scrollHeight);
+                    });
+
+                    this.socket.addEventListener('open', (event) => {
+                        this.status = true;
+                        clearInterval(this.reconnctor);
+                    });
+
+                    this.socket.addEventListener('close', () => {
+                        this.closed_ws();
+                    });
+
+                    this.socket.addEventListener('error', () => {
+                        this.closed_ws();
+                    });
+                }
+            },
+            closed_ws() {
+                this.socket = null;
+                this.status = false;
+                clearInterval(this.reconnctor);
+                this.reconnctor = setInterval(() => { this.connect_ws() }, 1000);
+            },
+            mounted() {
+                document.querySelector("#app").style.display = "block";
+                this.connect_ws();
+            }
+        }).mount('#app');
     </script>
 </body>
 </html>

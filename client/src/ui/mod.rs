@@ -18,6 +18,7 @@ async fn run_server(log_sender: Sender<String>) {
         .at("/", EmbeddedFilesEndpoint::<Static>::new())
         .at("/ws", ws::handler.data(log_sender));
 
+    // todo: don't hardcode the port
     let listener = TcpListener::bind("127.0.0.1:3000");
     let server = Server::new(listener);
     server.run(app).await.unwrap();

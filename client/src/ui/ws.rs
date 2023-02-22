@@ -34,10 +34,11 @@ async fn send_log_messages(
             // if the message is lagged (the log buffer is filled up),
             // ignore the error and try receiving again
             Err(RecvError::Lagged(_)) => continue,
-            Err(e) => panic!("{e:?}"),
+            Err(e) => { println!("error: {e:?}"); break },
             Ok(msg) => msg,
         };
 
+        // todo: handle errors here properly
         ws_send.send(Message::Text(msg)).await.unwrap();
     }
 }
@@ -48,7 +49,7 @@ async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
             // for when the socket has closed
             None => break,
             Some(Ok(msg)) => msg,
-            Some(Err(e)) => { println!("error: {e:?}"); break; }
+            Some(Err(e)) => { println!("error: {e:?}"); break }
         };
 
         let msg = match msg {
