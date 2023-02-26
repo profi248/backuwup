@@ -1,4 +1,4 @@
-use std::{ path::Path, fs };
+use std::{path::Path, fs};
 
 use sqlx::sqlite::{SqlitePoolOptions, SqliteQueryResult};
 use sqlx::{Error, SqlitePool};
@@ -39,6 +39,10 @@ impl Config {
         }
 
         config
+    }
+
+    pub async fn get_server_root_tls_cert(&self) -> Box<&[u8]> {
+        Box::new(crate::defaults::SERVER_ROOT_TLS_CERT_PEM.clone().as_bytes())
     }
 
     async fn create_db_structure(pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {

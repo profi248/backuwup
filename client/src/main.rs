@@ -8,16 +8,18 @@ mod config;
 
 use std::{panic, process};
 use std::time::Duration;
-use tokio::time::sleep;
+use reqwest::{Certificate, Client};
 
+use tokio::time::sleep;
 use tokio::sync::broadcast::channel;
+
+use crate::config::Config;
 
 // todo: consider putting the log sender in a once_cell
 
 #[tokio::main]
 async fn main() {
-    let config = crate::config::Config::init().await;
-    let c = config.clone();
+    let config = Config::init().await;
 
     // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
     let orig_hook = panic::take_hook();
@@ -32,6 +34,13 @@ async fn main() {
 
     tokio::spawn(net::init());
     tokio::spawn(ui::run(log_sender.clone()));
+
+    let client = Client::builder()
+        .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert().await).unwrap())
+        .tls_built_in_root_certs(false)
+        .build().unwrap();
+
+    client.get("https://localhost:8080").send().await.unwrap();
 
     let mut i = 0;
     loop {
