@@ -3,6 +3,8 @@
 
 mod net;
 mod ui;
+mod defaults;
+mod config;
 
 use std::{panic, process};
 use std::time::Duration;
@@ -14,6 +16,9 @@ use tokio::sync::broadcast::channel;
 
 #[tokio::main]
 async fn main() {
+    let config = crate::config::Config::init().await;
+    let c = config.clone();
+
     // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
     let orig_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
