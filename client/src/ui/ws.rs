@@ -38,8 +38,11 @@ async fn send_log_messages(
             Ok(msg) => msg,
         };
 
-        // todo: handle errors here properly
-        ws_send.send(Message::Text(msg)).await.unwrap();
+        match ws_send.send(Message::Text(msg)).await {
+            // end the thread if sending to socket failed (it's likely closed)
+            Err(_) => break,
+            Ok(_) => continue
+        }
     }
 }
 
