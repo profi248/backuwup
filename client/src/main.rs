@@ -42,6 +42,11 @@ async fn main() {
 
     client.get("https://localhost:8080").send().await.unwrap();
 
+    use local_ip_address::local_ip;
+
+    let my_local_ip = local_ip().unwrap();
+    println!("This is my local IP address: {:?}", my_local_ip);
+
     let mut i = 0;
     loop {
         let _ = log_sender.send(format!("helloo {i}"));
