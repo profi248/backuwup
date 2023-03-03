@@ -1,11 +1,6 @@
 pub(crate) mod register;
 
-use poem::{
-    Response,
-    Body,
-    error::ResponseError,
-    http::StatusCode
-};
+use poem::{error::ResponseError, http::StatusCode, Body, Response};
 
 use shared::server_message::ServerMessage;
 

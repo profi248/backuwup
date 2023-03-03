@@ -11,12 +11,12 @@ pub enum ServerMessage {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientRegistrationChallenge {
-    pub server_challenge: [u8; 32]
+    pub server_challenge: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientLoginChallenge {
-    server_challenge: [u8; 32]
+    server_challenge: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize, Debug)]

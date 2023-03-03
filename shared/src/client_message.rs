@@ -11,13 +11,13 @@ pub enum ClientMessage {
 
 #[derive(Serialize, Deserialize)]
 pub struct ClientRegistrationRequest {
-    pub client_id: crate::types::ClientId
+    pub client_id: crate::types::ClientId,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ClientRegistrationAuth {
     pub client_id: crate::types::ClientId,
-    pub challenge_response: [u8; 32]
+    pub challenge_response: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize)]
