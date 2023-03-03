@@ -1,10 +1,10 @@
-use std::time::Duration;
-use sqlx::{Error, PgPool, query};
 use sqlx::postgres::{PgPoolOptions, PgQueryResult};
+use sqlx::{query, Error, PgPool};
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Database {
-    conn_pool: PgPool
+    conn_pool: PgPool,
 }
 
 impl Database {
@@ -15,11 +15,15 @@ impl Database {
             conn_pool: PgPoolOptions::new()
                 .max_connections(10)
                 .acquire_timeout(Duration::from_secs(5))
-                .connect(&db_url).await.expect(&format!("Failed to connect to database at {db_url}"))
+                .connect(&db_url)
+                .await
+                .expect(&format!("Failed to connect to database at {db_url}")),
         };
 
         println!("Connected to database!");
-        Self::create_schema(db.conn_pool.clone()).await.expect("Failed to create database schema");
+        Self::create_schema(db.conn_pool.clone())
+            .await
+            .expect("Failed to create database schema");
         db
     }
 

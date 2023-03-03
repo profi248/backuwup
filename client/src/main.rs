@@ -1,17 +1,17 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
 
+mod config;
+mod defaults;
 mod net;
 mod ui;
-mod defaults;
-mod config;
 
-use std::{panic, process};
-use std::time::Duration;
 use reqwest::{Certificate, Client};
+use std::time::Duration;
+use std::{panic, process};
 
-use tokio::time::sleep;
 use tokio::sync::broadcast::channel;
+use tokio::time::sleep;
 
 use crate::config::Config;
 
@@ -36,9 +36,12 @@ async fn main() {
     tokio::spawn(ui::run(log_sender.clone()));
 
     let client = Client::builder()
-        .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert().await).unwrap())
+        .add_root_certificate(
+            Certificate::from_pem(&config.get_server_root_tls_cert().await).unwrap(),
+        )
         .tls_built_in_root_certs(false)
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     client.get("https://localhost:8080").send().await.unwrap();
 

@@ -1,4 +1,7 @@
-use futures_util::{stream::{SplitSink, SplitStream}, SinkExt, StreamExt};
+use futures_util::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use poem::{
     web::{
         websocket::{Message, WebSocket, WebSocketStream},
@@ -9,10 +12,7 @@ use poem::{
 use tokio::sync::broadcast::{error::RecvError, Receiver, Sender};
 
 #[poem::handler]
-pub fn handler(
-    ws: WebSocket,
-    Data(log_sender): Data<&Sender<String>>
-) -> impl IntoResponse {
+pub fn handler(ws: WebSocket, Data(log_sender): Data<&Sender<String>>) -> impl IntoResponse {
     // subscribe to the sender
     let mut log_receiver = log_sender.subscribe();
 
@@ -34,14 +34,17 @@ async fn send_log_messages(
             // if the message is lagged (the log buffer is filled up),
             // ignore the error and try receiving again
             Err(RecvError::Lagged(_)) => continue,
-            Err(e) => { println!("error: {e:?}"); break },
+            Err(e) => {
+                println!("error: {e:?}");
+                break;
+            }
             Ok(msg) => msg,
         };
 
         match ws_send.send(Message::Text(msg)).await {
             // end the thread if sending to socket failed (it's likely closed)
             Err(_) => break,
-            Ok(_) => continue
+            Ok(_) => continue,
         }
     }
 }
@@ -52,12 +55,15 @@ async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
             // for when the socket has closed
             None => break,
             Some(Ok(msg)) => msg,
-            Some(Err(e)) => { println!("error: {e:?}"); break }
+            Some(Err(e)) => {
+                println!("error: {e:?}");
+                break;
+            }
         };
 
         let msg = match msg {
             Message::Text(s) => s,
-            _ => continue
+            _ => continue,
         };
 
         // todo: implement a message dispatcher

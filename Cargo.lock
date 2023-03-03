@@ -1403,7 +1403,11 @@ dependencies = [
  "dotenv",
  "futures-util",
  "poem",
+ "serde",
+ "serde_json",
+ "shared",
  "sqlx",
+ "sum-queue",
  "tokio",
  "tokio-tungstenite",
 ]
@@ -1428,6 +1432,14 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1601,6 +1613,12 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "sum-queue"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5987a61c8b19b7f2d5a8af4879e2b5ec3d72aa7188e76b6b42a787a30449d49f"
 
 [[package]]
 name = "syn"
