@@ -1,7 +1,8 @@
-use crate::handlers::ServerResponse;
-use crate::Challenges;
-use poem::web::Json;
-use poem::{handler, web::Data, IntoResponse, Request};
+use crate::{handlers::ServerResponse, Challenges};
+use poem::{
+    handler,
+    web::{Data, Json},
+};
 use shared::{
     client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
     server_message::{ClientRegistrationChallenge, Error, ServerMessage},

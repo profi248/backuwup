@@ -6,8 +6,13 @@ mod db;
 mod handlers;
 mod ws;
 
-use crate::db::Database;
-use crate::handlers::register::{register_begin, register_complete};
+use crate::{
+    handlers::{
+        register::{register_begin, register_complete},
+        backup_request::make_backup_request
+    },
+    db::Database,
+};
 use delay_map::HashMapDelay;
 use poem::{
     listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
@@ -30,14 +35,9 @@ async fn main() {
         Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(30))));
 
     let app = Route::new()
-        .at(
-            "/register/begin",
-            register_begin.data(challenge_tokens.clone()),
-        )
-        .at(
-            "/register/complete",
-            register_complete.data(challenge_tokens.clone()),
-        )
+        .at("/register/begin", register_begin.data(challenge_tokens.clone()))
+        .at("/register/complete", register_complete.data(challenge_tokens.clone()))
+        .at("/backups/request", make_backup_request.data(backup_request_queue.clone()))
         .at("/ws", ws::handler.data(db));
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));

@@ -1,4 +1,5 @@
-pub(crate) mod register;
+pub mod backup_request;
+pub mod register;
 
 use poem::{error::ResponseError, http::StatusCode, Body, Response};
 
@@ -10,6 +11,7 @@ pub struct ServerResponse(ServerMessage);
 
 impl ResponseError for ServerResponse {
     fn status(&self) -> StatusCode {
+        // todo change this
         StatusCode::OK
     }
 

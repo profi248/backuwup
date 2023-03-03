@@ -1434,6 +1434,7 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "delay_map",
  "dotenv",
  "futures-util",
