@@ -24,3 +24,7 @@ sum-queue = "1.0.0"
 # Serialization
 serde_json = "1.0.93"
 serde = { version = "1.0.152", features = ["derive"] }
+
+# Utils
+delay_map = "0.2.0"
+thiserror = "1.0.38"

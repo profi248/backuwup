@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Ok,
     Error(Error),
@@ -9,22 +9,22 @@ pub enum ServerMessage {
     ClientLoginToken(ClientLoginToken),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientRegistrationChallenge {
     pub server_challenge: [u8; 32]
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientLoginChallenge {
     server_challenge: [u8; 32]
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientLoginToken {
     token: [u8; 16],
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Error {
     BadRequest(String),
     ServerError(String),
