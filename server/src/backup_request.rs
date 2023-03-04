@@ -55,10 +55,11 @@ impl Queue {
         }
     }
 
-    /// The storage request fulfill strategy is to put incoming requests in a queue with expiration,
-    /// from where they are removed and matched as new requests come in. As it's a queue, the
-    /// requests that came first will be matched first. When processing a request,
-    /// they are removed and the requested size is subtracted until it's completely fulfilled.
+    /// The storage request fulfillment strategy is to put incoming requests in a queue
+    /// with expiration. From there, they are removed and matched as new requests come in.
+    /// As it's a queue, the requests that came first will be matched first.
+    /// When processing a request, it is removed and the requested size is subtracted
+    /// until it's completely fulfilled.
     pub async fn fulfill(&self, request: Request) -> anyhow::Result<(bool, Vec<Request>)> {
         if request.storage_required == 0 {
             return Ok((true, Vec::new()));
@@ -82,11 +83,7 @@ impl Queue {
             storage_to_fulfill -= destination.storage_required as i64;
             destinations.push(destination.clone());
 
-            // idea: either use message channels to deliver the message via websockets
-            // (store the websocket channel in the queue, or via a separate handler?)
-            // or maybe store them elsewhere until it's fetched over http
-
-            // todo notify the client that the request was fulfilled
+            // notify client that its request has been fulfilled
             CONNECTIONS.get().expect("OnceCell failed")
                 .notify_client(destination.client_id, ServerMessageWs::Ping).await?;
 
