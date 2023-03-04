@@ -20,8 +20,6 @@ use poem::{
 };
 use shared::types::ClientId;
 use std::{sync::Arc, sync::Mutex, time::Duration};
-use std::collections::HashMap;
-use poem::web::websocket::WebSocketStream;
 use tokio::sync::OnceCell;
 use crate::ws::ClientConnections;
 
@@ -38,7 +36,7 @@ async fn main() {
     let db = Database::init().await;
     let backup_request_queue = backup_request::Queue::new();
     let challenge_tokens: Challenges =
-        Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(30))));
+        Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(5))));
 
     CONNECTIONS.set(ClientConnections::new()).expect("OnceCell failed");
 

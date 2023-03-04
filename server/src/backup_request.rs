@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::bail;
 use sum_queue::SumQueue;
 use shared::constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE};
+use shared::server_message_ws::ServerMessageWs;
 use crate::CONNECTIONS;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
@@ -60,7 +61,7 @@ impl Queue {
 
             // todo notify the client that the request was fulfilled
             CONNECTIONS.get().expect("OnceCell failed")
-                .notify_client(destination.client_id, "Backup request fulfilled".to_string()).await?;
+                .notify_client(destination.client_id, ServerMessageWs::Ping).await?;
 
             if storage_to_fulfill <= 0 {
                 // partially fulfill the request of waiting destination

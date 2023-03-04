@@ -8,6 +8,7 @@ use futures_util::{SinkExt, StreamExt};
 use futures_util::stream::{SplitSink, SplitStream};
 use poem::web::websocket::{Message, WebSocket, WebSocketStream};
 use poem::{web::Data, IntoResponse};
+use shared::server_message_ws::ServerMessageWs;
 use shared::types::ClientId;
 use crate::CONNECTIONS;
 
@@ -25,16 +26,22 @@ pub async fn handler(ws: WebSocket, Data(db): Data<&Database>) -> impl IntoRespo
         // if the same client connects again, the old connection is removed automatically
         CONNECTIONS.get().expect("OnceCell failed")
             .new_connection(client_id, ws_send).await;
+
+        println!("[ws] new connection: {client_id:?}");
     })
 }
 
 pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client_id: ClientId) {
-    while let Some(msg) = ws_recv.next().await {
+    loop {
+        let msg = ws_recv.next().await;
+
         // remove the sink if the connection is closed gracefully or if there is an error
         match msg {
-            Err(_) | Ok(Message::Close(_)) => {
-                CONNECTIONS.get().expect("OnceCell failed").
-                    remove_connection(client_id).await;
+            None | Some(Err(_) | Ok(Message::Close(_))) => {
+                CONNECTIONS.get().expect("OnceCell failed")
+                    .remove_connection(client_id).await;
+
+                println!("[ws] connection dropped: {client_id:?}");
                 break;
             },
             _ => continue
@@ -61,11 +68,13 @@ impl ClientConnections {
         self.connections.lock().await.remove(&client_id);
     }
 
-    pub async fn notify_client(&self, client_id: ClientId, message: String) -> anyhow::Result<()> {
+    pub async fn notify_client(&self, client_id: ClientId, message: ServerMessageWs) -> anyhow::Result<()> {
         let mut connections = self.connections.lock().await;
         let connection = connections.get_mut(&client_id).ok_or(anyhow::anyhow!("Client connection not found"))?;
 
-        connection.send(Message::Text(message)).await?;
+        println!("[ws] notifying client {client_id:?} with message {message:?}");
+
+        connection.send(Message::Text(serde_json::to_string(&message)?)).await?;
         Ok(())
     }
 }
