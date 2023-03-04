@@ -1,16 +1,31 @@
-use std::ops::Add;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    ops::Add,
+    sync::{Arc, Mutex},
+    time::Duration
+};
+use std::fmt::{Debug, Formatter};
 use anyhow::bail;
 use sum_queue::SumQueue;
-use shared::constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE};
-use shared::server_message_ws::ServerMessageWs;
+use shared::{
+    constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
+    client_message::BackupRequest,
+    server_message_ws::ServerMessageWs
+};
 use crate::CONNECTIONS;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
     storage_required: u64,
     client_id: shared::types::ClientId,
+}
+
+impl From<BackupRequest> for Request {
+    fn from(request: BackupRequest) -> Self {
+        Self {
+            storage_required: request.storage_required,
+            client_id: request.requester_id,
+        }
+    }
 }
 
 // sum will be the total requested space
@@ -27,6 +42,12 @@ pub struct Queue {
     queue: Arc<Mutex<SumQueue<Request>>>,
 }
 
+impl Debug for Queue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BackupRequest::Queue")
+    }
+}
+
 impl Queue {
     pub fn new() -> Self {
         Self {
@@ -38,7 +59,7 @@ impl Queue {
     /// from where they are removed and matched as new requests come in. As it's a queue, the
     /// requests that came first will be matched first. When processing a request,
     /// they are removed and the requested size is subtracted until it's completely fulfilled.
-    pub async fn fulfill(&mut self, request: &Request) -> anyhow::Result<(bool, Vec<Request>)> {
+    pub async fn fulfill(&self, request: Request) -> anyhow::Result<(bool, Vec<Request>)> {
         if request.storage_required == 0 {
             return Ok((true, Vec::new()));
         }
@@ -51,7 +72,13 @@ impl Queue {
         let mut destinations = Vec::new();
         let mut fulfilled = true;
 
+
         while let Some(destination) = self.pop() {
+            // don't match requests from the same client and discard them to avoid infinite loops
+            if destination.client_id == request.client_id {
+                continue
+            }
+
             storage_to_fulfill -= destination.storage_required as i64;
             destinations.push(destination.clone());
 
@@ -89,13 +116,13 @@ impl Queue {
         Ok((fulfilled, destinations))
     }
 
-    fn push(&mut self, request: Request) {
+    fn push(&self, request: Request) {
         self.queue.lock()
             .expect("Failed to lock backup request queue")
             .push(request);
     }
 
-    fn pop(&mut self) -> Option<Request> {
+    fn pop(&self) -> Option<Request> {
         self.queue.lock()
             .expect("Failed to lock backup request queue")
             .pop()

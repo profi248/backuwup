@@ -31,7 +31,7 @@ pub struct ClientLoginAuth {
 
 #[derive(Serialize, Deserialize)]
 pub struct BackupRequest {
-    client_token: crate::types::ClientToken,
-    storage_required: u64,
-    requester_id: crate::types::ClientId,
+    pub client_token: crate::types::ClientToken,
+    pub storage_required: u64,
+    pub requester_id: crate::types::ClientId,
 }

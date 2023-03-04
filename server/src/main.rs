@@ -21,11 +21,13 @@ use poem::{
 use shared::types::ClientId;
 use std::{sync::Arc, sync::Mutex, time::Duration};
 use tokio::sync::OnceCell;
+use crate::backup_request::Queue;
 use crate::ws::ClientConnections;
 
 type Challenges = Arc<Mutex<HashMapDelay<ClientId, [u8; 32]>>>;
 
 static CONNECTIONS: OnceCell<ClientConnections> = OnceCell::const_new();
+static BACKUP_REQUESTS: OnceCell<Queue> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
@@ -34,21 +36,21 @@ async fn main() {
     let key = dotenv::var("TLS_KEY").expect("TLS_KEY environment variable not set or invalid");
 
     let db = Database::init().await;
-    let backup_request_queue = backup_request::Queue::new();
     let challenge_tokens: Challenges =
         Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(5))));
 
     CONNECTIONS.set(ClientConnections::new()).expect("OnceCell failed");
+    BACKUP_REQUESTS.set(Queue::new()).expect("OnceCell failed");
 
     let app = Route::new()
         .at("/register/begin", register_begin.data(challenge_tokens.clone()))
         .at("/register/complete", register_complete.data(challenge_tokens.clone()))
-        .at("/backups/request", make_backup_request.data(backup_request_queue.clone()))
+        .at("/backups/request", make_backup_request)
         .at("/ws", ws::handler.data(db));
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
 
-    let listener = TcpListener::bind(bind_ip).rustls(config);
+    let listener = TcpListener::bind(bind_ip); //.rustls(config);
     let server = Server::new(listener);
     server.run(app).await.unwrap();
 }

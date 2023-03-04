@@ -23,7 +23,9 @@ pub async fn handler(ws: WebSocket, Data(db): Data<&Database>) -> impl IntoRespo
         // listen for incoming messages to handle if the channel is closed
         tokio::spawn(incoming_listener(ws_recv, client_id));
 
-        // if the same client connects again, the old connection is removed automatically
+        // if the same client connects again, the old connection is removed from the map
+        // automatically, but the old connection is still listening for incoming messages
+        // todo maybe send a message to the old connection to close it?
         CONNECTIONS.get().expect("OnceCell failed")
             .new_connection(client_id, ws_send).await;
 
