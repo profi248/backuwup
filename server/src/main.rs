@@ -20,8 +20,14 @@ use poem::{
 };
 use shared::types::ClientId;
 use std::{sync::Arc, sync::Mutex, time::Duration};
+use std::collections::HashMap;
+use poem::web::websocket::WebSocketStream;
+use tokio::sync::OnceCell;
+use crate::ws::ClientConnections;
 
 type Challenges = Arc<Mutex<HashMapDelay<ClientId, [u8; 32]>>>;
+
+static CONNECTIONS: OnceCell<ClientConnections> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
@@ -33,6 +39,8 @@ async fn main() {
     let backup_request_queue = backup_request::Queue::new();
     let challenge_tokens: Challenges =
         Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(30))));
+
+    CONNECTIONS.set(ClientConnections::new()).expect("OnceCell failed");
 
     let app = Route::new()
         .at("/register/begin", register_begin.data(challenge_tokens.clone()))

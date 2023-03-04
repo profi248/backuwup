@@ -4,6 +4,7 @@ use std::time::Duration;
 use anyhow::bail;
 use sum_queue::SumQueue;
 use shared::constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE};
+use crate::CONNECTIONS;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
@@ -36,7 +37,7 @@ impl Queue {
     /// from where they are removed and matched as new requests come in. As it's a queue, the
     /// requests that came first will be matched first. When processing a request,
     /// they are removed and the requested size is subtracted until it's completely fulfilled.
-    pub fn fulfill(&mut self, request: &Request) -> anyhow::Result<(bool, Vec<Request>)> {
+    pub async fn fulfill(&mut self, request: &Request) -> anyhow::Result<(bool, Vec<Request>)> {
         if request.storage_required == 0 {
             return Ok((true, Vec::new()));
         }
@@ -53,7 +54,13 @@ impl Queue {
             storage_to_fulfill -= destination.storage_required as i64;
             destinations.push(destination.clone());
 
-            // todo somehow notify the destinations
+            // idea: either use message channels to deliver the message via websockets
+            // (store the websocket channel in the queue, or via a separate handler?)
+            // or maybe store them elsewhere until it's fetched over http
+
+            // todo notify the client that the request was fulfilled
+            CONNECTIONS.get().expect("OnceCell failed")
+                .notify_client(destination.client_id, "Backup request fulfilled".to_string()).await?;
 
             if storage_to_fulfill <= 0 {
                 // partially fulfill the request of waiting destination
