@@ -80,12 +80,23 @@ impl Queue {
                 continue
             }
 
-            storage_to_fulfill -= destination.storage_required as i64;
-            destinations.push(destination.clone());
-
             // notify client that its request has been fulfilled
-            CONNECTIONS.get().expect("OnceCell failed")
-                .notify_client(destination.client_id, ServerMessageWs::Ping).await?;
+            match CONNECTIONS.get().expect("OnceCell failed")
+                .notify_client(destination.client_id,
+                               ServerMessageWs::Ping).await
+            {
+                Ok(_) => {
+                    // add the fulfilled request to the list of destinations
+                    destinations.push(destination.clone());
+                    storage_to_fulfill -= destination.storage_required as i64;
+                },
+                Err(e) => {
+                    // drop the request if the client is not connected and continue
+                    println!("[backup request] failed to notify client {:?} of fulfilled request: {e}",
+                             destination.client_id);
+                    continue
+                }
+            }
 
             if storage_to_fulfill <= 0 {
                 // partially fulfill the request of waiting destination
@@ -111,6 +122,12 @@ impl Queue {
         }
 
         Ok((fulfilled, destinations))
+    }
+
+    pub fn debug_print(&self) {
+        for request in self.queue.lock().expect("Failed to lock backup request queue").iter() {
+            println!("[backup queue] {request:?}");
+        }
     }
 
     fn push(&self, request: Request) {

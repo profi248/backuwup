@@ -1,13 +1,14 @@
 use poem::{
     handler,
-    web::{Data, Json},
+    web::Json,
 };
 use shared::{
     client_message::BackupRequest,
     server_message::ServerMessage
 };
-use crate::backup_request::{Queue, Request};
+use shared::server_message::Error::Generic;
 use crate::BACKUP_REQUESTS;
+use crate::handlers::ServerResponse;
 
 #[handler]
 pub async fn make_backup_request(
@@ -17,10 +18,22 @@ pub async fn make_backup_request(
     let request = request.into();
     let queue = BACKUP_REQUESTS.get().expect("OnceCell failed");
 
-    match queue.fulfill(request).await {
-        Ok(_) => {}
-        Err(_) => {}
-    }
+    println!("[backup request] new request: {request:?}");
+    println!("\n[backup request] queue before fulfill vvv");
+    queue.debug_print();
 
-    Ok(Json(ServerMessage::Ok))
+    match queue.fulfill(request).await {
+        Ok(_) => {
+            println!("\n[backup request] queue after fulfill vvv");
+            queue.debug_print();
+
+            // todo provide more details
+            Ok(Json(ServerMessage::Ok))
+        }
+
+        Err(e) => {
+            println!("\n[backup request] fulfill failed");
+            Err(ServerResponse(ServerMessage::Error(Generic(e.to_string()))))?
+        }
+    }
 }

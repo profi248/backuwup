@@ -1,2 +1,2 @@
 pub const MAX_BACKUP_STORAGE_REQUEST_SIZE: u64 = 17_179_869_184; // 16 GiB
-pub const BACKUP_REQUEST_EXPIRY: u64 = 60 * 5; // 5 minutes
+pub const BACKUP_REQUEST_EXPIRY: u64 = 60 * 30; // 30 minutes

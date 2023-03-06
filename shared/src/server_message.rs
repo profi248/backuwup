@@ -26,6 +26,7 @@ pub struct ClientLoginToken {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Error {
+    Generic(String),
     BadRequest(String),
     ServerError(String),
 }

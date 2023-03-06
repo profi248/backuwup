@@ -75,7 +75,6 @@ impl ClientConnections {
         let connection = connections.get_mut(&client_id).ok_or(anyhow::anyhow!("Client connection not found"))?;
 
         println!("[ws] notifying client {client_id:?} with message {message:?}");
-
         connection.send(Message::Text(serde_json::to_string(&message)?)).await?;
         Ok(())
     }
