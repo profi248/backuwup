@@ -6,12 +6,10 @@ mod defaults;
 mod net;
 mod ui;
 
-use reqwest::{Certificate, Client};
-use std::time::Duration;
-use std::{panic, process};
+use std::{panic, process, time::Duration};
 
-use tokio::sync::broadcast::channel;
-use tokio::time::sleep;
+use reqwest::{Certificate, Client};
+use tokio::{sync::broadcast::channel, time::sleep};
 
 use crate::config::Config;
 

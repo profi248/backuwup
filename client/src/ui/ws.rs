@@ -1,8 +1,13 @@
 use futures_util::{
-    stream::{SplitSink, SplitStream}, SinkExt, StreamExt
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
 };
 use poem::{
-    web::{websocket::{Message, WebSocket, WebSocketStream}, Data}, IntoResponse
+    web::{
+        websocket::{Message, WebSocket, WebSocketStream},
+        Data,
+    },
+    IntoResponse,
 };
 use tokio::sync::broadcast::{error::RecvError, Receiver, Sender};
 
@@ -12,7 +17,8 @@ pub fn handler(ws: WebSocket, Data(log_sender): Data<&Sender<String>>) -> impl I
     let mut log_receiver = log_sender.subscribe();
 
     ws.on_upgrade(|mut socket| async move {
-        // split the WebSocket into a separate Sink (for sending) and Stream (for receiving)
+        // split the WebSocket into a separate Sink (for sending) and Stream (for
+        // receiving)
         let (ws_send, ws_recv) = socket.split();
 
         tokio::spawn(send_log_messages(ws_send, log_receiver));

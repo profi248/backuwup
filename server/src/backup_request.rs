@@ -1,16 +1,18 @@
 use std::{
+    fmt::{Debug, Formatter},
     ops::Add,
     sync::{Arc, Mutex},
-    time::Duration
+    time::Duration,
 };
-use std::fmt::{Debug, Formatter};
+
 use anyhow::bail;
-use sum_queue::SumQueue;
 use shared::{
-    constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
     client_message::BackupRequest,
-    server_message_ws::ServerMessageWs
+    constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
+    server_message_ws::ServerMessageWs,
 };
+use sum_queue::SumQueue;
+
 use crate::CONNECTIONS;
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
@@ -51,15 +53,15 @@ impl Debug for Queue {
 impl Queue {
     pub fn new() -> Self {
         Self {
-            queue: Arc::new(Mutex::new(SumQueue::new(Duration::from_secs(BACKUP_REQUEST_EXPIRY))))
+            queue: Arc::new(Mutex::new(SumQueue::new(Duration::from_secs(BACKUP_REQUEST_EXPIRY)))),
         }
     }
 
-    /// The storage request fulfillment strategy is to put incoming requests in a queue
-    /// with expiration. From there, they are removed and matched as new requests come in.
-    /// As it's a queue, the requests that came first will be matched first.
-    /// When processing a request, it is removed and the requested size is subtracted
-    /// until it's completely fulfilled.
+    /// The storage request fulfillment strategy is to put incoming requests in
+    /// a queue with expiration. From there, they are removed and matched as
+    /// new requests come in. As it's a queue, the requests that came first
+    /// will be matched first. When processing a request, it is removed and
+    /// the requested size is subtracted until it's completely fulfilled.
     pub async fn fulfill(&self, request: Request) -> anyhow::Result<(bool, Vec<Request>)> {
         if request.storage_required == 0 {
             return Ok((true, Vec::new()));
@@ -73,28 +75,31 @@ impl Queue {
         let mut destinations = Vec::new();
         let mut fulfilled = true;
 
-
         while let Some(destination) = self.pop() {
-            // don't match requests from the same client and discard them to avoid infinite loops
+            // don't match requests from the same client and discard them to avoid infiniteloops
             if destination.client_id == request.client_id {
-                continue
+                continue;
             }
 
             // notify client that its request has been fulfilled
-            match CONNECTIONS.get().expect("OnceCell failed")
-                .notify_client(destination.client_id,
-                               ServerMessageWs::Ping).await
+            match CONNECTIONS
+                .get()
+                .expect("OnceCell failed")
+                .notify_client(destination.client_id, ServerMessageWs::Ping)
+                .await
             {
                 Ok(_) => {
                     // add the fulfilled request to the list of destinations
                     destinations.push(destination.clone());
                     storage_to_fulfill -= destination.storage_required as i64;
-                },
+                }
                 Err(e) => {
                     // drop the request if the client is not connected and continue
-                    println!("[backup request] failed to notify client {:?} of fulfilled request: {e}",
-                             destination.client_id);
-                    continue
+                    println!(
+                        "[backup request] failed to notify client {:?} of fulfilled request: {e}",
+                        destination.client_id
+                    );
+                    continue;
                 }
             }
 
@@ -103,10 +108,11 @@ impl Queue {
                 // and put the remaining part back on the queue
                 self.push(Request {
                     client_id: destination.client_id,
-                    storage_required: ((destination.storage_required as i64) + storage_to_fulfill) as u64
+                    storage_required: ((destination.storage_required as i64) + storage_to_fulfill)
+                        as u64,
                 });
 
-                break
+                break;
             }
         }
 
@@ -114,8 +120,8 @@ impl Queue {
         // so we'll put the remainder in the queue
         if storage_to_fulfill > 0 {
             self.push(Request {
-               client_id: request.client_id,
-               storage_required: storage_to_fulfill as u64
+                client_id: request.client_id,
+                storage_required: storage_to_fulfill as u64,
             });
 
             fulfilled = false;
@@ -125,19 +131,26 @@ impl Queue {
     }
 
     pub fn debug_print(&self) {
-        for request in self.queue.lock().expect("Failed to lock backup request queue").iter() {
+        for request in self
+            .queue
+            .lock()
+            .expect("Failed to lock backup request queue")
+            .iter()
+        {
             println!("[backup queue] {request:?}");
         }
     }
 
     fn push(&self, request: Request) {
-        self.queue.lock()
+        self.queue
+            .lock()
             .expect("Failed to lock backup request queue")
             .push(request);
     }
 
     fn pop(&self) -> Option<Request> {
-        self.queue.lock()
+        self.queue
+            .lock()
             .expect("Failed to lock backup request queue")
             .pop()
     }

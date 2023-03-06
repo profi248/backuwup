@@ -6,23 +6,28 @@ mod db;
 mod handlers;
 mod ws;
 
-use crate::{
-    handlers::{
-        register::{register_begin, register_complete},
-        backup_request::make_backup_request
-    },
-    db::Database,
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
 };
+
 use delay_map::HashMapDelay;
 use poem::{
-    listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
+    listener::{RustlsCertificate, RustlsConfig, TcpListener},
     EndpointExt, Route, Server,
 };
 use shared::types::ClientId;
-use std::{sync::Arc, sync::Mutex, time::Duration};
 use tokio::sync::OnceCell;
-use crate::backup_request::Queue;
-use crate::ws::ClientConnections;
+
+use crate::{
+    backup_request::Queue,
+    db::Database,
+    handlers::{
+        backup_request::make_backup_request,
+        register::{register_begin, register_complete},
+    },
+    ws::ClientConnections,
+};
 
 type Challenges = Arc<Mutex<HashMapDelay<ClientId, [u8; 32]>>>;
 
@@ -39,7 +44,9 @@ async fn main() {
     let challenge_tokens: Challenges =
         Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(5))));
 
-    CONNECTIONS.set(ClientConnections::new()).expect("OnceCell failed");
+    CONNECTIONS
+        .set(ClientConnections::new())
+        .expect("OnceCell failed");
     BACKUP_REQUESTS.set(Queue::new()).expect("OnceCell failed");
 
     let app = Route::new()

@@ -1,4 +1,3 @@
-use crate::{handlers::ServerResponse, Challenges};
 use poem::{
     handler,
     web::{Data, Json},
@@ -7,6 +6,8 @@ use shared::{
     client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
     server_message::{ClientRegistrationChallenge, Error, ServerMessage},
 };
+
+use crate::{handlers::ServerResponse, Challenges};
 
 #[handler]
 pub async fn register_begin(
@@ -20,11 +21,9 @@ pub async fn register_begin(
 
     // todo check if client id is already registered
 
-    Ok(Json(ServerMessage::ClientRegistrationChallenge(
-        ClientRegistrationChallenge {
-            server_challenge: [0; 32],
-        },
-    )))
+    Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
+        server_challenge: [0; 32],
+    })))
 }
 
 #[handler]

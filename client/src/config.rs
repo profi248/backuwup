@@ -1,7 +1,9 @@
 use std::{fs, path::Path};
 
-use sqlx::sqlite::{SqlitePoolOptions, SqliteQueryResult};
-use sqlx::{Error, SqlitePool};
+use sqlx::{
+    sqlite::{SqlitePoolOptions, SqliteQueryResult},
+    Error, SqlitePool,
+};
 
 #[derive(Clone)]
 pub(crate) struct Config {
@@ -15,39 +17,32 @@ impl Config {
         let mut config_file = dirs::config_dir().expect("Cannot find the system config directory");
         config_file.push(crate::defaults::CONFIG_FOLDER);
 
-        fs::create_dir_all(config_file.clone()).expect(&format!(
-            "Unable write to the config folder {}",
-            config_file.display()
-        ));
+        fs::create_dir_all(config_file.clone())
+            .expect(&format!("Unable write to the config folder {}", config_file.display()));
 
         config_file.push(crate::defaults::CONFIG_DB_FILE);
 
-        if !config_file.try_exists().expect(&format!(
-            "Cannot access the config file at {}",
-            config_file.display()
-        )) {
-            fs::File::create(config_file.clone()).expect(&format!(
-                "Unable to write the config file at {}",
-                config_file.display()
-            ));
+        if !config_file
+            .try_exists()
+            .expect(&format!("Cannot access the config file at {}", config_file.display()))
+        {
+            fs::File::create(config_file.clone())
+                .expect(&format!("Unable to write the config file at {}", config_file.display()));
             structure_initialized = false;
         }
 
         let db_url = String::from("sqlite://")
             + config_file.to_str().expect(&format!(
-                "The path to config file at {} contains invalid UTF-8 data",
-                config_file.display()
-            ));
+            "The path to config file at {} contains invalid UTF-8 data",
+            config_file.display()
+        ));
 
         let config = Self {
             db_pool: SqlitePoolOptions::new()
                 .max_connections(5)
                 .connect(&db_url)
                 .await
-                .expect(&format!(
-                    "Unable to open a config file at {}",
-                    config_file.display()
-                )),
+                .expect(&format!("Unable to open a config file at {}", config_file.display())),
         };
 
         if !structure_initialized {

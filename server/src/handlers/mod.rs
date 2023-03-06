@@ -2,7 +2,6 @@ pub mod backup_request;
 pub mod register;
 
 use poem::{error::ResponseError, http::StatusCode, Body, Response};
-
 use shared::server_message::ServerMessage;
 
 #[derive(thiserror::Error, Debug)]

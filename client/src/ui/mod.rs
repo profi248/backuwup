@@ -2,7 +2,6 @@ mod ws;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, EndpointExt, Route, Server};
 use rust_embed::RustEmbed;
-
 use tokio::sync::broadcast::Sender;
 
 pub async fn run(log_sender: Sender<String>) {

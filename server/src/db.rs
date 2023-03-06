@@ -1,6 +1,9 @@
-use sqlx::postgres::{PgPoolOptions, PgQueryResult};
-use sqlx::{query, Error, PgPool};
 use std::time::Duration;
+
+use sqlx::{
+    postgres::{PgPoolOptions, PgQueryResult},
+    query, Error, PgPool,
+};
 
 #[derive(Clone)]
 pub struct Database {
