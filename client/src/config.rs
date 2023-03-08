@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::fs;
 
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
@@ -33,9 +33,9 @@ impl Config {
 
         let db_url = String::from("sqlite://")
             + config_file.to_str().expect(&format!(
-            "The path to config file at {} contains invalid UTF-8 data",
-            config_file.display()
-        ));
+                "The path to config file at {} contains invalid UTF-8 data",
+                config_file.display()
+            ));
 
         let config = Self {
             db_pool: SqlitePoolOptions::new()
@@ -54,7 +54,7 @@ impl Config {
         config
     }
 
-    pub async fn get_server_root_tls_cert(&self) -> Box<&[u8]> {
+    pub fn get_server_root_tls_cert(&self) -> Box<&[u8]> {
         Box::new(crate::defaults::SERVER_ROOT_TLS_CERT_PEM.clone().as_bytes())
     }
 

@@ -3,6 +3,7 @@
 
 mod config;
 mod defaults;
+mod key_manager;
 mod net;
 mod ui;
 
@@ -34,9 +35,7 @@ async fn main() {
     tokio::spawn(ui::run(log_sender.clone()));
 
     let client = Client::builder()
-        .add_root_certificate(
-            Certificate::from_pem(&config.get_server_root_tls_cert().await).unwrap(),
-        )
+        .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())
         .tls_built_in_root_certs(false)
         .build()
         .unwrap();
