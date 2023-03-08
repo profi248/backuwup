@@ -20,3 +20,14 @@ impl ResponseError for ErrorWrapper {
         Response::builder().status(self.status()).body(body)
     }
 }
+
+#[macro_export]
+macro_rules! err_msg {
+    ( $msg:expr ) => {
+        $crate::handlers::ErrorWrapper(
+            shared::server_message::ServerMessage::Error(
+                shared::server_message::Error::Failure($msg.to_string())
+            )
+        )
+    };
+}

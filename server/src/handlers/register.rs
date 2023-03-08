@@ -4,11 +4,11 @@ use poem::{
 };
 use shared::{
     client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
-    server_message::{ClientRegistrationChallenge, Error, ServerMessage},
+    server_message::{ClientRegistrationChallenge, ServerMessage},
     types::CHALLENGE_RESPONSE_LENGTH,
 };
 
-use crate::{db::Database, handlers::ErrorWrapper, AUTH_MANAGER};
+use crate::{db::Database, err_msg, AUTH_MANAGER};
 
 #[handler]
 pub async fn register_begin(
@@ -20,23 +20,21 @@ pub async fn register_begin(
     if db
         .client_exists(request.client_id)
         .await
-        .map_err(|e| ErrorWrapper(ServerMessage::Error(Error::Failure(e.to_string()))))?
+        .map_err(|e| err_msg!(e))?
     {
-        Err(ErrorWrapper(ServerMessage::Error(Error::Failure(
-            "Client with this public key is already registered".to_string(),
-        ))))?;
+        Err(err_msg!("Client with this public key is already registered"))?;
     }
 
     db.register_client(request.client_id)
         .await
-        .map_err(|e| ErrorWrapper(ServerMessage::Error(Error::Failure(e.to_string()))))?;
+        .map_err(|e| err_msg!(e))?;
 
-    auth_manager
+    let nonce = auth_manager
         .challenge_begin(request.client_id)
-        .map_err(|e| ErrorWrapper(ServerMessage::Error(Error::Failure(e.to_string()))))?;
+        .map_err(|e| err_msg!(e))?;
 
     Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
-        server_challenge: [0; 16],
+        server_challenge: nonce,
     })))
 }
 
@@ -46,16 +44,14 @@ pub async fn register_complete(
 ) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec
     if request.challenge_response.len() != CHALLENGE_RESPONSE_LENGTH {
-        Err(ErrorWrapper(ServerMessage::Error(Error::Failure(
-            "Challenge response is invalid length".to_string(),
-        ))))?;
+        Err(err_msg!("Challenge response is invalid length"))?;
     }
 
     let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
 
     auth_manager
         .challenge_verify(request.client_id, request.challenge_response)
-        .map_err(|e| ErrorWrapper(ServerMessage::Error(Error::Failure(e.to_string()))))?;
+        .map_err(|e| err_msg!(e))?;
 
     // todo check challenge and add client to db
 

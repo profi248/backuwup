@@ -1,10 +1,10 @@
 use poem::{handler, web::Json};
 use shared::{
     client_message::BackupRequest,
-    server_message::{Error::Failure, ServerMessage},
+    server_message::{ServerMessage},
 };
 
-use crate::{handlers::ErrorWrapper, BACKUP_REQUESTS};
+use crate::{BACKUP_REQUESTS, err_msg};
 
 #[handler]
 pub async fn make_backup_request(
@@ -29,7 +29,7 @@ pub async fn make_backup_request(
 
         Err(e) => {
             println!("\n[backup request] fulfill failed");
-            Err(ErrorWrapper(ServerMessage::Error(Failure(e.to_string()))))?
+            Err(err_msg!(e))?
         }
     }
 }
