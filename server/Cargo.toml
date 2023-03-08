@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 shared = { path = "../shared" }
 
+# Crypto
+ed25519-dalek = "1.0.1"
+getrandom = "0.2.8"
+
 # Async runtime
 tokio = { version = "1.25.0", features = ["full"] }
 futures-util = "0.3.26"

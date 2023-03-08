@@ -1,43 +1,45 @@
-use poem::{
-    handler,
-    web::{Data, Json},
-};
+use poem::{handler, web::Json};
 use shared::{
     client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
-    server_message::{ClientRegistrationChallenge, Error, ServerMessage},
+    server_message::{ClientRegistrationChallenge, Error, Error::Failure, ServerMessage},
 };
 
-use crate::{handlers::ServerResponse, Challenges};
+use crate::{handlers::ServerResponse, AUTH_MANAGER};
 
 #[handler]
 pub async fn register_begin(
-    Data(challenges): Data<&Challenges>,
     Json(request): Json<ClientRegistrationRequest>,
 ) -> poem::Result<Json<ServerMessage>> {
-    challenges
-        .lock()
-        .expect("Failed to acquire lock on challenges cache in register")
-        .insert(request.client_id, [0; 32]);
+    AUTH_MANAGER
+        .get()
+        .expect("OnceCell failed")
+        .challenge_begin(request.client_id)
+        .await
+        .map_err(|e| ServerResponse(ServerMessage::Error(Error::Failure(e.to_string()))))?;
 
     // todo check if client id is already registered
 
     Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
-        server_challenge: [0; 32],
+        server_challenge: [0; 16],
     })))
 }
 
 #[handler]
 pub async fn register_complete(
-    Data(challenges): Data<&Challenges>,
     Json(request): Json<ClientRegistrationAuth>,
 ) -> poem::Result<Json<ServerMessage>> {
-    challenges
-        .lock()
-        .expect("Failed to acquire lock on challenges cache in register")
-        .get(&request.client_id)
-        .ok_or(ServerResponse(ServerMessage::Error(Error::BadRequest(
-            "Invalid client id".to_string(),
+    if request.challenge_response.len() != 64 {
+        Err(ServerResponse(ServerMessage::Error(Failure(
+            "Challenge response is invalid length".to_string(),
         ))))?;
+    }
+
+    AUTH_MANAGER
+        .get()
+        .expect("OnceCell failed")
+        .challenge_verify(request.client_id, request.challenge_response)
+        .await
+        .map_err(|e| ServerResponse(ServerMessage::Error(Error::Failure(e.to_string()))))?;
 
     // todo check challenge and add client to db
 

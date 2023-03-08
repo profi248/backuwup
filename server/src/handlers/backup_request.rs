@@ -1,7 +1,7 @@
 use poem::{handler, web::Json};
 use shared::{
     client_message::BackupRequest,
-    server_message::{Error::Generic, ServerMessage},
+    server_message::{Error::Failure, ServerMessage},
 };
 
 use crate::{handlers::ServerResponse, BACKUP_REQUESTS};
@@ -29,7 +29,7 @@ pub async fn make_backup_request(
 
         Err(e) => {
             println!("\n[backup request] fulfill failed");
-            Err(ServerResponse(ServerMessage::Error(Generic(e.to_string()))))?
+            Err(ServerResponse(ServerMessage::Error(Failure(e.to_string()))))?
         }
     }
 }

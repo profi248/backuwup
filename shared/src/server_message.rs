@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::types::{ChallengeNonce, SessionToken};
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Ok,
@@ -11,22 +13,22 @@ pub enum ServerMessage {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientRegistrationChallenge {
-    pub server_challenge: [u8; 32],
+    pub server_challenge: ChallengeNonce,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientLoginChallenge {
-    server_challenge: [u8; 32],
+    pub server_challenge: ChallengeNonce,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientLoginToken {
-    token: [u8; 16],
+    pub token: SessionToken,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Error {
-    Generic(String),
+    Failure(String),
     BadRequest(String),
     ServerError(String),
 }

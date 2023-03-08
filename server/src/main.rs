@@ -2,25 +2,20 @@
 #![warn(clippy::pedantic)]
 
 mod backup_request;
+mod client_auth_manager;
 mod db;
 mod handlers;
 mod ws;
 
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-
-use delay_map::HashMapDelay;
 use poem::{
     listener::{RustlsCertificate, RustlsConfig, TcpListener},
     EndpointExt, Route, Server,
 };
-use shared::types::ClientId;
 use tokio::sync::OnceCell;
 
 use crate::{
     backup_request::Queue,
+    client_auth_manager::ClientAuthManager,
     db::Database,
     handlers::{
         backup_request::make_backup_request,
@@ -29,10 +24,9 @@ use crate::{
     ws::ClientConnections,
 };
 
-type Challenges = Arc<Mutex<HashMapDelay<ClientId, [u8; 32]>>>;
-
 static CONNECTIONS: OnceCell<ClientConnections> = OnceCell::const_new();
 static BACKUP_REQUESTS: OnceCell<Queue> = OnceCell::const_new();
+static AUTH_MANAGER: OnceCell<ClientAuthManager> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
@@ -41,17 +35,20 @@ async fn main() {
     let key = dotenv::var("TLS_KEY").expect("TLS_KEY environment variable not set or invalid");
 
     let db = Database::init().await;
-    let challenge_tokens: Challenges =
-        Arc::new(Mutex::new(HashMapDelay::new(Duration::from_secs(5))));
 
     CONNECTIONS
         .set(ClientConnections::new())
         .expect("OnceCell failed");
+
     BACKUP_REQUESTS.set(Queue::new()).expect("OnceCell failed");
 
+    AUTH_MANAGER
+        .set(ClientAuthManager::new())
+        .expect("OnceCell failed");
+
     let app = Route::new()
-        .at("/register/begin", register_begin.data(challenge_tokens.clone()))
-        .at("/register/complete", register_complete.data(challenge_tokens.clone()))
+        .at("/register/begin", register_begin)
+        .at("/register/complete", register_complete)
         .at("/backups/request", make_backup_request)
         .at("/ws", ws::handler.data(db));
 

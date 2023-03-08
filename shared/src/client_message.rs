@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::types::ChallengeResponse;
+
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
     ClientRegistrationRequest(ClientRegistrationRequest),
@@ -17,7 +19,7 @@ pub struct ClientRegistrationRequest {
 #[derive(Serialize, Deserialize)]
 pub struct ClientRegistrationAuth {
     pub client_id: crate::types::ClientId,
-    pub challenge_response: [u8; 32],
+    pub challenge_response: ChallengeResponse,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,7 +28,7 @@ pub struct ClientLoginRequest {}
 #[derive(Serialize, Deserialize)]
 pub struct ClientLoginAuth {
     client_id: crate::types::ClientId,
-    challenge_response: [u8; 32],
+    challenge_response: ChallengeResponse,
 }
 
 #[derive(Serialize, Deserialize)]
