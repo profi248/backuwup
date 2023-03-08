@@ -1,33 +1,29 @@
 use poem::{handler, web::Json};
 use shared::{
-    client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
-    server_message::{ClientRegistrationChallenge, Error, ServerMessage},
+    client_message::{ClientLoginAuth, ClientLoginRequest},
+    server_message::{ClientLoginChallenge, ClientLoginToken, Error, ServerMessage},
     types::CHALLENGE_RESPONSE_LENGTH,
 };
 
 use crate::{handlers::ServerResponse, AUTH_MANAGER};
 
 #[handler]
-pub async fn register_begin(
-    Json(request): Json<ClientRegistrationRequest>,
+pub async fn login_begin(
+    Json(request): Json<ClientLoginRequest>,
 ) -> poem::Result<Json<ServerMessage>> {
     let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
 
-    auth_manager
+    let server_challenge = auth_manager
         .challenge_begin(request.client_id)
         .map_err(|e| ServerResponse(ServerMessage::Error(Error::Failure(e.to_string()))))?;
 
     // todo check if client id is already registered
 
-    Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
-        server_challenge: [0; 16],
-    })))
+    Ok(Json(ServerMessage::ClientLoginChallenge(ClientLoginChallenge { server_challenge })))
 }
 
 #[handler]
-pub async fn register_complete(
-    Json(request): Json<ClientRegistrationAuth>,
-) -> poem::Result<Json<ServerMessage>> {
+pub fn login_complete(Json(request): Json<ClientLoginAuth>) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec
     if request.challenge_response.len() != CHALLENGE_RESPONSE_LENGTH {
         Err(ServerResponse(ServerMessage::Error(Error::Failure(
@@ -41,7 +37,9 @@ pub async fn register_complete(
         .challenge_verify(request.client_id, request.challenge_response)
         .map_err(|e| ServerResponse(ServerMessage::Error(Error::Failure(e.to_string()))))?;
 
-    // todo check challenge and add client to db
+    let token = auth_manager
+        .session_start(request.client_id)
+        .map_err(|e| ServerResponse(ServerMessage::Error(Error::Failure(e.to_string()))))?;
 
-    Ok(Json(ServerMessage::Ok))
+    Ok(Json(ServerMessage::ClientLoginToken(ClientLoginToken { token })))
 }

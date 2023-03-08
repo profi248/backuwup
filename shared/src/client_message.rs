@@ -23,12 +23,14 @@ pub struct ClientRegistrationAuth {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ClientLoginRequest {}
+pub struct ClientLoginRequest {
+    pub client_id: crate::types::ClientId,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ClientLoginAuth {
-    client_id: crate::types::ClientId,
-    challenge_response: ChallengeResponse,
+    pub client_id: crate::types::ClientId,
+    pub challenge_response: ChallengeResponse,
 }
 
 #[derive(Serialize, Deserialize)]

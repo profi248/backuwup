@@ -19,6 +19,7 @@ use crate::{
     db::Database,
     handlers::{
         backup_request::make_backup_request,
+        login::{login_begin, login_complete},
         register::{register_begin, register_complete},
     },
     ws::ClientConnections,
@@ -49,6 +50,8 @@ async fn main() {
     let app = Route::new()
         .at("/register/begin", register_begin)
         .at("/register/complete", register_complete)
+        .at("/login/begin", login_begin)
+        .at("/login/complete", login_complete)
         .at("/backups/request", make_backup_request)
         .at("/ws", ws::handler.data(db));
 

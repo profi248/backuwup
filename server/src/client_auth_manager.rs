@@ -1,6 +1,6 @@
 use std::{
-    fmt::{write, Debug, Formatter},
-    sync::Arc,
+    fmt::{Debug, Formatter},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -9,7 +9,6 @@ use delay_map::HashMapDelay;
 use ed25519_dalek::{PublicKey, Signature};
 use getrandom::getrandom;
 use shared::types::{ChallengeNonce, ChallengeResponse, ClientId, SessionToken};
-use tokio::sync::Mutex;
 
 const CHALLENGE_EXPIRATION: Duration = Duration::from_secs(30);
 const SESSION_EXPIRATION: Duration = Duration::from_secs(24 * 3600);
@@ -41,22 +40,24 @@ impl ClientAuthManager {
         }
     }
 
-    pub async fn challenge_begin(&self, client_id: ClientId) -> anyhow::Result<ChallengeNonce> {
+    pub fn challenge_begin(&self, client_id: ClientId) -> anyhow::Result<ChallengeNonce> {
         let mut nonce: ChallengeNonce = Default::default();
         getrandom(&mut nonce)?;
 
+        let mut data = self.data.lock().expect("Lock failed");
+
         // a client can have one challenge nonce at once, if it already exists it will be replaced
-        self.data.lock().await.challenges.insert(client_id, nonce);
+        data.challenges.insert(client_id, nonce);
 
         Ok(nonce)
     }
 
-    pub async fn challenge_verify(
+    pub fn challenge_verify(
         &self,
         client_id: ClientId,
         response: ChallengeResponse,
     ) -> anyhow::Result<()> {
-        let mut data = self.data.lock().await;
+        let mut data = self.data.lock().expect("Lock failed");
         let nonce = data.challenges.get(&client_id);
 
         if nonce.is_none() {
@@ -73,17 +74,20 @@ impl ClientAuthManager {
         Ok(())
     }
 
-    pub async fn session_start(&self, client_id: ClientId) -> anyhow::Result<SessionToken> {
+    pub fn session_start(&self, client_id: ClientId) -> anyhow::Result<SessionToken> {
         let mut token: SessionToken = Default::default();
         getrandom(&mut token)?;
 
-        self.data.lock().await.sessions.insert(token, client_id);
+        let mut data = self.data.lock().expect("Lock failed");
+
+        data.sessions.insert(token, client_id);
 
         Ok(token)
     }
 
-    pub async fn session_clear(&self, token: SessionToken) -> anyhow::Result<()> {
-        self.data.lock().await.sessions.remove(&token);
+    pub fn session_clear(&self, token: SessionToken) -> anyhow::Result<()> {
+        self.data.lock().expect("Lock failed").sessions.remove(&token);
+
         Ok(())
     }
 }
