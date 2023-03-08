@@ -1,5 +1,6 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::single_match_else)]
 
 mod backup_request;
 mod client_auth_manager;
@@ -48,8 +49,8 @@ async fn main() {
         .expect("OnceCell failed");
 
     let app = Route::new()
-        .at("/register/begin", register_begin)
-        .at("/register/complete", register_complete)
+        .at("/register/begin", register_begin.data(db.clone()))
+        .at("/register/complete", register_complete.data(db.clone()))
         .at("/login/begin", login_begin)
         .at("/login/complete", login_complete)
         .at("/backups/request", make_backup_request)

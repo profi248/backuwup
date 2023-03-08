@@ -1,8 +1,9 @@
 use std::time::Duration;
 
+use shared::types::ClientId;
 use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult},
-    query, Error, PgPool,
+    query, Error, Executor, PgPool,
 };
 
 #[derive(Clone)]
@@ -23,16 +24,50 @@ impl Database {
                 .expect(&format!("Failed to connect to database at {db_url}")),
         };
 
-        println!("Connected to database!");
+        println!("[db] connected to database");
         Self::create_schema(db.conn_pool.clone())
             .await
             .expect("Failed to create database schema");
         db
     }
 
-    async fn create_schema(pool: PgPool) -> Result<PgQueryResult, Error> {
-        let schema = include_str!("schema/schema.sql");
+    async fn create_schema(pool: PgPool) -> Result<(), Error> {
+        let result = query("select value from metadata where key = 'schema_version'")
+            .fetch_optional(&pool)
+            .await;
 
-        query(schema).execute(&pool).await
+        // error are matched, because the schema might not exist yet
+        match result {
+            Ok(Some(_)) => {
+                // for now just check whether the schema has been created
+                Ok(())
+            }
+            Err(_) | Ok(None) => {
+                println!("[db] creating schema");
+
+                let schema = include_str!("schema/schema.sql");
+                (&pool).execute(schema).await?;
+
+                return query("insert into metadata (key, value) values ('schema_version', '1')")
+                    .execute(&pool)
+                    .await
+                    .map(|_| ());
+            }
+        }
+    }
+
+    pub async fn register_client(&self, client_id: ClientId) -> Result<PgQueryResult, Error> {
+        query("insert into clients (pubkey, registered) values ($1, now())")
+            .bind(client_id)
+            .execute(&self.conn_pool)
+            .await
+    }
+
+    pub async fn client_exists(&self, client_id: ClientId) -> Result<bool, Error> {
+        query("select pubkey from clients where pubkey = $1")
+            .bind(client_id)
+            .fetch_optional(&self.conn_pool)
+            .await
+            .map(|result| result.is_some())
     }
 }

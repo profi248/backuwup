@@ -4,7 +4,7 @@ use shared::{
     server_message::{Error::Failure, ServerMessage},
 };
 
-use crate::{handlers::ServerResponse, BACKUP_REQUESTS};
+use crate::{handlers::ErrorWrapper, BACKUP_REQUESTS};
 
 #[handler]
 pub async fn make_backup_request(
@@ -29,7 +29,7 @@ pub async fn make_backup_request(
 
         Err(e) => {
             println!("\n[backup request] fulfill failed");
-            Err(ServerResponse(ServerMessage::Error(Failure(e.to_string()))))?
+            Err(ErrorWrapper(ServerMessage::Error(Failure(e.to_string()))))?
         }
     }
 }

@@ -7,9 +7,9 @@ use shared::server_message::ServerMessage;
 
 #[derive(thiserror::Error, Debug)]
 #[error("error")]
-pub struct ServerResponse(ServerMessage);
+pub struct ErrorWrapper(ServerMessage);
 
-impl ResponseError for ServerResponse {
+impl ResponseError for ErrorWrapper {
     fn status(&self) -> StatusCode {
         // todo change this
         StatusCode::OK
