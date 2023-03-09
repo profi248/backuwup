@@ -12,24 +12,71 @@
             white-space: pre;
             overflow-wrap: normal;
             overflow-x: scroll;
-            margin-left: auto;
-            margin-right: auto;
-            margin-top: 16px;
             display: block;
-            font-size: 1.1em;
+            font-size: 1.2em;
+            font-family: 'Fira Code', monospace;
         }
+
+        @font-face {
+            font-family: 'Mulish';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url('/fonts/Mulish-Regular.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'Mulish';
+            font-style: italic;
+            font-weight: 400;
+            font-display: swap;
+            src: url('/fonts/Mulish-Italic.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'Mulish';
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+            src: url('/fonts/Mulish-SemiBold.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'Mulish';
+            font-style: italic;
+            font-weight: 600;
+            font-display: swap;
+            src: url('/fonts/Mulish-SemiBoldItalic.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'Fira Code';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
+        }
+        * {
+            font-family: 'Mulish', sans-serif;
+        }
+
     </style>
+    <link rel="stylesheet" href="lib/bootstrap.min.css">
 </head>
 <body>
     <div id="app">
-        <div id="status">{{ status }}</div>
-        <textarea cols="80" rows="30" id="logs" disabled>{{ logs }}</textarea>
+        <nav class="navbar py-3">
+            <div class="container">
+                <a class="navbar-brand">Backup</a>
+                <form class="d-flex">
+                    <div id="status" v-if="status"><h5><span class="badge rounded-pill text-bg-success">Connected</span></h5></div>
+                    <div id="status" v-else><h5><span class="badge rounded-pill text-bg-danger">Disconnected</span></h5></div>
+                </form>
+            </div>
+        </nav>
+        <div class="container">
+            <h1 class="text-center">Log</h1>
+            <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs" disabled>{{ logs }}</textarea>
+        </div>
     </div>
 
-    <script
-            src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.47/vue.global.min.js"
-            integrity="sha512-DJ2+sosWB5FnZAIeCWAHu2gxQ7Gi438oOZLcBQSOrW8gD0s7LIXDv/5RW76B3FcljF40BXnfqNIo6Dhp7dFHJg=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="lib/vue.global.min.js"></script>
     <script>
         const { createApp } = Vue;
 
@@ -66,13 +113,13 @@
                     this.socket.addEventListener('error', () => {
                         this.closed_ws();
                     });
-                }
-            },
-            closed_ws() {
-                this.socket = null;
-                this.status = false;
-                clearInterval(this.reconnctor);
-                this.reconnctor = setInterval(() => { this.connect_ws() }, 1000);
+                },
+                closed_ws() {
+                    this.socket = null;
+                    this.status = false;
+                    clearInterval(this.reconnctor);
+                    this.reconnctor = setInterval(() => { this.connect_ws() }, 1000);
+                },
             },
             mounted() {
                 document.querySelector("#app").style.display = "block";
