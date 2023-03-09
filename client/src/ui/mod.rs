@@ -3,6 +3,7 @@ pub mod ws;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;
+use crate::cli;
 
 pub async fn run() {
     #[derive(RustEmbed)]
@@ -16,6 +17,6 @@ pub async fn run() {
     let listener = TcpListener::bind(crate::defaults::UI_BIND_IP);
     let server = Server::new(listener);
 
-    println!("UI server running on http://{}", crate::defaults::UI_BIND_IP);
+    cli::print_server_url(crate::defaults::UI_BIND_IP);
     server.run(app).await.unwrap();
 }

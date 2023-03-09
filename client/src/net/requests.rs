@@ -6,6 +6,7 @@ use shared::{
     server_message::{ClientLoginToken, Error::Failure, ServerMessage},
     types::{ChallengeNonce, ChallengeResponse, ClientId},
 };
+use crate::key_manager::Signature;
 
 pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
     let client = reqwest::Client::new();
@@ -25,7 +26,7 @@ pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> 
 
 pub async fn register_complete(
     pubkey: ClientId,
-    response: ChallengeResponse,
+    response: Signature
 ) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
 
@@ -33,7 +34,7 @@ pub async fn register_complete(
         .post(url("register/complete"))
         .json(&ClientRegistrationAuth {
             client_id: pubkey,
-            challenge_response: response,
+            challenge_response: Vec::from(response),
         })
         .send()
         .await?;
@@ -84,5 +85,7 @@ pub async fn login_complete(
 }
 
 fn url(s: impl Into<String>) -> String {
-    format!("{}/{}", crate::defaults::SERVER_URL, s.into())
+    // todo handle https
+    // todo use config
+    format!("http://{}/{}", crate::defaults::SERVER_URL, s.into())
 }

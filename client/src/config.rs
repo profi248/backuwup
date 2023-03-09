@@ -1,16 +1,19 @@
-use std::fs;
 use anyhow::anyhow;
+use std::fs;
+use std::sync::Arc;
 
-use sqlx::{
-    sqlite::{SqlitePoolOptions, SqliteQueryResult},
-    Error, Row, SqlitePool,
-};
+use sqlx::{sqlite::{SqlitePoolOptions, SqliteQueryResult}, Error, Row, SqlitePool, Transaction, Sqlite};
 
 use crate::key_manager::MasterSecret;
 
-#[derive(Clone)]
-pub(crate) struct Config {
+#[derive(Clone, Debug)]
+pub struct Config {
     db_pool: SqlitePool,
+}
+
+pub struct ConfigTransaction<'a> {
+    config: Config,
+    transaction: Transaction<'a, Sqlite>,
 }
 
 impl Config {
@@ -36,9 +39,9 @@ impl Config {
 
         let db_url = String::from("sqlite://")
             + config_file.to_str().expect(&format!(
-                "The path to config file at {} contains invalid UTF-8 data",
-                config_file.display()
-            ));
+            "The path to config file at {} contains invalid UTF-8 data",
+            config_file.display()
+        ));
 
         let config = Self {
             db_pool: SqlitePoolOptions::new()
@@ -71,8 +74,18 @@ impl Config {
                     value ANY
                 );",
         )
-        .execute(pool)
-        .await
+            .execute(pool)
+            .await
+    }
+
+    pub async fn transaction(&self) -> anyhow::Result<ConfigTransaction> {
+        let transaction = self.db_pool.begin().await?;
+        Ok(
+            ConfigTransaction {
+                config: self.clone(),
+                transaction
+            }
+        )
     }
 
     pub async fn is_initialized(&self) -> anyhow::Result<bool> {
@@ -83,25 +96,46 @@ impl Config {
 
         Ok(initalized)
     }
+}
 
-    pub async fn set_initialized(&self) -> anyhow::Result<()> {
+impl<'a> ConfigTransaction<'a> {
+    pub async fn commit(self) -> anyhow::Result<()> {
+        self.transaction.commit().await?;
+        Ok(())
+    }
+
+    pub async fn rollback(self) -> anyhow::Result<()> {
+        self.transaction.rollback().await?;
+        Ok(())
+    }
+
+    pub async fn is_initialized(&mut self) -> anyhow::Result<bool> {
+        let initalized = sqlx::query("select value from config where key = 'initialized'")
+            .fetch_optional(&mut self.transaction)
+            .await?
+            .is_some();
+
+        Ok(initalized)
+    }
+
+    pub async fn set_initialized(&mut self) -> anyhow::Result<()> {
         sqlx::query("insert into config (key, value) values ('initialized', 1)")
-            .execute(&self.db_pool)
+            .execute(&mut self.transaction)
             .await?;
         Ok(())
     }
 
-    pub async fn save_master_secret(&self, secret: MasterSecret) -> anyhow::Result<()> {
+    pub async fn save_master_secret(&mut self, secret: MasterSecret) -> anyhow::Result<()> {
         sqlx::query("insert into config (key, value) values ('master_secret', $1)")
             .bind(Vec::from(secret))
-            .execute(&self.db_pool)
+            .execute(&mut self.transaction)
             .await?;
         Ok(())
     }
 
-    pub async fn load_master_secret(&self) -> anyhow::Result<MasterSecret> {
+    pub async fn load_master_secret(&mut self) -> anyhow::Result<MasterSecret> {
         let secret: Vec<u8> = sqlx::query("select value from config where key = 'master_secret'")
-            .fetch_one(&self.db_pool)
+            .fetch_one(&mut self.transaction)
             .await?
             .get(0);
 

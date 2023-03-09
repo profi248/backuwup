@@ -6,6 +6,8 @@ mod defaults;
 mod key_manager;
 mod net;
 mod ui;
+mod cli;
+mod setup;
 
 use std::{panic, process, time::Duration};
 
@@ -17,11 +19,13 @@ use tokio::{
 
 use crate::{config::Config, ui::logger::Logger};
 
+static CONFIG: OnceCell<Config> = OnceCell::const_new();
 static LOGGER: OnceCell<Logger> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
     let config = Config::init().await;
+    CONFIG.set(config.clone()).unwrap();
 
     // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
     let orig_hook = panic::take_hook();
@@ -31,11 +35,14 @@ async fn main() {
         process::exit(1);
     }));
 
+    if !config.is_initialized().await.expect("Unable to read config database") {
+        // first time setup is currently CLI and blocking
+        cli::first_run_guide().await;
+    }
+
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
-    LOGGER
-        .set(Logger::new(log_sender.clone()))
-        .expect("OnceCell failed");
+    LOGGER.set(Logger::new(log_sender.clone())).unwrap();
 
     tokio::spawn(net::init());
     tokio::spawn(ui::run());

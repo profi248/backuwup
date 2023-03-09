@@ -10,7 +10,7 @@ pub type PubkeyBytes = [u8; 32];
 pub type SymmetricKey = [u8; 32];
 pub type Signature = [u8; 64];
 
-struct KeyManager {
+pub struct KeyManager {
     master_secret: MasterSecret,
     signature_keypair: Keypair,
     backup_secret_key: SymmetricKey,
@@ -50,6 +50,10 @@ impl KeyManager {
             signature_keypair,
             backup_secret_key,
         })
+    }
+
+    pub fn get_master_secret(&self) -> MasterSecret {
+        self.master_secret
     }
 
     pub fn get_pubkey(&self) -> PubkeyBytes {

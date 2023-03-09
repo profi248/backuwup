@@ -53,5 +53,7 @@ pub async fn register_complete(
         .await
         .map_err(|e| err_msg!(e))?;
 
+    // todo nicer print formatting
+    println!("Client {:?} registered successfully", request.client_id);
     Ok(Json(ServerMessage::Ok))
 }
