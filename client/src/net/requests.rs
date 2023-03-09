@@ -6,6 +6,7 @@ use shared::{
     server_message::{ClientLoginToken, Error::Failure, ServerMessage},
     types::{ChallengeNonce, ChallengeResponse, ClientId},
 };
+
 use crate::key_manager::Signature;
 
 pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
@@ -24,10 +25,7 @@ pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> 
     }
 }
 
-pub async fn register_complete(
-    pubkey: ClientId,
-    response: Signature
-) -> anyhow::Result<()> {
+pub async fn register_complete(pubkey: ClientId, response: Signature) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
 
     let response = client

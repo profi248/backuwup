@@ -1,6 +1,8 @@
-use crate::CONFIG;
-use crate::key_manager::{KeyManager, MasterSecret};
-use crate::net::requests;
+use crate::{
+    key_manager::{KeyManager, MasterSecret},
+    net::requests,
+    CONFIG,
+};
 
 pub async fn setup(secret: Option<MasterSecret>) -> anyhow::Result<KeyManager> {
     // if we have a master secret, use it to generate keypair
@@ -15,7 +17,9 @@ pub async fn setup(secret: Option<MasterSecret>) -> anyhow::Result<KeyManager> {
     let mut transaction = CONFIG.get().unwrap().transaction().await?;
 
     // save master secret to disk
-    transaction.save_master_secret(key_manager.get_master_secret()).await?;
+    transaction
+        .save_master_secret(key_manager.get_master_secret())
+        .await?;
 
     let pubkey = key_manager.get_pubkey();
 

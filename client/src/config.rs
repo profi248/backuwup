@@ -1,8 +1,10 @@
-use anyhow::anyhow;
-use std::fs;
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
-use sqlx::{sqlite::{SqlitePoolOptions, SqliteQueryResult}, Error, Row, SqlitePool, Transaction, Sqlite};
+use anyhow::anyhow;
+use sqlx::{
+    sqlite::{SqlitePoolOptions, SqliteQueryResult},
+    Error, Row, Sqlite, SqlitePool, Transaction,
+};
 
 use crate::key_manager::MasterSecret;
 
@@ -12,7 +14,6 @@ pub struct Config {
 }
 
 pub struct ConfigTransaction<'a> {
-    config: Config,
     transaction: Transaction<'a, Sqlite>,
 }
 
@@ -39,9 +40,9 @@ impl Config {
 
         let db_url = String::from("sqlite://")
             + config_file.to_str().expect(&format!(
-            "The path to config file at {} contains invalid UTF-8 data",
-            config_file.display()
-        ));
+                "The path to config file at {} contains invalid UTF-8 data",
+                config_file.display()
+            ));
 
         let config = Self {
             db_pool: SqlitePoolOptions::new()
@@ -74,18 +75,14 @@ impl Config {
                     value ANY
                 );",
         )
-            .execute(pool)
-            .await
+        .execute(pool)
+        .await
     }
 
     pub async fn transaction(&self) -> anyhow::Result<ConfigTransaction> {
         let transaction = self.db_pool.begin().await?;
-        Ok(
-            ConfigTransaction {
-                config: self.clone(),
-                transaction
-            }
-        )
+
+        Ok(ConfigTransaction { transaction })
     }
 
     pub async fn is_initialized(&self) -> anyhow::Result<bool> {
@@ -98,7 +95,7 @@ impl Config {
     }
 }
 
-impl<'a> ConfigTransaction<'a> {
+impl ConfigTransaction<'_> {
     pub async fn commit(self) -> anyhow::Result<()> {
         self.transaction.commit().await?;
         Ok(())

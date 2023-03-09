@@ -1,13 +1,13 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
 
+mod cli;
 mod config;
 mod defaults;
 mod key_manager;
 mod net;
-mod ui;
-mod cli;
 mod setup;
+mod ui;
 
 use std::{panic, process, time::Duration};
 
@@ -35,7 +35,11 @@ async fn main() {
         process::exit(1);
     }));
 
-    if !config.is_initialized().await.expect("Unable to read config database") {
+    if !config
+        .is_initialized()
+        .await
+        .expect("Unable to read config database")
+    {
         // first time setup is currently CLI and blocking
         cli::first_run_guide().await;
     }

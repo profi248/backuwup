@@ -1,6 +1,6 @@
-use dialoguer::{Input, Select};
-use dialoguer::theme::ColorfulTheme;
+use dialoguer::{theme::ColorfulTheme, Input, Select};
 use owo_colors::OwoColorize;
+
 use crate::setup;
 
 pub async fn first_run_guide() {
@@ -9,7 +9,8 @@ pub async fn first_run_guide() {
     match Select::with_theme(&ColorfulTheme::default())
         .items(&items)
         .default(0)
-        .interact().expect("Failed to select option")
+        .interact()
+        .expect("Failed to select option")
     {
         0 => {
             println!("{}", "Generating a secret and registering...".green());
@@ -23,7 +24,8 @@ pub async fn first_run_guide() {
             println!("{}", "Restoring".green());
             let secret: String = Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Please enter the secret that was generated during the initial setup")
-                .interact().expect("Failed to enter secret");
+                .interact()
+                .expect("Failed to enter secret");
             println!("Secret: {}", secret);
         }
         _ => {

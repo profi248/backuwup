@@ -3,6 +3,7 @@ pub mod ws;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;
+
 use crate::cli;
 
 pub async fn run() {
