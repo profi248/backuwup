@@ -1,9 +1,12 @@
 use std::fs;
+use anyhow::anyhow;
 
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
-    Error, SqlitePool,
+    Error, Row, SqlitePool,
 };
+
+use crate::key_manager::MasterSecret;
 
 #[derive(Clone)]
 pub(crate) struct Config {
@@ -70,5 +73,41 @@ impl Config {
         )
         .execute(pool)
         .await
+    }
+
+    pub async fn is_initialized(&self) -> anyhow::Result<bool> {
+        let initalized = sqlx::query("select value from config where key = 'initialized'")
+            .fetch_optional(&self.db_pool)
+            .await?
+            .is_some();
+
+        Ok(initalized)
+    }
+
+    pub async fn set_initialized(&self) -> anyhow::Result<()> {
+        sqlx::query("insert into config (key, value) values ('initialized', 1)")
+            .execute(&self.db_pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn save_master_secret(&self, secret: MasterSecret) -> anyhow::Result<()> {
+        sqlx::query("insert into config (key, value) values ('master_secret', $1)")
+            .bind(Vec::from(secret))
+            .execute(&self.db_pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn load_master_secret(&self) -> anyhow::Result<MasterSecret> {
+        let secret: Vec<u8> = sqlx::query("select value from config where key = 'master_secret'")
+            .fetch_one(&self.db_pool)
+            .await?
+            .get(0);
+
+        match secret.try_into() {
+            Ok(secret) => Ok(secret),
+            Err(_) => Err(anyhow!("Invalid master secret")),
+        }
     }
 }

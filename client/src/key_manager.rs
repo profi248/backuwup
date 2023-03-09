@@ -5,26 +5,26 @@ use rand_chacha::{
     ChaCha20Rng,
 };
 
-type Secret = [u8; 32];
-type PubkeyBytes = [u8; 32];
-type SymmetricKey = [u8; 32];
-type Signature = [u8; 64];
+pub type MasterSecret = [u8; 32];
+pub type PubkeyBytes = [u8; 32];
+pub type SymmetricKey = [u8; 32];
+pub type Signature = [u8; 64];
 
 struct KeyManager {
-    master_secret: Secret,
+    master_secret: MasterSecret,
     signature_keypair: Keypair,
     backup_secret_key: SymmetricKey,
 }
 
 impl KeyManager {
     pub fn generate() -> anyhow::Result<Self> {
-        let mut master_secret: Secret = Default::default();
+        let mut master_secret: MasterSecret = Default::default();
         getrandom(&mut master_secret)?;
 
         Self::from_secret(master_secret)
     }
 
-    pub fn from_secret(master_secret: Secret) -> anyhow::Result<Self> {
+    pub fn from_secret(master_secret: MasterSecret) -> anyhow::Result<Self> {
         // seed our CSPRNG with the master secret to generate keys reproducibly
         let mut csprng = ChaCha20Rng::from_seed(master_secret);
 

@@ -46,8 +46,6 @@ async fn main() {
         .build()
         .unwrap();
 
-    client.get("https://localhost:8080").send().await.unwrap();
-
     use local_ip_address::local_ip;
 
     let my_local_ip = local_ip().unwrap();
