@@ -1,21 +1,21 @@
-mod ws;
+pub mod logger;
+pub mod ws;
 
-use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, EndpointExt, Route, Server};
+use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;
-use tokio::sync::broadcast::Sender;
 
-pub async fn run(log_sender: Sender<String>) {
-    run_server(log_sender).await;
+pub async fn run() {
+    run_server().await;
 }
 
-async fn run_server(log_sender: Sender<String>) {
+async fn run_server() {
     #[derive(RustEmbed)]
     #[folder = "static"]
     struct Static;
 
     let app = Route::new()
         .at("/", EmbeddedFilesEndpoint::<Static>::new())
-        .at("/ws", ws::handler.data(log_sender));
+        .at("/ws", ws::handler);
 
     let listener = TcpListener::bind(crate::defaults::UI_BIND_IP);
     let server = Server::new(listener);

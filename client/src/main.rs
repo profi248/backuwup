@@ -10,11 +10,14 @@ mod ui;
 use std::{panic, process, time::Duration};
 
 use reqwest::{Certificate, Client};
-use tokio::{sync::broadcast::channel, time::sleep};
+use tokio::{
+    sync::{broadcast::channel, OnceCell},
+    time::sleep,
+};
 
-use crate::config::Config;
+use crate::{config::Config, ui::logger::Logger};
 
-// todo: consider putting the log sender in a once_cell
+static LOGGER: OnceCell<Logger> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
@@ -30,9 +33,12 @@ async fn main() {
 
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
+    LOGGER
+        .set(Logger::new(log_sender.clone()))
+        .expect("OnceCell failed");
 
     tokio::spawn(net::init());
-    tokio::spawn(ui::run(log_sender.clone()));
+    tokio::spawn(ui::run());
 
     let client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())

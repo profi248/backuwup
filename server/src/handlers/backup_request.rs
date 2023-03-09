@@ -1,10 +1,7 @@
 use poem::{handler, web::Json};
-use shared::{
-    client_message::BackupRequest,
-    server_message::{ServerMessage},
-};
+use shared::{client_message::BackupRequest, server_message::ServerMessage};
 
-use crate::{BACKUP_REQUESTS, err_msg};
+use crate::{err_msg, BACKUP_REQUESTS};
 
 #[handler]
 pub async fn make_backup_request(

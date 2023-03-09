@@ -3,22 +3,20 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use poem::{
-    web::{
-        websocket::{Message, WebSocket, WebSocketStream},
-        Data,
-    },
+    web::websocket::{Message, WebSocket, WebSocketStream},
     IntoResponse,
 };
-use tokio::sync::broadcast::{error::RecvError, Receiver, Sender};
+use tokio::sync::broadcast::{error::RecvError, Receiver};
+
+use crate::LOGGER;
 
 #[poem::handler]
-pub fn handler(ws: WebSocket, Data(log_sender): Data<&Sender<String>>) -> impl IntoResponse {
+pub fn handler(ws: WebSocket) -> impl IntoResponse {
     // subscribe to the sender
-    let mut log_receiver = log_sender.subscribe();
+    let mut log_receiver = LOGGER.get().expect("OnceCell failed").subscribe();
 
     ws.on_upgrade(|mut socket| async move {
-        // split the WebSocket into a separate Sink (for sending) and Stream (for
-        // receiving)
+        // split the WebSocket into a separate Sink (for sending) and Stream (for receiving)
         let (ws_send, ws_recv) = socket.split();
 
         tokio::spawn(send_log_messages(ws_send, log_receiver));

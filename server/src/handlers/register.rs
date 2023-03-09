@@ -15,8 +15,6 @@ pub async fn register_begin(
     Json(request): Json<ClientRegistrationRequest>,
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
-    let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
-
     if db
         .client_exists(request.client_id)
         .await
@@ -25,22 +23,20 @@ pub async fn register_begin(
         Err(err_msg!("Client with this public key is already registered"))?;
     }
 
-    db.register_client(request.client_id)
-        .await
-        .map_err(|e| err_msg!(e))?;
-
-    let nonce = auth_manager
+    let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
+    let server_challenge = auth_manager
         .challenge_begin(request.client_id)
         .map_err(|e| err_msg!(e))?;
 
     Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
-        server_challenge: nonce,
+        server_challenge,
     })))
 }
 
 #[handler]
 pub async fn register_complete(
     Json(request): Json<ClientRegistrationAuth>,
+    Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec
     if request.challenge_response.len() != CHALLENGE_RESPONSE_LENGTH {
@@ -53,7 +49,9 @@ pub async fn register_complete(
         .challenge_verify(request.client_id, request.challenge_response)
         .map_err(|e| err_msg!(e))?;
 
-    // todo check challenge and add client to db
+    db.register_client(request.client_id)
+        .await
+        .map_err(|e| err_msg!(e))?;
 
     Ok(Json(ServerMessage::Ok))
 }

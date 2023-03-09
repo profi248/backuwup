@@ -51,8 +51,8 @@ async fn main() {
     let app = Route::new()
         .at("/register/begin", register_begin.data(db.clone()))
         .at("/register/complete", register_complete.data(db.clone()))
-        .at("/login/begin", login_begin)
-        .at("/login/complete", login_complete)
+        .at("/login/begin", login_begin.data(db.clone()))
+        .at("/login/complete", login_complete.data(db.clone()))
         .at("/backups/request", make_backup_request)
         .at("/ws", ws::handler.data(db));
 

@@ -1,3 +1,5 @@
+mod requests;
+
 use futures_util::StreamExt;
 use tokio_tungstenite::connect_async;
 
