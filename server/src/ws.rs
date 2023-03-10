@@ -9,22 +9,30 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use poem::{
-    web::{
-        websocket::{Message, WebSocket, WebSocketStream},
-        Data,
-    },
-    IntoResponse,
+    http::StatusCode,
+    web::websocket::{Message, WebSocket, WebSocketStream},
+    IntoResponse, Request,
 };
 use shared::{server_message_ws::ServerMessageWs, types::ClientId};
 use tokio::sync::Mutex;
 
-use crate::{db::Database, CONNECTIONS};
+use crate::{handlers::check_token_header, CONNECTIONS};
 
 #[poem::handler]
-pub async fn handler(ws: WebSocket, Data(db): Data<&Database>) -> impl IntoResponse {
-    ws.on_upgrade(|mut socket| async {
-        // todo authenticate here (probably using the token from login)
-        let client_id = [0; 32];
+pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
+    let mut client_id = Default::default();
+    let mut authorized = false;
+
+    if let Ok(id) = check_token_header(request) {
+        authorized = true;
+        client_id = id;
+    }
+
+    ws.on_upgrade(move |mut socket| async move {
+        if !authorized {
+            println!("Unauthorized WebSocket connection");
+            return;
+        }
 
         let (mut ws_send, mut ws_recv) = socket.split();
 
@@ -41,6 +49,11 @@ pub async fn handler(ws: WebSocket, Data(db): Data<&Database>) -> impl IntoRespo
             .await;
 
         println!("[ws] new connection: {client_id:?}");
+    })
+    .with_status(if authorized {
+        StatusCode::SWITCHING_PROTOCOLS
+    } else {
+        StatusCode::UNAUTHORIZED
     })
 }
 

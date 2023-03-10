@@ -10,9 +10,10 @@ impl Logger {
         Self { sender }
     }
 
-    pub fn send(&self, msg: String) {
+    pub fn send(&self, msg: impl Into<String> + Clone) {
         // ignore sending errors because they are not very meaningful
-        self.sender.send(msg).ok();
+        self.sender.send(msg.clone().into()).ok();
+        println!("[log] {}", msg.into());
     }
 
     pub fn subscribe(&self) -> Receiver<String> {

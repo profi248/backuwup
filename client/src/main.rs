@@ -1,5 +1,6 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::redundant_else)]
 
 mod cli;
 mod config;
@@ -9,13 +10,11 @@ mod key_manager;
 mod net;
 mod ui;
 
-use std::{panic, process, time::Duration};
+use std::{panic, process};
 
+use futures_util::future;
 use reqwest::{Certificate, Client};
-use tokio::{
-    sync::{broadcast::channel, OnceCell},
-    time::sleep,
-};
+use tokio::sync::{broadcast::channel, OnceCell};
 
 use crate::{config::Config, key_manager::KeyManager, ui::logger::Logger};
 
@@ -36,11 +35,10 @@ async fn main() {
         process::exit(1);
     }));
 
-    if !config
-        .is_initialized()
-        .await
-        .expect("Unable to read config database")
-    {
+    if config.is_initialized().await.expect("Unable to open config") {
+        // initialize the key manager with existing secret
+        identity::load_secret().await.expect("Unable to load secret");
+    } else {
         // first time setup is currently CLI and blocking
         cli::first_run_guide().await;
     }
@@ -48,9 +46,6 @@ async fn main() {
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
     LOGGER.set(Logger::new(log_sender.clone())).unwrap();
-
-    tokio::spawn(net::init());
-    tokio::spawn(ui::run());
 
     let client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())
@@ -63,10 +58,7 @@ async fn main() {
     let my_local_ip = local_ip().unwrap();
     println!("This is my local IP address: {:?}", my_local_ip);
 
-    let mut i = 0;
-    loop {
-        let _ = log_sender.send(format!("helloo {i}"));
-        i += 1;
-        sleep(Duration::from_secs(2)).await;
-    }
+    let tasks = vec![tokio::spawn(net::init()), tokio::spawn(ui::run())];
+
+    future::join_all(tasks).await;
 }

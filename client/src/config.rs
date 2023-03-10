@@ -1,6 +1,7 @@
-use std::{fs, sync::Arc};
+use std::fs;
 
 use anyhow::anyhow;
+use shared::types::SessionToken;
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
     Error, Row, Sqlite, SqlitePool, Transaction,
@@ -118,6 +119,22 @@ impl Config {
 
         result
     }
+
+    pub async fn save_auth_token(&self, token: Option<SessionToken>) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.save_auth_token(token).await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn load_auth_token(&self) -> anyhow::Result<Option<SessionToken>> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.load_auth_token().await;
+        transaction.commit().await?;
+
+        result
+    }
 }
 
 impl ConfigTransaction<'_> {
@@ -164,6 +181,38 @@ impl ConfigTransaction<'_> {
         match secret.try_into() {
             Ok(secret) => Ok(secret),
             Err(_) => Err(anyhow!("Invalid master secret")),
+        }
+    }
+
+    pub async fn save_auth_token(&mut self, token: Option<SessionToken>) -> anyhow::Result<()> {
+        if let Some(token) = token {
+            sqlx::query("insert or replace into config (key, value) values ('auth_token', $1)")
+                .bind(Vec::from(token))
+                .execute(&mut self.transaction)
+                .await?;
+        } else {
+            sqlx::query("delete from config where key = 'auth_token'")
+                .execute(&mut self.transaction)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn load_auth_token(&mut self) -> anyhow::Result<Option<SessionToken>> {
+        let token = sqlx::query("select value from config where key = 'auth_token'")
+            .fetch_optional(&mut self.transaction)
+            .await?;
+
+        match token {
+            Some(row) => {
+                let token: SessionToken = row
+                    .try_get::<Vec<u8>, usize>(0)?
+                    .try_into()
+                    .map_err(|_| anyhow!("Invalid auth token length"))?;
+                Ok(Some(token))
+            }
+            None => Ok(None),
         }
     }
 }

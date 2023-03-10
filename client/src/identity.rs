@@ -4,6 +4,22 @@ use crate::{
     CONFIG, KEYS,
 };
 
+pub async fn login() -> anyhow::Result<()> {
+    let key_manager = KEYS.get().unwrap();
+    let pubkey = key_manager.get_pubkey();
+
+    // try to login to server with challenge-response
+    let challenge_nonce = requests::login_begin(pubkey).await?;
+    let token = requests::login_complete(pubkey, key_manager.sign(&challenge_nonce))
+        .await?
+        .token;
+
+    // save the token to disk
+    CONFIG.get().unwrap().save_auth_token(Some(token)).await?;
+
+    Ok(())
+}
+
 pub async fn load_secret() -> anyhow::Result<()> {
     let secret = CONFIG.get().unwrap().load_master_secret().await?;
     KEYS.set(KeyManager::from_secret(secret)?)

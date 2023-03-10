@@ -85,6 +85,12 @@ impl ClientAuthManager {
         Ok(token)
     }
 
+    pub fn get_session(&self, token: SessionToken) -> anyhow::Result<Option<ClientId>> {
+        let data = self.data.lock().unwrap();
+
+        Ok(data.sessions.get(&token).cloned())
+    }
+
     pub fn session_clear(&self, token: SessionToken) -> anyhow::Result<()> {
         self.data.lock().expect("Lock failed").sessions.remove(&token);
 
