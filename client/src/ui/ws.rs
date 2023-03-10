@@ -13,7 +13,7 @@ use crate::LOGGER;
 #[poem::handler]
 pub fn handler(ws: WebSocket) -> impl IntoResponse {
     // subscribe to the sender
-    let mut log_receiver = LOGGER.get().expect("OnceCell failed").subscribe();
+    let mut log_receiver = LOGGER.get().unwrap().subscribe();
 
     ws.on_upgrade(|mut socket| async move {
         // split the WebSocket into a separate Sink (for sending) and Stream (for receiving)

@@ -84,7 +84,7 @@ impl Queue {
             // notify client that its request has been fulfilled
             match CONNECTIONS
                 .get()
-                .expect("OnceCell failed")
+                .unwrap()
                 .notify_client(destination.client_id, ServerMessageWs::Ping)
                 .await
             {

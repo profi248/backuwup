@@ -36,7 +36,7 @@ pub async fn handler(ws: WebSocket, Data(db): Data<&Database>) -> impl IntoRespo
         // messages todo maybe send a message to the old connection to close it?
         CONNECTIONS
             .get()
-            .expect("OnceCell failed")
+            .unwrap()
             .new_connection(client_id, ws_send)
             .await;
 
@@ -52,11 +52,7 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
         // error
         match msg {
             None | Some(Err(_) | Ok(Message::Close(_))) => {
-                CONNECTIONS
-                    .get()
-                    .expect("OnceCell failed")
-                    .remove_connection(client_id)
-                    .await;
+                CONNECTIONS.get().unwrap().remove_connection(client_id).await;
 
                 println!("[ws] connection dropped: {client_id:?}");
                 break;

@@ -38,15 +38,11 @@ async fn main() {
 
     let db = Database::init().await;
 
-    CONNECTIONS
-        .set(ClientConnections::new())
-        .expect("OnceCell failed");
+    CONNECTIONS.set(ClientConnections::new()).unwrap();
 
-    BACKUP_REQUESTS.set(Queue::new()).expect("OnceCell failed");
+    BACKUP_REQUESTS.set(Queue::new()).unwrap();
 
-    AUTH_MANAGER
-        .set(ClientAuthManager::new())
-        .expect("OnceCell failed");
+    AUTH_MANAGER.set(ClientAuthManager::new()).unwrap();
 
     let app = Route::new()
         .at("/register/begin", register_begin.data(db.clone()))

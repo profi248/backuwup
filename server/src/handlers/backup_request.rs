@@ -9,7 +9,7 @@ pub async fn make_backup_request(
 ) -> poem::Result<Json<ServerMessage>> {
     // todo verify client token
     let request = request.into();
-    let queue = BACKUP_REQUESTS.get().expect("OnceCell failed");
+    let queue = BACKUP_REQUESTS.get().unwrap();
 
     println!("[backup request] new request: {request:?}");
     println!("\n[backup request] queue before fulfill vvv");

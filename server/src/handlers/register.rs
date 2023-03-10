@@ -23,7 +23,7 @@ pub async fn register_begin(
         Err(err_msg!("Client with this public key is already registered"))?;
     }
 
-    let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
+    let auth_manager = AUTH_MANAGER.get().unwrap();
     let server_challenge = auth_manager
         .challenge_begin(request.client_id)
         .map_err(|e| err_msg!(e))?;
@@ -43,7 +43,7 @@ pub async fn register_complete(
         Err(err_msg!("Challenge response is invalid length"))?;
     }
 
-    let auth_manager = AUTH_MANAGER.get().expect("OnceCell failed");
+    let auth_manager = AUTH_MANAGER.get().unwrap();
 
     auth_manager
         .challenge_verify(request.client_id, request.challenge_response)
