@@ -4,9 +4,9 @@
 mod cli;
 mod config;
 mod defaults;
+mod identity;
 mod key_manager;
 mod net;
-mod setup;
 mod ui;
 
 use std::{panic, process, time::Duration};
@@ -17,10 +17,11 @@ use tokio::{
     time::sleep,
 };
 
-use crate::{config::Config, ui::logger::Logger};
+use crate::{config::Config, key_manager::KeyManager, ui::logger::Logger};
 
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
 static LOGGER: OnceCell<Logger> = OnceCell::const_new();
+static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {

@@ -1,3 +1,5 @@
+use std::fmt::{write, Debug, Formatter};
+
 use ed25519_dalek::{Keypair, SecretKey, Signer};
 use getrandom::getrandom;
 use rand_chacha::{
@@ -10,10 +12,18 @@ pub type PubkeyBytes = [u8; 32];
 pub type SymmetricKey = [u8; 32];
 pub type Signature = [u8; 64];
 
+pub const MASTER_SECRET_LENGTH: usize = 32;
+
 pub struct KeyManager {
     master_secret: MasterSecret,
     signature_keypair: Keypair,
     backup_secret_key: SymmetricKey,
+}
+
+impl Debug for KeyManager {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "KeyManager")
+    }
 }
 
 impl KeyManager {
@@ -52,6 +62,7 @@ impl KeyManager {
         })
     }
 
+    //  it would be better to not have this
     pub fn get_master_secret(&self) -> MasterSecret {
         self.master_secret
     }

@@ -24,6 +24,7 @@ reqwest = { version = "0.11.14", features = ["tokio-rustls", "json"] }
 # UI
 poem = { version = "1.3.55", features = ["embed", "websocket"] }
 rust-embed = { version = "6.4.2" }
+bip39 = "2.0.0"
 dialoguer = "0.10.3"
 owo-colors = "3.5.0"
 

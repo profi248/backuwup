@@ -62,15 +62,15 @@ pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
 
 pub async fn login_complete(
     pubkey: ClientId,
-    response: ChallengeResponse,
+    response: Signature,
 ) -> anyhow::Result<ClientLoginToken> {
     let client = reqwest::Client::new();
 
     let response = client
-        .post(url("register/complete"))
+        .post(url("login/complete"))
         .json(&ClientLoginAuth {
             client_id: pubkey,
-            challenge_response: response,
+            challenge_response: Vec::from(response),
         })
         .send()
         .await?;

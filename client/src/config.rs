@@ -85,13 +85,38 @@ impl Config {
         Ok(ConfigTransaction { transaction })
     }
 
-    pub async fn is_initialized(&self) -> anyhow::Result<bool> {
-        let initalized = sqlx::query("select value from config where key = 'initialized'")
-            .fetch_optional(&self.db_pool)
-            .await?
-            .is_some();
+    // possibly redo these as macros
 
-        Ok(initalized)
+    pub async fn is_initialized(&self) -> anyhow::Result<bool> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.is_initialized().await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn set_initialized(&self) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.set_initialized().await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn save_master_secret(&self, secret: MasterSecret) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.save_master_secret(secret).await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn load_master_secret(&self) -> anyhow::Result<MasterSecret> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.load_master_secret().await;
+        transaction.commit().await?;
+
+        result
     }
 }
 
