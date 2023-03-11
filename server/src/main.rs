@@ -48,6 +48,8 @@ async fn main() {
         .at("/login/begin", login_begin.data(db.clone()))
         .at("/login/complete", login_complete.data(db.clone()))
         .at("/backups/request", make_backup_request)
+        // .at("/backups/transfer/begin", None)
+        // .at("/backups/transfer/confirm", None)
         .at("/ws", ws::handler.data(db));
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
