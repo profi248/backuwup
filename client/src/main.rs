@@ -58,7 +58,7 @@ async fn main() {
     let my_local_ip = local_ip().unwrap();
     println!("This is my local IP address: {:?}", my_local_ip);
 
-    let tasks = vec![tokio::spawn(net::init()), tokio::spawn(ui::run())];
+    let tasks = vec![tokio::spawn(net::listen()), tokio::spawn(ui::run())];
 
     future::join_all(tasks).await;
 }
