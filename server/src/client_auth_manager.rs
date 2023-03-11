@@ -55,7 +55,7 @@ impl ClientAuthManager {
     pub fn challenge_verify(
         &self,
         client_id: ClientId,
-        response: ChallengeResponse,
+        response: &ChallengeResponse,
     ) -> anyhow::Result<()> {
         let mut data = self.data.lock().expect("Lock failed");
         let nonce = data.challenges.get(&client_id);
@@ -88,7 +88,7 @@ impl ClientAuthManager {
     pub fn get_session(&self, token: SessionToken) -> anyhow::Result<Option<ClientId>> {
         let data = self.data.lock().unwrap();
 
-        Ok(data.sessions.get(&token).cloned())
+        Ok(data.sessions.get(&token).copied())
     }
 
     pub fn session_clear(&self, token: SessionToken) -> anyhow::Result<()> {

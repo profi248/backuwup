@@ -40,7 +40,7 @@ pub fn login_complete(Json(request): Json<ClientLoginAuth>) -> poem::Result<Json
 
     let auth_manager = AUTH_MANAGER.get().unwrap();
     auth_manager
-        .challenge_verify(request.client_id, request.challenge_response)
+        .challenge_verify(request.client_id, &request.challenge_response)
         .map_err(|e| err_msg!(e))?;
 
     let token = auth_manager

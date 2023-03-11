@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use shared::types::SessionToken;
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
-    Error, Row, Sqlite, SqlitePool, Transaction,
+    Error, Row, Sqlite, SqlitePool,
 };
 
 use crate::key_manager::MasterSecret;
@@ -14,8 +14,8 @@ pub struct Config {
     db_pool: SqlitePool,
 }
 
-pub struct ConfigTransaction<'a> {
-    transaction: Transaction<'a, Sqlite>,
+pub struct Transaction<'a> {
+    transaction: sqlx::Transaction<'a, Sqlite>,
 }
 
 impl Config {
@@ -80,10 +80,10 @@ impl Config {
         .await
     }
 
-    pub async fn transaction(&self) -> anyhow::Result<ConfigTransaction> {
+    pub async fn transaction(&self) -> anyhow::Result<Transaction> {
         let transaction = self.db_pool.begin().await?;
 
-        Ok(ConfigTransaction { transaction })
+        Ok(Transaction { transaction })
     }
 
     // possibly redo these as macros
@@ -137,7 +137,7 @@ impl Config {
     }
 }
 
-impl ConfigTransaction<'_> {
+impl Transaction<'_> {
     pub async fn commit(self) -> anyhow::Result<()> {
         self.transaction.commit().await?;
         Ok(())

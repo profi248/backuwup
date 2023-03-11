@@ -46,7 +46,7 @@ pub async fn register_complete(
     let auth_manager = AUTH_MANAGER.get().unwrap();
 
     auth_manager
-        .challenge_verify(request.client_id, request.challenge_response)
+        .challenge_verify(request.client_id, &request.challenge_response)
         .map_err(|e| err_msg!(e))?;
 
     db.register_client(request.client_id)

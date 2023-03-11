@@ -1,4 +1,4 @@
-use std::fmt::{write, Debug, Formatter};
+use std::fmt::{Debug, Formatter};
 
 use ed25519_dalek::{Keypair, SecretKey, Signer};
 use getrandom::getrandom;

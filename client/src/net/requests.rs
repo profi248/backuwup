@@ -4,7 +4,7 @@ use shared::{
         ClientLoginAuth, ClientLoginRequest, ClientRegistrationAuth, ClientRegistrationRequest,
     },
     server_message::{ClientLoginToken, Error::Failure, ServerMessage},
-    types::{ChallengeNonce, ChallengeResponse, ClientId},
+    types::{ChallengeNonce, ClientId},
 };
 
 use crate::key_manager::Signature;
