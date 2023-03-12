@@ -28,7 +28,7 @@ pub struct ClientLoginToken {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorType {
-    AuthError,
+    Unauthorized,
     ClientNotFound,
     DestinationUnreachable,
     Retry,

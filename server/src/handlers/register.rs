@@ -16,7 +16,7 @@ pub async fn register_begin(
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     if db.client_exists(request.client_id).await? {
-        Err(Error::ClientAlreadyExists(request.client_id))?;
+        Err(Error::ClientExists(request.client_id))?;
     }
 
     let auth_manager = AUTH_MANAGER.get().unwrap();

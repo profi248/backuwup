@@ -12,64 +12,61 @@ use shared::{
 
 use crate::AUTH_MANAGER;
 
-#[allow(clippy::enum_variant_names)]
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Not authenticated")]
-    AuthError,
+    #[error("Not authorized")]
+    Unauthorized,
     #[error("Bad request")]
     BadRequest,
     #[error("Challenge doesn't exist")]
     ChallengeNotFound,
     #[error("Database error: {0}")]
-    DatabaseError(#[from] sqlx::Error),
+    Database(#[from] sqlx::Error),
     #[error("Crypto error: {0}")]
-    CryptoError(#[from] ed25519_dalek::SignatureError),
+    Crypto(#[from] ed25519_dalek::SignatureError),
     #[error("Randomness error: {0}")]
-    GetrandomError(#[from] getrandom::Error),
+    Rng(#[from] getrandom::Error),
     #[error("Serialization error: {0}")]
-    SerdeError(#[from] serde_json::Error),
+    Serialization(#[from] serde_json::Error),
     #[error("Client not found: {0:?}")]
     ClientNotFound(ClientId),
     #[error("Client not connected: {0:?}")]
     ClientNotConnected(ClientId),
     #[error("Client already exists: {0:?}")]
-    ClientAlreadyExists(ClientId),
+    ClientExists(ClientId),
     #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 impl ResponseError for Error {
     fn status(&self) -> StatusCode {
         match self {
-            Error::AuthError => StatusCode::UNAUTHORIZED,
+            Error::Unauthorized => StatusCode::UNAUTHORIZED,
             Error::BadRequest => StatusCode::BAD_REQUEST,
-            Error::SerdeError(_) => StatusCode::BAD_REQUEST,
-            Error::CryptoError(_) => StatusCode::BAD_REQUEST,
+            Error::Serialization(_) => StatusCode::BAD_REQUEST,
+            Error::Crypto(_) => StatusCode::BAD_REQUEST,
             Error::ChallengeNotFound => StatusCode::NOT_FOUND,
             Error::ClientNotConnected(_) => StatusCode::NOT_FOUND,
             Error::ClientNotFound(_) => StatusCode::NOT_FOUND,
-            Error::IoError(_) => StatusCode::NOT_FOUND,
-            Error::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::GetrandomError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::ClientAlreadyExists(_) => StatusCode::CONFLICT,
+            Error::Io(_) => StatusCode::NOT_FOUND,
+            Error::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::Rng(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::ClientExists(_) => StatusCode::CONFLICT,
         }
     }
 
     fn as_response(&self) -> Response {
         let msg = match self {
-            Error::AuthError => ErrorType::AuthError,
+            Error::Unauthorized => ErrorType::Unauthorized,
             Error::ChallengeNotFound => ErrorType::Retry,
-            Error::DatabaseError(_) => ErrorType::ServerError("Database error".to_string()),
-            Error::GetrandomError(_) => ErrorType::ServerError("Server error".to_string()),
+            Error::Database(_) => ErrorType::ServerError("Database error".to_string()),
+            Error::Rng(_) => ErrorType::ServerError("Server error".to_string()),
             Error::BadRequest => ErrorType::BadRequest("Bad request".to_string()),
-            Error::CryptoError(_) => ErrorType::BadRequest("Crypto error".to_string()),
-            Error::SerdeError(_) => ErrorType::BadRequest("Serialization error".to_string()),
-            Error::ClientAlreadyExists(_) => {
-                ErrorType::BadRequest("Client already exists".to_string())
-            }
+            Error::Crypto(_) => ErrorType::BadRequest("Crypto error".to_string()),
+            Error::Serialization(_) => ErrorType::BadRequest("Serialization error".to_string()),
+            Error::ClientExists(_) => ErrorType::BadRequest("Client already exists".to_string()),
             Error::ClientNotConnected(_) => ErrorType::DestinationUnreachable,
-            Error::IoError(_) => ErrorType::DestinationUnreachable,
+            Error::Io(_) => ErrorType::DestinationUnreachable,
             Error::ClientNotFound(_) => ErrorType::DestinationUnreachable,
         };
 
@@ -82,11 +79,11 @@ pub fn check_token_header(request: &Request) -> Result<ClientId, Error> {
     let token = request
         .headers()
         .get("Authorization")
-        .ok_or(Error::AuthError)?
+        .ok_or(Error::Unauthorized)?
         .to_str()
-        .map_err(|_| Error::AuthError)?;
+        .map_err(|_| Error::Unauthorized)?;
 
-    check_token(token).map_err(|_| Error::AuthError)
+    check_token(token).map_err(|_| Error::Unauthorized)
 }
 
 pub fn check_token(token: impl Into<String>) -> Result<ClientId, anyhow::Error> {

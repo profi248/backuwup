@@ -23,7 +23,7 @@ pub async fn transport_begin(
         .get()
         .unwrap()
         .get_session(request.session_token)
-        .ok_or(Error::AuthError)?;
+        .ok_or(Error::Unauthorized)?;
 
     let destination_client_id = request.destination_client_id;
     let session_nonce = request.session_nonce;
