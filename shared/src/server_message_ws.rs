@@ -21,8 +21,8 @@ pub struct BackupMatched {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct IncomingTransportRequest {
-    source_client_id: ClientId,
-    session_nonce: TransportSessionNonce,
+    pub source_client_id: ClientId,
+    pub session_nonce: TransportSessionNonce,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

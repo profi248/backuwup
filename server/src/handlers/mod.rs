@@ -1,6 +1,7 @@
 pub mod backup_request;
 pub mod login;
 pub mod register;
+pub mod transport_request;
 
 use anyhow::anyhow;
 use poem::{error::ResponseError, http::StatusCode, Body, Request, Response};
@@ -32,6 +33,15 @@ macro_rules! err_msg {
     ( $msg:expr ) => {
         $crate::handlers::ErrorWrapper(shared::server_message::ServerMessage::Error(
             shared::server_message::Error::Failure($msg.to_string()),
+        ))
+    };
+}
+
+#[macro_export]
+macro_rules! auth_err {
+    () => {
+        $crate::handlers::ErrorWrapper(shared::server_message::ServerMessage::Error(
+            shared::server_message::Error::AuthError(),
         ))
     };
 }

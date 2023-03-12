@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ChallengeResponse, ClientId, TransportSessionNonce};
+use crate::types::{ChallengeResponse, ClientId, SessionToken, TransportSessionNonce};
 
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
@@ -44,12 +44,14 @@ pub struct BackupRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct BeginTransportRequest {
-    destination_client_id: ClientId,
-    session_nonce: TransportSessionNonce,
+    pub session_token: SessionToken,
+    pub destination_client_id: ClientId,
+    pub session_nonce: TransportSessionNonce,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ConfirmTransportRequest {
-    source_client_id: ClientId,
-    destination_ip_address: IpAddr,
+    pub session_token: SessionToken,
+    pub source_client_id: ClientId,
+    pub destination_ip_address: IpAddr,
 }
