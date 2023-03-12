@@ -26,10 +26,10 @@ pub async fn listen() {
                 None => {
                     logger.send("[net] WebSocket connection closed, will try to reconnect...");
                     break;
-                },
+                }
                 Some(Ok(msg)) => {
                     logger.send(format!("[net] message from server: {msg}"));
-                },
+                }
                 Some(Err(e)) => {
                     logger.send(format!("[net] Error: {e:?}, will try to reconnect..."));
                     break;

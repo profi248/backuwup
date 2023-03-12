@@ -1,10 +1,9 @@
 use std::time::Duration;
 
 use shared::types::ClientId;
-use sqlx::{
-    postgres::{PgPoolOptions, PgQueryResult},
-    query, Error, Executor, PgPool,
-};
+use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool};
+
+use crate::handlers;
 
 #[derive(Clone)]
 pub struct Database {
@@ -31,7 +30,7 @@ impl Database {
         db
     }
 
-    async fn create_schema(pool: PgPool) -> Result<(), Error> {
+    async fn create_schema(pool: PgPool) -> Result<(), handlers::Error> {
         let result = query("select value from metadata where key = 'schema_version'")
             .fetch_optional(&pool)
             .await;
@@ -48,26 +47,31 @@ impl Database {
                 let schema = include_str!("schema/schema.sql");
                 (&pool).execute(schema).await?;
 
-                return query("insert into metadata (key, value) values ('schema_version', '1')")
+                query("insert into metadata (key, value) values ('schema_version', '1')")
                     .execute(&pool)
-                    .await
-                    .map(|_| ());
+                    .await?;
+
+                Ok(())
             }
         }
     }
 
-    pub async fn register_client(&self, client_id: ClientId) -> Result<PgQueryResult, Error> {
+    pub async fn register_client(&self, client_id: ClientId) -> Result<(), handlers::Error> {
         query("insert into clients (pubkey, registered) values ($1, now())")
             .bind(client_id)
             .execute(&self.conn_pool)
-            .await
+            .await?;
+
+        Ok(())
     }
 
-    pub async fn client_exists(&self, client_id: ClientId) -> Result<bool, Error> {
-        query("select pubkey from clients where pubkey = $1")
+    pub async fn client_exists(&self, client_id: ClientId) -> Result<bool, handlers::Error> {
+        let result = query("select pubkey from clients where pubkey = $1")
             .bind(client_id)
             .fetch_optional(&self.conn_pool)
             .await
-            .map(|result| result.is_some())
+            .map(|result| result.is_some())?;
+
+        Ok(result)
     }
 }

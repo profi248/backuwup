@@ -16,7 +16,7 @@ use poem::{
 use shared::{server_message_ws::ServerMessageWs, types::ClientId};
 use tokio::sync::Mutex;
 
-use crate::{handlers::check_token_header, CONNECTIONS};
+use crate::{handlers, handlers::check_token_header, CONNECTIONS};
 
 #[poem::handler]
 pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
@@ -61,8 +61,7 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
     loop {
         let msg = ws_recv.next().await;
 
-        // remove the sink if the connection is closed gracefully or if there is an
-        // error
+        // remove the sink if the connection is closed gracefully or if there is anerror
         match msg {
             None | Some(Err(_) | Ok(Message::Close(_))) => {
                 CONNECTIONS.get().unwrap().remove_connection(client_id).await;
@@ -102,11 +101,11 @@ impl ClientConnections {
         &self,
         client_id: ClientId,
         message: ServerMessageWs,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), handlers::Error> {
         let mut connections = self.connections.lock().await;
-        let connection = connections
+        let mut connection = connections
             .get_mut(&client_id)
-            .ok_or(anyhow::anyhow!("Client connection not found"))?;
+            .ok_or(handlers::Error::ClientNotConnected(client_id))?;
 
         println!("[ws] notifying client {client_id:?} with message {message:?}");
         connection

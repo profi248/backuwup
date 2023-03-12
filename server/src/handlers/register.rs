@@ -8,25 +8,19 @@ use shared::{
     types::CHALLENGE_RESPONSE_LENGTH,
 };
 
-use crate::{db::Database, err_msg, AUTH_MANAGER};
+use crate::{db::Database, handlers::Error, AUTH_MANAGER};
 
 #[handler]
 pub async fn register_begin(
     Json(request): Json<ClientRegistrationRequest>,
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
-    if db
-        .client_exists(request.client_id)
-        .await
-        .map_err(|e| err_msg!(e))?
-    {
-        Err(err_msg!("Client with this public key is already registered"))?;
+    if db.client_exists(request.client_id).await? {
+        Err(Error::ClientAlreadyExists(request.client_id))?;
     }
 
     let auth_manager = AUTH_MANAGER.get().unwrap();
-    let server_challenge = auth_manager
-        .challenge_begin(request.client_id)
-        .map_err(|e| err_msg!(e))?;
+    let server_challenge = auth_manager.challenge_begin(request.client_id)?;
 
     Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
         server_challenge,
@@ -40,18 +34,13 @@ pub async fn register_complete(
 ) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec
     if request.challenge_response.len() != CHALLENGE_RESPONSE_LENGTH {
-        Err(err_msg!("Challenge response is invalid length"))?;
+        Err(Error::BadRequest)?;
     }
 
     let auth_manager = AUTH_MANAGER.get().unwrap();
+    auth_manager.challenge_verify(request.client_id, &request.challenge_response)?;
 
-    auth_manager
-        .challenge_verify(request.client_id, &request.challenge_response)
-        .map_err(|e| err_msg!(e))?;
-
-    db.register_client(request.client_id)
-        .await
-        .map_err(|e| err_msg!(e))?;
+    db.register_client(request.client_id).await?;
 
     // todo nicer print formatting
     println!("Client {:?} registered successfully", request.client_id);

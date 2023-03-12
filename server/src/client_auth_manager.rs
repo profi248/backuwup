@@ -4,11 +4,12 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
 use delay_map::HashMapDelay;
 use ed25519_dalek::{PublicKey, Signature};
 use getrandom::getrandom;
 use shared::types::{ChallengeNonce, ChallengeResponse, ClientId, SessionToken};
+
+use crate::handlers;
 
 const CHALLENGE_EXPIRATION: Duration = Duration::from_secs(30);
 const SESSION_EXPIRATION: Duration = Duration::from_secs(24 * 3600);
@@ -40,7 +41,7 @@ impl ClientAuthManager {
         }
     }
 
-    pub fn challenge_begin(&self, client_id: ClientId) -> anyhow::Result<ChallengeNonce> {
+    pub fn challenge_begin(&self, client_id: ClientId) -> Result<ChallengeNonce, handlers::Error> {
         let mut nonce: ChallengeNonce = Default::default();
         getrandom(&mut nonce)?;
 
@@ -56,12 +57,12 @@ impl ClientAuthManager {
         &self,
         client_id: ClientId,
         response: &ChallengeResponse,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), handlers::Error> {
         let mut data = self.data.lock().expect("Lock failed");
         let nonce = data.challenges.get(&client_id);
 
         if nonce.is_none() {
-            bail!("Challenge for this client is expired or wasn't created");
+            return Err(handlers::Error::ChallengeNotFound);
         };
 
         let client_pubkey = PublicKey::from_bytes(&client_id)?;
@@ -74,7 +75,7 @@ impl ClientAuthManager {
         Ok(())
     }
 
-    pub fn session_start(&self, client_id: ClientId) -> anyhow::Result<SessionToken> {
+    pub fn session_start(&self, client_id: ClientId) -> Result<SessionToken, handlers::Error> {
         let mut token: SessionToken = Default::default();
         getrandom(&mut token)?;
 
@@ -85,15 +86,13 @@ impl ClientAuthManager {
         Ok(token)
     }
 
-    pub fn get_session(&self, token: SessionToken) -> anyhow::Result<Option<ClientId>> {
+    pub fn get_session(&self, token: SessionToken) -> Option<ClientId> {
         let data = self.data.lock().unwrap();
 
-        Ok(data.sessions.get(&token).copied())
+        data.sessions.get(&token).copied()
     }
 
-    pub fn session_clear(&self, token: SessionToken) -> anyhow::Result<()> {
+    pub fn session_clear(&self, token: SessionToken) {
         self.data.lock().expect("Lock failed").sessions.remove(&token);
-
-        Ok(())
     }
 }

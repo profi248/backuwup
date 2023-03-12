@@ -5,7 +5,7 @@ use crate::types::{ChallengeNonce, SessionToken};
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Ok,
-    Error(Error),
+    Error(ErrorType),
     ClientRegistrationChallenge(ClientRegistrationChallenge),
     ClientLoginChallenge(ClientLoginChallenge),
     ClientLoginToken(ClientLoginToken),
@@ -27,15 +27,18 @@ pub struct ClientLoginToken {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Error {
-    AuthError(),
-    Failure(String),
+pub enum ErrorType {
+    AuthError,
+    ClientNotFound,
+    DestinationUnreachable,
+    Retry,
     BadRequest(String),
     ServerError(String),
+    Failure(String),
 }
 
-impl From<serde_json::Error> for Error {
+impl From<serde_json::Error> for ErrorType {
     fn from(e: serde_json::Error) -> Self {
-        Error::BadRequest(e.to_string())
+        ErrorType::BadRequest(e.to_string())
     }
 }

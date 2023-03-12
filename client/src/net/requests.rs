@@ -3,7 +3,7 @@ use shared::{
     client_message::{
         ClientLoginAuth, ClientLoginRequest, ClientRegistrationAuth, ClientRegistrationRequest,
     },
-    server_message::{ClientLoginToken, Error::Failure, ServerMessage},
+    server_message::{ClientLoginToken, ErrorType::Failure, ServerMessage},
     types::{ChallengeNonce, ClientId},
 };
 

@@ -5,7 +5,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
 use shared::{
     client_message::BackupRequest,
     constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
@@ -13,7 +12,7 @@ use shared::{
 };
 use sum_queue::SumQueue;
 
-use crate::CONNECTIONS;
+use crate::{handlers, CONNECTIONS};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
@@ -62,13 +61,13 @@ impl Queue {
     /// new requests come in. As it's a queue, the requests that came first
     /// will be matched first. When processing a request, it is removed and
     /// the requested size is subtracted until it's completely fulfilled.
-    pub async fn fulfill(&self, request: Request) -> anyhow::Result<(bool, Vec<Request>)> {
+    pub async fn fulfill(&self, request: Request) -> Result<(bool, Vec<Request>), handlers::Error> {
         if request.storage_required == 0 {
             return Ok((true, Vec::new()));
         }
 
         if request.storage_required > MAX_BACKUP_STORAGE_REQUEST_SIZE {
-            bail!("Requested storage size exceeds the maximum allowed size");
+            return Err(handlers::Error::BadRequest);
         }
 
         let mut storage_to_fulfill: i64 = request.storage_required as i64;
