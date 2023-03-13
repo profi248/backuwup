@@ -12,7 +12,7 @@ use crate::{identity, CONFIG, LOGGER};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
-pub async fn listen() {
+pub async fn connect_ws() {
     let logger = LOGGER.get().unwrap();
 
     // server reconnection loop

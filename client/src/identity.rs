@@ -1,6 +1,6 @@
 use crate::{
     key_manager::{KeyManager, MasterSecret},
-    net::requests,
+    net_server::requests,
     CONFIG, KEYS,
 };
 

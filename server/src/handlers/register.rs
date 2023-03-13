@@ -16,7 +16,7 @@ pub async fn register_begin(
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     if db.client_exists(request.client_id).await? {
-        Err(Error::ClientExists(request.client_id))?;
+        return Err(Error::ClientExists(request.client_id).into());
     }
 
     let auth_manager = AUTH_MANAGER.get().unwrap();
@@ -34,7 +34,7 @@ pub async fn register_complete(
 ) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec
     if request.challenge_response.len() != CHALLENGE_RESPONSE_LENGTH {
-        Err(Error::BadRequest)?;
+        return Err(Error::BadRequest.into());
     }
 
     let auth_manager = AUTH_MANAGER.get().unwrap();

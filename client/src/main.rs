@@ -7,12 +7,14 @@ mod config;
 mod defaults;
 mod identity;
 mod key_manager;
-mod net;
+mod net_p2p;
+mod net_server;
 mod ui;
 
 use std::{panic, process};
 
 use futures_util::future;
+use net_p2p::receive;
 use reqwest::{Certificate, Client};
 use tokio::sync::{broadcast::channel, OnceCell};
 
@@ -53,12 +55,11 @@ async fn main() {
         .build()
         .unwrap();
 
-    use local_ip_address::local_ip;
+    let (addr, port) = receive::get_listener_address().unwrap();
+    println!("ip: {}", addr);
+    tokio::spawn(receive::listen(port, Default::default(), Default::default()));
 
-    let my_local_ip = local_ip().unwrap();
-    println!("This is my local IP address: {:?}", my_local_ip);
-
-    let tasks = vec![tokio::spawn(net::listen()), tokio::spawn(ui::run())];
+    let tasks = vec![tokio::spawn(net_server::connect_ws()), tokio::spawn(ui::run())];
 
     future::join_all(tasks).await;
 }
