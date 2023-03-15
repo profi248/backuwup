@@ -39,8 +39,12 @@ serde = { version = "1.0.152", features = ["derive"] }
 # Storage
 sqlx = { version = "0.6", features = ["runtime-tokio-rustls", "sqlite"] }
 
+# Data structures
+delay_map = "0.3.0"
+
 # Utils
 anyhow = "1.0.69"
 dirs = "4.0.0"
 async-trait = "0.1.64"
 hex = "0.4.3"
+thiserror = "1.0.39"

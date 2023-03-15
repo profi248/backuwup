@@ -75,7 +75,7 @@ impl Queue {
         let mut fulfilled = true;
 
         while let Some(destination) = self.pop() {
-            // don't match requests from the same client and discard them to avoid infiniteloops
+            // don't match requests from the same client and discard them to avoid infinite loops
             if destination.client_id == request.client_id {
                 continue;
             }

@@ -18,8 +18,11 @@ use net_p2p::receive;
 use reqwest::{Certificate, Client};
 use tokio::sync::{broadcast::channel, OnceCell};
 
-use crate::{config::Config, key_manager::KeyManager, ui::logger::Logger};
+use crate::{
+    config::Config, key_manager::KeyManager, net_p2p::TransportRequestManager, ui::logger::Logger,
+};
 
+static TRANSPORT_REQUESTS: OnceCell<TransportRequestManager> = OnceCell::const_new();
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
 static LOGGER: OnceCell<Logger> = OnceCell::const_new();
 static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
@@ -28,6 +31,8 @@ static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
 async fn main() {
     let config = Config::init().await;
     CONFIG.set(config.clone()).unwrap();
+
+    TRANSPORT_REQUESTS.set(TransportRequestManager::new()).unwrap();
 
     // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
     let orig_hook = panic::take_hook();

@@ -1,14 +1,15 @@
 pub mod requests;
 
 use futures_util::StreamExt;
+use shared::server_message_ws::ServerMessageWs;
 use tokio::{net::TcpStream, time};
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{client::IntoClientRequest, http::StatusCode, Error},
+    tungstenite::{client::IntoClientRequest, http::StatusCode, Error, Message},
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{identity, CONFIG, LOGGER};
+use crate::{identity, net_p2p::receive, CONFIG, LOGGER, TRANSPORT_REQUESTS};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -29,6 +30,10 @@ pub async fn connect_ws() {
                 }
                 Some(Ok(msg)) => {
                     logger.send(format!("[net] message from server: {msg}"));
+
+                    if let Err(e) = process_message(msg).await {
+                        logger.send(format!("[net] error processing the message: {e}"));
+                    }
                 }
                 Some(Err(e)) => {
                     logger.send(format!("[net] Error: {e:?}, will try to reconnect..."));
@@ -37,6 +42,30 @@ pub async fn connect_ws() {
             }
         }
     }
+}
+
+async fn process_message(msg: Message) -> anyhow::Result<()> {
+    let msg: ServerMessageWs = serde_json::from_str(&msg.into_text()?)?;
+
+    match msg {
+        ServerMessageWs::Ping => {}
+        ServerMessageWs::BackupMatched(_) => {}
+        ServerMessageWs::IncomingTransportRequest(data) => {
+            let addr = receive::get_listener_address()?;
+            tokio::spawn(receive::listen(addr.1, data.session_nonce, data.source_client_id));
+        }
+        ServerMessageWs::FinalizeTransportRequest(data) => {
+            // todo pass the transport manager here
+            TRANSPORT_REQUESTS
+                .get()
+                .unwrap()
+                .finalize_request(data.destination_client_id, data.destination_ip_address)
+                .await?;
+        }
+        ServerMessageWs::StorageChallengeRequest(_) => {}
+    }
+
+    Ok(())
 }
 
 async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
