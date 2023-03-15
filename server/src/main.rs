@@ -22,6 +22,7 @@ use crate::{
         backup_request::make_backup_request,
         login::{login_begin, login_complete},
         register::{register_begin, register_complete},
+        transport_request::{transport_begin, transport_confirm},
     },
     ws::ClientConnections,
 };
@@ -48,8 +49,8 @@ async fn main() {
         .at("/login/begin", login_begin.data(db.clone()))
         .at("/login/complete", login_complete.data(db.clone()))
         .at("/backups/request", make_backup_request)
-        // .at("/backups/transfer/begin", None)
-        // .at("/backups/transfer/confirm", None)
+        .at("/backups/transfer/begin", transport_begin.data(db.clone()))
+        .at("/backups/transfer/confirm", transport_confirm.data(db.clone()))
         .at("/ws", ws::handler.data(db));
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));

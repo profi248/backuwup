@@ -1,5 +1,3 @@
-use std::net::IpAddr;
-
 use serde::{Deserialize, Serialize};
 
 use crate::types::{ChallengeResponse, ClientId, SessionToken, TransportSessionNonce};
@@ -53,5 +51,5 @@ pub struct BeginTransportRequest {
 pub struct ConfirmTransportRequest {
     pub session_token: SessionToken,
     pub source_client_id: ClientId,
-    pub destination_ip_address: IpAddr,
+    pub destination_ip_address: String,
 }

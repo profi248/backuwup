@@ -1,5 +1,3 @@
-use std::net::IpAddr;
-
 use serde::{Deserialize, Serialize};
 
 use crate::types::{ClientId, TransportSessionNonce};
@@ -27,8 +25,8 @@ pub struct IncomingTransportRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FinalizeTransportRequest {
-    destination_client_id: ClientId,
-    destination_ip_address: IpAddr,
+    pub destination_client_id: ClientId,
+    pub destination_ip_address: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
