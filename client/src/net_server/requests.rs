@@ -3,7 +3,7 @@ use shared::{
     client_message::{
         ClientLoginAuth, ClientLoginRequest, ClientRegistrationAuth, ClientRegistrationRequest,
     },
-    server_message::{ClientLoginToken, ErrorType::Failure, ServerMessage},
+    server_message::{ClientLoginToken, ServerMessage},
     types::{ChallengeNonce, ClientId},
 };
 
@@ -20,7 +20,7 @@ pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> 
 
     match response.json().await? {
         ServerMessage::ClientRegistrationChallenge(msg) => Ok(msg.server_challenge),
-        ServerMessage::Error(Failure(e)) => bail!(e),
+        ServerMessage::Error(e) => bail!(format!("{e:?}")),
         _ => bail!("unexpected response"),
     }
 }
@@ -39,7 +39,7 @@ pub async fn register_complete(pubkey: ClientId, response: Signature) -> anyhow:
 
     match response.json().await? {
         ServerMessage::Ok => Ok(()),
-        ServerMessage::Error(Failure(e)) => bail!(e),
+        ServerMessage::Error(e) => bail!(format!("{e:?}")),
         _ => bail!("unexpected response"),
     }
 }
@@ -55,7 +55,7 @@ pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
 
     match response.json().await? {
         ServerMessage::ClientLoginChallenge(msg) => Ok(msg.server_challenge),
-        ServerMessage::Error(Failure(e)) => bail!(e),
+        ServerMessage::Error(e) => bail!(format!("{e:?}")),
         _ => bail!("unexpected response"),
     }
 }
@@ -77,7 +77,7 @@ pub async fn login_complete(
 
     match response.json().await? {
         ServerMessage::ClientLoginToken(token) => Ok(token),
-        ServerMessage::Error(Failure(e)) => bail!(e),
+        ServerMessage::Error(e) => bail!(format!("{e:?}")),
         _ => bail!("unexpected response"),
     }
 }
