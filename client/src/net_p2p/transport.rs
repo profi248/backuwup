@@ -1,4 +1,5 @@
 use futures_util::SinkExt;
+use sha2::{Digest, Sha256};
 use shared::{
     p2p_message::{BackupChunkBody, EncapsulatedBackupChunk},
     types::TransportSessionNonce,
@@ -27,9 +28,14 @@ impl BackupTransportManager {
     }
 
     pub async fn send_data(&mut self, data: Vec<u8>) -> anyhow::Result<()> {
+        let mut hasher = Sha256::new();
+        hasher.update(&data);
+        let hash = hasher.finalize();
+
         let body = BackupChunkBody {
             sequence_number: self.msg_counter,
             session_nonce: self.session_nonce,
+            hash: hash.into(),
             data,
         };
 

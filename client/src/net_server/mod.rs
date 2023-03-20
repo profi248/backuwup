@@ -9,7 +9,7 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{identity, net_p2p::receive, CONFIG, LOGGER, TRANSPORT_REQUESTS};
+use crate::{identity, packfile_receiver, CONFIG, LOGGER, TRANSPORT_REQUESTS};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -31,9 +31,7 @@ pub async fn connect_ws() {
                 Some(Ok(msg)) => {
                     logger.send(format!("[net] message from server: {msg}"));
 
-                    if let Err(e) = process_message(msg).await {
-                        logger.send(format!("[net] error processing the message: {e}"));
-                    }
+                    process_message(msg).await;
                 }
                 Some(Err(e)) => {
                     logger.send(format!("[net] Error: {e:?}, will try to reconnect..."));
@@ -44,28 +42,50 @@ pub async fn connect_ws() {
     }
 }
 
-async fn process_message(msg: Message) -> anyhow::Result<()> {
-    let msg: ServerMessageWs = serde_json::from_str(&msg.into_text()?)?;
+async fn process_message(msg: Message) {
+    // process the message in a separate task
+    tokio::spawn(async {
+        let text = match msg.into_text() {
+            Ok(text) => text,
+            Err(e) => {
+                LOGGER
+                    .get()
+                    .unwrap()
+                    .send(format!("[net] Received invalid message: {e}"));
+                return;
+            }
+        };
 
-    match msg {
-        ServerMessageWs::Ping => {}
-        ServerMessageWs::BackupMatched(_) => {}
-        ServerMessageWs::IncomingTransportRequest(data) => {
-            let addr = receive::get_listener_address()?;
-            tokio::spawn(receive::listen(addr.1, data.session_nonce, data.source_client_id));
-        }
-        ServerMessageWs::FinalizeTransportRequest(data) => {
-            // todo pass the transport manager here
-            TRANSPORT_REQUESTS
-                .get()
-                .unwrap()
-                .finalize_request(data.destination_client_id, data.destination_ip_address)
-                .await?;
-        }
-        ServerMessageWs::StorageChallengeRequest(_) => {}
-    }
+        let msg: Result<ServerMessageWs, serde_json::Error> = serde_json::from_str(&text);
 
-    Ok(())
+        match msg {
+            Ok(ServerMessageWs::Ping) => {}
+            Ok(ServerMessageWs::BackupMatched(_)) => {}
+            Ok(ServerMessageWs::IncomingTransportRequest(request)) => {
+                if let Err(e) = packfile_receiver::receive_request(request).await {
+                    LOGGER
+                        .get()
+                        .unwrap()
+                        .send(format!("[net] Error processing incoming transport request: {e}"));
+                };
+            }
+            Ok(ServerMessageWs::FinalizeTransportRequest(data)) => {
+                // todo pass the transport manager here
+                // TRANSPORT_REQUESTS
+                //     .get()
+                //     .unwrap()
+                //     .finalize_request(data.destination_client_id, data.destination_ip_address)
+                //     .await.unwrap();
+            }
+            Ok(ServerMessageWs::StorageChallengeRequest(_)) => {}
+            Err(e) => {
+                LOGGER
+                    .get()
+                    .unwrap()
+                    .send(format!("[net] Decoding message failed: {e}"));
+            }
+        }
+    });
 }
 
 async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<TcpStream>> {

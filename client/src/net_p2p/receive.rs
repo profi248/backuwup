@@ -4,17 +4,18 @@ use futures_util::StreamExt;
 use portpicker::pick_unused_port;
 use shared::{
     p2p_message::{BackupChunkBody, EncapsulatedBackupChunk, MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE},
-    types::{ClientId, TransportSessionNonce},
+    types::{ClientId, PackfileHash, TransportSessionNonce},
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
-use crate::LOGGER;
+use crate::{packfile_receiver::Receiver, LOGGER};
 
 pub async fn listen(
     port: u16,
     session_nonce: TransportSessionNonce,
     source_pubkey: ClientId,
+    receiver: Receiver,
 ) -> anyhow::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     LOGGER
@@ -29,7 +30,7 @@ pub async fn listen(
         .unwrap()
         .send(format!("[p2p] Incoming connection from {peer_addr}"));
 
-    receive_handle_incoming(stream, session_nonce, source_pubkey)
+    receive_handle_incoming(stream, session_nonce, source_pubkey, receiver)
         .await
         .unwrap();
 
@@ -51,6 +52,7 @@ async fn receive_handle_incoming(
     stream: TcpStream,
     session_nonce: TransportSessionNonce,
     source_pubkey: ClientId,
+    receiver: Receiver,
 ) -> anyhow::Result<()> {
     let mut stream = accept_async(stream).await?;
 
@@ -58,10 +60,14 @@ async fn receive_handle_incoming(
     loop {
         match stream.next().await {
             Some(Ok(msg)) => {
-                let data =
-                    validate_incoming_message(session_nonce, &source_pubkey, &mut msg_counter, msg);
+                let (hash, data) = validate_incoming_message(
+                    session_nonce,
+                    &source_pubkey,
+                    &mut msg_counter,
+                    msg,
+                )?;
 
-                println!("{:?}", data?);
+                receiver.save_packfile(hash, data).await?;
             }
             None => break,
             Some(Err(e)) => return Err(e.into()),
@@ -76,7 +82,7 @@ fn validate_incoming_message(
     source_pubkey: &ClientId,
     msg_counter: &mut u64,
     msg: Message,
-) -> anyhow::Result<Vec<u8>> {
+) -> anyhow::Result<(PackfileHash, Vec<u8>)> {
     // drop the message if basic requirements are not met
     if !msg.is_binary() || msg.len() > MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE {
         bail!("Protocol violation");
@@ -100,5 +106,5 @@ fn validate_incoming_message(
 
     *msg_counter += 1;
 
-    Ok(body.data)
+    Ok((body.hash, body.data))
 }

@@ -61,10 +61,6 @@ async fn main() {
         .build()
         .unwrap();
 
-    let (addr, port) = receive::get_listener_address().unwrap();
-    println!("ip: {}", addr);
-    tokio::spawn(receive::listen(port, Default::default(), Default::default()));
-
     let tasks = vec![tokio::spawn(net_server::connect_ws()), tokio::spawn(ui::run())];
 
     future::join_all(tasks).await;
