@@ -9,6 +9,7 @@ mod identity;
 mod key_manager;
 mod net_p2p;
 mod net_server;
+mod packfile_receiver;
 mod ui;
 
 use std::{panic, process};

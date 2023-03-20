@@ -3,6 +3,10 @@ pub const UI_BIND_IP: &str = "127.0.0.1:3000";
 pub const CONFIG_FOLDER: &str = "p2p-backup";
 pub const CONFIG_DB_FILE: &str = "config.db";
 
+pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";
+
+pub const PEER_STORAGE_USAGE_SPREAD: u64 = 33_554_432; // 32 MiB
+
 pub const SERVER_ROOT_TLS_CERT_PEM: &str = "\
 -----BEGIN CERTIFICATE-----
 MIIFsTCCA5mgAwIBAgIUFdA9iEgohQg+/FzyLh+4zqGGv1AwDQYJKoZIhvcNAQEL
