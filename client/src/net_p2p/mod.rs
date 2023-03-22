@@ -5,8 +5,13 @@ use std::{
 };
 
 use delay_map::HashMapDelay;
-use shared::types::{ClientId, TransportSessionNonce};
+use getrandom::getrandom;
+use shared::{
+    p2p_message::MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE,
+    types::{ClientId, TransportSessionNonce},
+};
 use tokio::sync::Mutex;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
 use crate::net_p2p::transport::BackupTransportManager;
 
@@ -36,9 +41,14 @@ impl TransportRequestManager {
         }
     }
 
-    pub async fn add_request(&self, client_id: ClientId, session_nonce: TransportSessionNonce) {
+    pub async fn add_request(&self, client_id: ClientId) -> anyhow::Result<TransportSessionNonce> {
+        let mut session_nonce: TransportSessionNonce = Default::default();
+        getrandom(&mut session_nonce)?;
+
         let mut requests = self.requests.lock().await;
         requests.insert(client_id, TransportRequest { session_nonce });
+
+        Ok(session_nonce)
     }
 
     pub async fn finalize_request(
@@ -53,5 +63,14 @@ impl TransportRequestManager {
             }
             None => Ok(None),
         }
+    }
+}
+
+fn get_ws_config() -> WebSocketConfig {
+    WebSocketConfig {
+        max_send_queue: None,
+        max_message_size: Some(MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE),
+        max_frame_size: Some(MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE),
+        accept_unmasked_frames: false,
     }
 }

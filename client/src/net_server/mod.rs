@@ -69,13 +69,22 @@ async fn process_message(msg: Message) {
                         .send(format!("[net] Error processing incoming transport request: {e}"));
                 };
             }
-            Ok(ServerMessageWs::FinalizeTransportRequest(data)) => {
-                // todo pass the transport manager here
-                // TRANSPORT_REQUESTS
-                //     .get()
-                //     .unwrap()
-                //     .finalize_request(data.destination_client_id, data.destination_ip_address)
-                //     .await.unwrap();
+            Ok(ServerMessageWs::FinalizeTransportRequest(request)) => {
+                // todo temp test
+                let mut mgr = TRANSPORT_REQUESTS
+                    .get()
+                    .unwrap()
+                    .finalize_request(request.destination_client_id, request.destination_ip_address)
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                for i in 0..10 {
+                    mgr.send_data(vec![i]).await.unwrap();
+                    time::sleep(time::Duration::from_secs(5)).await;
+                }
+
+                mgr.done().await.unwrap();
             }
             Ok(ServerMessageWs::StorageChallengeRequest(_)) => {}
             Err(e) => {

@@ -31,7 +31,10 @@ pub async fn transport_begin(
     let destination_client_id = request.destination_client_id;
     let session_nonce = request.session_nonce;
 
-    if db.client_exists(destination_client_id).await? {
+    println!("backup transport begin request received to {destination_client_id:?}");
+
+    if !db.client_exists(destination_client_id).await? {
+        println!("{destination_client_id:?} doesn't exist");
         Err(ClientNotFound(destination_client_id))?;
     }
 
@@ -68,7 +71,7 @@ pub async fn transport_confirm(
         return Err(BadRequest.into());
     }
 
-    if db.client_exists(source_client_id).await? {
+    if !db.client_exists(source_client_id).await? {
         return Err(ClientNotFound(source_client_id).into());
     }
 

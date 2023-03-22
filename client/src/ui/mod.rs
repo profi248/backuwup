@@ -6,7 +6,7 @@ use rust_embed::RustEmbed;
 
 use crate::cli;
 
-pub async fn run() {
+pub async fn run(bind_addr: String) {
     #[derive(RustEmbed)]
     #[folder = "static"]
     struct Static;
@@ -15,9 +15,9 @@ pub async fn run() {
         .nest("/", EmbeddedFilesEndpoint::<Static>::new())
         .at("/ws", ws::handler);
 
-    let listener = TcpListener::bind(crate::defaults::UI_BIND_IP);
+    let listener = TcpListener::bind(&bind_addr);
     let server = Server::new(listener);
 
-    cli::print_server_url(crate::defaults::UI_BIND_IP);
+    cli::print_server_url(&bind_addr);
     server.run(app).await.unwrap();
 }

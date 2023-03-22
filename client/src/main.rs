@@ -12,15 +12,15 @@ mod net_server;
 mod packfile_receiver;
 mod ui;
 
-use std::{panic, process};
+use std::{env, panic, process};
 
 use futures_util::future;
-use net_p2p::receive;
 use reqwest::{Certificate, Client};
 use tokio::sync::{broadcast::channel, OnceCell};
 
 use crate::{
-    config::Config, key_manager::KeyManager, net_p2p::TransportRequestManager, ui::logger::Logger,
+    config::Config, key_manager::KeyManager, net_p2p::TransportRequestManager,
+    net_server::requests, ui::logger::Logger,
 };
 
 static TRANSPORT_REQUESTS: OnceCell<TransportRequestManager> = OnceCell::const_new();
@@ -61,7 +61,22 @@ async fn main() {
         .build()
         .unwrap();
 
-    let tasks = vec![tokio::spawn(net_server::connect_ws()), tokio::spawn(ui::run())];
+    let ui_bind_addr = env::var("UI_BIND_ADDR").unwrap_or(defaults::UI_BIND_ADDR.to_string());
+
+    let tasks = vec![tokio::spawn(net_server::connect_ws()), tokio::spawn(ui::run(ui_bind_addr))];
+
+    // todo debug code
+    // vvvvv
+    if env::var("DEBUG_TRANSPORT").unwrap_or("0".to_string()) == "1" {
+        println!("starting backup request");
+        let cid = [
+            42, 225, 115, 45, 238, 52, 91, 65, 171, 240, 177, 39, 64, 140, 204, 167, 29, 168, 4,
+            116, 4, 14, 137, 22, 88, 223, 193, 253, 191, 39, 118, 118,
+        ];
+        let nonce = TRANSPORT_REQUESTS.get().unwrap().add_request(cid).await.unwrap();
+        requests::backup_transport_begin(cid, nonce).await.unwrap();
+    }
+    // ^^^^^
 
     future::join_all(tasks).await;
 }

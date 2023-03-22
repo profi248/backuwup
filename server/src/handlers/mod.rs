@@ -9,6 +9,7 @@ use shared::{
     server_message::ErrorType,
     types::{ClientId, SessionToken},
 };
+use shared::server_message::ServerMessage;
 
 use crate::AUTH_MANAGER;
 
@@ -70,7 +71,8 @@ impl ResponseError for Error {
             Error::ClientNotFound(_) => ErrorType::DestinationUnreachable,
         };
 
-        let body = Body::from_json(msg).expect("Failed to serialize response");
+        println!("[err] sending error response to client: {msg:?}");
+        let body = Body::from_json(ServerMessage::Error(msg)).expect("Failed to serialize response");
         Response::builder().status(self.status()).body(body)
     }
 }

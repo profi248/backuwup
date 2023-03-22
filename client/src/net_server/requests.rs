@@ -23,8 +23,8 @@ pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> 
 
     match response.json().await? {
         ServerMessage::ClientRegistrationChallenge(msg) => Ok(msg.server_challenge),
-        ServerMessage::Error(e) => bail!(format!("{e:?}")),
-        _ => bail!("unexpected response"),
+        ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+        _ => bail!("Unexpected response"),
     }
 }
 
@@ -42,8 +42,8 @@ pub async fn register_complete(pubkey: ClientId, response: Signature) -> anyhow:
 
     match response.json().await? {
         ServerMessage::Ok => Ok(()),
-        ServerMessage::Error(e) => bail!(format!("{e:?}")),
-        _ => bail!("unexpected response"),
+        ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+        _ => bail!("Unexpected response"),
     }
 }
 
@@ -58,8 +58,8 @@ pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
 
     match response.json().await? {
         ServerMessage::ClientLoginChallenge(msg) => Ok(msg.server_challenge),
-        ServerMessage::Error(e) => bail!(format!("{e:?}")),
-        _ => bail!("unexpected response"),
+        ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+        _ => bail!("Unexpected response"),
     }
 }
 
@@ -80,8 +80,8 @@ pub async fn login_complete(
 
     match response.json().await? {
         ServerMessage::ClientLoginToken(token) => Ok(token),
-        ServerMessage::Error(e) => bail!(format!("{e:?}")),
-        _ => bail!("unexpected response"),
+        ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+        _ => bail!("Unexpected response"),
     }
 }
 
@@ -98,7 +98,7 @@ pub async fn backup_transport_begin(
         let token = config.load_auth_token().await?;
         if token.is_some() {
             let response = client
-                .post(url("backup/transport/begin"))
+                .post(url("backups/transport/begin"))
                 .json(&BeginTransportRequest {
                     session_token: token.unwrap(),
                     destination_client_id,
@@ -113,8 +113,8 @@ pub async fn backup_transport_begin(
                     config.save_auth_token(None).await?;
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
-                ServerMessage::Error(e) => bail!(format!("{e:?}")),
-                _ => bail!("unexpected response"),
+                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+                _ => bail!("Unexpected response"),
             };
         } else {
             identity::login().await?;
@@ -137,7 +137,7 @@ pub async fn backup_transport_confirm(
         let token = config.load_auth_token().await?;
         if token.is_some() {
             let response = client
-                .post(url("backup/transport/confirm"))
+                .post(url("backups/transport/confirm"))
                 .json(&ConfirmTransportRequest {
                     session_token: token.unwrap(),
                     source_client_id,
@@ -152,8 +152,8 @@ pub async fn backup_transport_confirm(
                     config.save_auth_token(None).await?;
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
-                ServerMessage::Error(e) => bail!(format!("{e:?}")),
-                _ => bail!("unexpected response"),
+                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+                _ => bail!("Unexpected response"),
             };
         } else {
             identity::login().await?;

@@ -5,7 +5,7 @@ use crate::types::{MessageSignature, PackfileHash, TransportSessionNonce};
 pub const MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE: usize = 8 * 1_048_576; // 8 MiB
 
 #[derive(Serialize, Deserialize)]
-pub struct EncapsulatedBackupChunk {
+pub struct EncapsulatedPackfile {
     // bincode-encoded BackupChunkBody
     pub body: Vec<u8>,
     // Ed25519 signature of bytes of body
@@ -13,7 +13,7 @@ pub struct EncapsulatedBackupChunk {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct BackupChunkBody {
+pub struct PackfileBody {
     pub sequence_number: u64,
     pub session_nonce: TransportSessionNonce,
     pub hash: PackfileHash,

@@ -66,7 +66,7 @@ impl ClientAuthManager {
         };
 
         let client_pubkey = PublicKey::from_bytes(&client_id)?;
-        let signature = Signature::from_bytes(&response)?;
+        let signature = Signature::from_bytes(response)?;
 
         // use the newer, stricter method to verify whether the signature is valid
         client_pubkey.verify_strict(nonce.unwrap(), &signature)?;

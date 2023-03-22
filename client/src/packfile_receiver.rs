@@ -32,6 +32,7 @@ impl Receiver {
         if path.try_exists()? {
             bail!("Packfile hash collision");
         }
+
         fs::write(path, data)?;
 
         Ok(())

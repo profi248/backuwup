@@ -3,13 +3,13 @@ use ed25519_dalek::{PublicKey, Signature};
 use futures_util::StreamExt;
 use portpicker::pick_unused_port;
 use shared::{
-    p2p_message::{BackupChunkBody, EncapsulatedBackupChunk, MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE},
+    p2p_message::{EncapsulatedPackfile, PackfileBody},
     types::{ClientId, PackfileHash, TransportSessionNonce},
 };
 use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::{accept_async, tungstenite::Message};
+use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
 
-use crate::{packfile_receiver::Receiver, LOGGER};
+use crate::{net_p2p::get_ws_config, packfile_receiver::Receiver, LOGGER};
 
 pub async fn listen(
     port: u16,
@@ -32,6 +32,7 @@ pub async fn listen(
 
     receive_handle_incoming(stream, session_nonce, source_pubkey, receiver)
         .await
+        // todo don't panic, just log the error
         .unwrap();
 
     Ok(())
@@ -54,22 +55,30 @@ async fn receive_handle_incoming(
     source_pubkey: ClientId,
     receiver: Receiver,
 ) -> anyhow::Result<()> {
-    let mut stream = accept_async(stream).await?;
+    let mut stream = accept_async_with_config(stream, Some(get_ws_config())).await?;
 
     let mut msg_counter: u64 = 0;
     loop {
         match stream.next().await {
-            Some(Ok(msg)) => {
+            Some(Ok(Message::Binary(msg))) => {
                 let (hash, data) = validate_incoming_message(
                     session_nonce,
                     &source_pubkey,
                     &mut msg_counter,
-                    msg,
+                    &msg,
                 )?;
 
+                LOGGER
+                    .get()
+                    .unwrap()
+                    .send(format!("[p2p] received packfile {}", hex::encode(hash)));
                 receiver.save_packfile(hash, data).await?;
             }
-            None => break,
+            Some(Ok(Message::Close(_))) | None => {
+                LOGGER.get().unwrap().send("[p2p] transport finished");
+                break;
+            }
+            Some(Ok(_)) => return Err(anyhow!("Invalid message type received")),
             Some(Err(e)) => return Err(e.into()),
         }
     }
@@ -81,14 +90,9 @@ fn validate_incoming_message(
     session_nonce: TransportSessionNonce,
     source_pubkey: &ClientId,
     msg_counter: &mut u64,
-    msg: Message,
+    encapsulated_data: &[u8],
 ) -> anyhow::Result<(PackfileHash, Vec<u8>)> {
-    // drop the message if basic requirements are not met
-    if !msg.is_binary() || msg.len() > MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE {
-        bail!("Protocol violation");
-    }
-
-    let encapsulated: EncapsulatedBackupChunk = bincode::deserialize(&msg.into_data())?;
+    let encapsulated: EncapsulatedPackfile = bincode::deserialize(&encapsulated_data)?;
 
     // verify signature on the bytes of the body
     let source_pubkey = PublicKey::from_bytes(source_pubkey)?;
@@ -96,7 +100,7 @@ fn validate_incoming_message(
     source_pubkey.verify_strict(&encapsulated.body, &signature)?;
 
     // decode the actual body
-    let body: BackupChunkBody = bincode::deserialize(&encapsulated.body)?;
+    let body: PackfileBody = bincode::deserialize(&encapsulated.body)?;
 
     // check header to enforce replay protection, random nonce has to match in the session,
     // and the sequence number has to be in order
