@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::redundant_else)]
 
+mod backup;
 mod cli;
 mod config;
 mod defaults;

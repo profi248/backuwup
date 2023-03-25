@@ -9,15 +9,21 @@ edition = "2021"
 shared = { path = "../shared" }
 
 # Crypto
+aes-gcm = { version = "0.10.1", features = ["std"] }
 ed25519-dalek = "1.0.1"
 rand_chacha = "0.3.1"
 getrandom = "0.2.8"
 sha2 = "0.10.6"
+hkdf = "0.12.3"
+
+# Backups
+zstd = { version = "0.12.3", features = ["experimental"] }
 
 # Async runtime
 tokio = { version = "1.25.0", features = ["full"] }
 futures-util = "0.3.26"
 futures = "0.3.26"
+tokio-stream = "0.1.12"
 
 # Networking
 tokio-tungstenite = { version = "0.18.0", features = ["rustls-tls-native-roots"] }

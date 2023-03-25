@@ -72,6 +72,7 @@ async fn receive_handle_incoming(
                     .get()
                     .unwrap()
                     .send(format!("[p2p] received packfile {}", hex::encode(hash)));
+
                 receiver.save_packfile(hash, data).await?;
             }
             Some(Ok(Message::Close(_))) | None => {
@@ -92,7 +93,7 @@ fn validate_incoming_message(
     msg_counter: &mut u64,
     encapsulated_data: &[u8],
 ) -> anyhow::Result<(PackfileHash, Vec<u8>)> {
-    let encapsulated: EncapsulatedPackfile = bincode::deserialize(&encapsulated_data)?;
+    let encapsulated: EncapsulatedPackfile = bincode::deserialize(encapsulated_data)?;
 
     // verify signature on the bytes of the body
     let source_pubkey = PublicKey::from_bytes(source_pubkey)?;

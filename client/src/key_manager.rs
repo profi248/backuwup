@@ -2,10 +2,12 @@ use std::fmt::{Debug, Formatter};
 
 use ed25519_dalek::{Keypair, SecretKey, Signer};
 use getrandom::getrandom;
+use hkdf::Hkdf;
 use rand_chacha::{
     rand_core::{RngCore, SeedableRng},
     ChaCha20Rng,
 };
+use sha2::Sha256;
 
 pub type MasterSecret = [u8; 32];
 pub type PubkeyBytes = [u8; 32];
@@ -73,5 +75,13 @@ impl KeyManager {
 
     pub fn sign(&self, data: &[u8]) -> Signature {
         self.signature_keypair.sign(data).to_bytes()
+    }
+
+    pub fn derive_backup_key(&self, info: &[u8]) -> SymmetricKey {
+        let kdf = Hkdf::<Sha256>::from_prk(&self.backup_secret_key).unwrap();
+        let mut output: SymmetricKey = Default::default();
+        kdf.expand(info, &mut output).unwrap();
+
+        output
     }
 }
