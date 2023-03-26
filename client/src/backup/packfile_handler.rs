@@ -14,11 +14,11 @@ use super::{
 use crate::KEYS;
 
 /// Maximum size of blob data that's allowed in a packfile.
-pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 3 * 1024 * 1024; // 3 MiB
+pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 /// Total blob size, after which it's attempted to write the packfile to disk.
-pub const PACKFILE_TARGET_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
+pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 /// Maximum possible size of a packfile.
-pub const PACKFILE_MAX_SIZE: usize = 12 * 1024 * 1024; // 12 MiB
+pub const PACKFILE_MAX_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
 /// Maximum number of blobs that can be stored in a packfile.
 pub const PACKFILE_MAX_BLOBS: usize = 100_000;
 
@@ -76,7 +76,7 @@ pub struct PackfileHandler {
 impl PackfileHandler {
     pub async fn new(output_path: String) -> Result<Self, PackfileError> {
         let packfile_path = format!("{output_path}/{PACKFILE_FOLDER}");
-        let index_path = format!("{output_path}/INDEX_FOLDER");
+        let index_path = format!("{output_path}/{INDEX_FOLDER}");
 
         Ok(Self {
             output_path: packfile_path,
@@ -87,6 +87,7 @@ impl PackfileHandler {
     }
 
     pub async fn add_blob(&mut self, blob: Blob) -> Result<(), PackfileError> {
+        println!("add blob!! {:?}", blob.hash);
         if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
             return Err(PackfileError::BlobTooLarge);
         }
@@ -163,6 +164,7 @@ impl PackfileHandler {
     }
 
     pub async fn flush(&mut self) -> Result<(), PackfileError> {
+        println!("flush!!");
         self.write_packfiles().await?;
         self.index.flush().await?;
         self.dirty = false;
@@ -263,7 +265,7 @@ impl PackfileHandler {
 
             let mut header: Vec<u8> =
                 bincode::options().with_varint_encoding().serialize(&header)?;
-            cipher.encrypt_in_place(&Nonce::from_slice(&packfile_id), b"", &mut header)?;
+            cipher.encrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header)?;
 
             let mut buffer: Vec<u8> =
                 Vec::with_capacity(core::mem::size_of::<u64>() + header.len() + bytes_written);

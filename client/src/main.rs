@@ -1,6 +1,6 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::redundant_else)]
+#![allow(clippy::redundant_else, clippy::too_many_lines, dead_code)]
 
 mod backup;
 mod cli;
@@ -77,6 +77,12 @@ async fn main() {
         let nonce = TRANSPORT_REQUESTS.get().unwrap().add_request(cid).await.unwrap();
         requests::backup_transport_begin(cid, nonce).await.unwrap();
     }
+
+    if env::var("DEBUG_WALK").unwrap_or("0".to_string()) == "1" {
+        backup::walker::walk().await.unwrap();
+        std::process::exit(0);
+    }
+
     // ^^^^^
 
     future::join_all(tasks).await;

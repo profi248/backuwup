@@ -1,7 +1,14 @@
 pub mod blob_index;
+pub mod file_chunker;
 pub mod packfile_handler;
+pub mod walker;
 
-use std::ffi::OsString;
+use std::{
+    ffi::OsString,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,18 +20,20 @@ pub enum BlobKind {
     FileChunk,
     Tree,
 }
+
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum CompressionKind {
     None,
     Zstd,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum TreeKind {
     File,
     Dir,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 struct PackfileBlob {
     hash: BlobHash,
     kind: BlobKind,
@@ -33,25 +42,28 @@ struct PackfileBlob {
     offset: u64,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct Blob {
     pub hash: BlobHash,
     pub kind: BlobKind,
     pub data: Vec<u8>,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 struct Snapshot {
     id: u64,
     timestamp: u64,
     tree: BlobHash,
 }
 
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug, Default)]
 struct TreeMetadata {
     size: Option<u64>,
     mtime: Option<u64>,
     ctime: Option<u64>,
 }
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 struct Tree {
     kind: TreeKind,
     name: String,
@@ -59,6 +71,63 @@ struct Tree {
     children: Vec<BlobHash>,
     next_sibling: Option<BlobHash>,
 }
+
+#[derive(Default, Debug)]
+struct DirTreeMem {
+    // todo fill in the name properly
+    name: String,
+    // todo fill in metadata properly
+    metadata: TreeMetadata,
+    children: Vec<Arc<Mutex<TreeFuture>>>,
+}
+
+#[derive(Debug)]
+enum TreeFutureState {
+    Unexplored(PathBuf),
+    Explored(DirTreeMem),
+    Completed(BlobHash)
+}
+
+#[derive(Debug)]
+struct TreeFuture {
+    data: TreeFutureState
+}
+
+impl TreeFuture {
+    fn new_path(path: impl Into<PathBuf>) -> Self {
+        TreeFuture { data: TreeFutureState::Unexplored(path.into()) }
+    }
+
+    fn wrapped_new(path: impl Into<PathBuf>) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self::new_path(path)))
+    }
+
+    fn wrapped_new_visited(path: impl Into<PathBuf>) -> Arc<Mutex<Self>> {
+        let future = Self {
+            data: TreeFutureState::Explored(DirTreeMem::default())
+        };
+
+        Arc::new(Mutex::new(future))
+    }
+
+    fn unexplored_get_path(&self) -> &PathBuf {
+        if let TreeFutureState::Unexplored(path) = &self.data {
+            path
+        } else {
+            panic!("Invalid Unexplored tree future state");
+        }
+    }
+
+    fn explored_get_tree(&mut self) -> &mut DirTreeMem {
+        if let TreeFutureState::Explored(ref mut tree) = &mut self.data {
+            tree
+        } else {
+            panic!("Invalid Explored tree future state");
+        }
+    }
+}
+
+
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackfileError {
