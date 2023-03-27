@@ -7,14 +7,13 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
 };
 use zstd::bulk::{Compressor, Decompressor};
+use crate::defaults::BLOB_MAX_UNCOMPRESSED_SIZE;
 
 use super::{
     blob_index::BlobIndex, Blob, BlobHash, CompressionKind, PackfileBlob, PackfileError, PackfileId,
 };
 use crate::KEYS;
 
-/// Maximum size of blob data that's allowed in a packfile.
-pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 /// Maximum possible size of a packfile.
@@ -87,7 +86,6 @@ impl PackfileHandler {
     }
 
     pub async fn add_blob(&mut self, blob: Blob) -> Result<(), PackfileError> {
-        println!("add blob!! {:?}", blob.hash);
         if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
             return Err(PackfileError::BlobTooLarge);
         }
@@ -164,7 +162,6 @@ impl PackfileHandler {
     }
 
     pub async fn flush(&mut self) -> Result<(), PackfileError> {
-        println!("flush!!");
         self.write_packfiles().await?;
         self.index.flush().await?;
         self.dirty = false;

@@ -11,7 +11,17 @@ use fastcdc::v2020::StreamCDC;
 use pathdiff::diff_paths;
 use sha2::{Digest, Sha256};
 
-use crate::backup::{packfile_handler::PackfileHandler, Blob, BlobHash, BlobKind, DirTreeMem, Tree, TreeFuture, TreeKind, TreeMetadata, TreeFutureState};
+/// Maximum amount of children before it's split off to a sibling. This is to prevent the blob from
+/// growing too big and exceeding the maximum size, as well as for effective deduplication.
+const TREE_BLOB_MAX_CHILDREN: usize = 10_000;
+
+use crate::{
+    backup::{
+        packfile_handler::PackfileHandler, Blob, BlobHash, BlobKind, DirTreeMem, Tree, TreeFuture,
+        TreeFutureState, TreeKind, TreeMetadata,
+    },
+    defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
+};
 
 pub async fn walk() -> anyhow::Result<()> {
     let mut packer = PackfileHandler::new("/home/david/_packs".to_string())
@@ -71,8 +81,10 @@ pub async fn walk() -> anyhow::Result<()> {
             Some(tree) => {
                 {
                     let mut guard = tree.lock().unwrap();
-                    iter = fs::read_dir(PathBuf::from(root_path).join(guard.unexplored_get_path()))?;
-                    guard.deref_mut().data = TreeFutureState::Explored(DirTreeMem::default());
+                    let rel_path = guard.unexplored_get_path().clone();
+                    iter =
+                        fs::read_dir(PathBuf::from(root_path).join(rel_path.clone()))?;
+                    guard.deref_mut().set_visited_with_path(rel_path);
                 }
 
                 curr_tree = tree;
@@ -90,10 +102,7 @@ pub async fn walk() -> anyhow::Result<()> {
             guard.unexplored_get_path().clone()
         };
 
-        let filename = path
-            .file_name()
-            .unwrap_or_else(|| "".as_ref())
-            .to_string_lossy();
+        let filename = path.file_name().unwrap_or_else(|| "".as_ref()).to_string_lossy();
 
         let mut file_tree = Tree {
             kind: TreeKind::File,
@@ -108,7 +117,12 @@ pub async fn walk() -> anyhow::Result<()> {
         };
 
         let source = File::open(PathBuf::from(root_path).join(&path)).unwrap();
-        let chunker = StreamCDC::new(source, 524_288, 2_097_152, 4_194_304);
+        let chunker = StreamCDC::new(
+            source,
+            BLOB_MINIMUM_TARGET_SIZE as u32,
+            BLOB_DESIRED_TARGET_SIZE as u32,
+            BLOB_MAX_UNCOMPRESSED_SIZE as u32,
+        );
         for result in chunker {
             let chunk = result.unwrap();
             let hash = hash_bytes(&chunk.data);
@@ -134,26 +148,28 @@ pub async fn walk() -> anyhow::Result<()> {
 
         println!("{file_tree:?}");
 
-        // todo split file trees that are too large
+        let tree_blobs = split_serialize_tree(&file_tree)?;
+        let first_blob_hash = tree_blobs[0].hash;
 
-        let file_tree = bincode::serialize(&file_tree)?;
-        let tree_hash = hash_bytes(&file_tree);
-
-        packer
-            .add_blob(Blob {
-                hash: tree_hash,
-                kind: BlobKind::Tree,
-                data: file_tree,
-            })
-            .await?;
+        for blob in tree_blobs {
+            packer.add_blob(blob).await?;
+        }
 
         let mut guard = future.lock().unwrap();
-        guard.data = TreeFutureState::Completed(tree_hash);
+        guard.data = TreeFutureState::Completed(first_blob_hash);
     }
 
     println!("{root_tree:?}");
 
-    // todo pack trees into chunks
+    let mut guard = root_tree.lock().unwrap();
+    //let mut stack = Vec::new();
+    loop {
+        for child in &guard.unwrap_explored().children {
+            println!("{child:?}");
+        }
+        break;
+    }
+
     packer.flush().await?;
 
     Ok(())
@@ -163,4 +179,55 @@ fn hash_bytes(data: &[u8]) -> BlobHash {
     let mut hasher = Sha256::new();
     hasher.update(data);
     hasher.finalize().into()
+}
+
+fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
+    // at this point, we could sort the vector of children for directory blobs
+
+    if tree.children.len() <= TREE_BLOB_MAX_CHILDREN {
+        let data = bincode::serialize(&tree)?;
+        let vec = vec![Blob {
+            hash: hash_bytes(&data),
+            kind: BlobKind::Tree,
+            data,
+        }];
+
+        Ok(VecDeque::from(vec))
+    } else {
+        let mut split_tree = Vec::default();
+        let mut split_serialized = VecDeque::<Blob>::default();
+
+        // first we need to split the children into batches of at most `TREE_BLOB_MAX_CHILDREN`
+        for chunk in tree.children.chunks(TREE_BLOB_MAX_CHILDREN) {
+            split_tree.push(Tree {
+                kind: tree.kind,
+                name: tree.name.clone(),
+                metadata: tree.metadata,
+                children: Vec::from(chunk),
+                next_sibling: None,
+            });
+        }
+
+        // afterwards we always need to set next_sibling of the previous tree to the hash of
+        // the next one, so we'll reverse the vector and serialize from the end,
+        // filling in the hashes of previous blobs as we go back
+        for (idx, mut tree) in split_tree.into_iter().rev().enumerate() {
+            // for other trees than the very last one, take the hash of the previous tree
+            // -- first element, because we push to front, so children are in order
+            if idx != 0 {
+                tree.next_sibling = Some(split_serialized[0].hash);
+            }
+
+            let data = bincode::serialize(&tree)?;
+            let blob = Blob {
+                hash: hash_bytes(&data),
+                kind: BlobKind::Tree,
+                data
+            };
+
+            split_serialized.push_front(blob);
+        }
+
+        Ok(split_serialized)
+    }
 }

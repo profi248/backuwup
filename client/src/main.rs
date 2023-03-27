@@ -1,6 +1,7 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::redundant_else, clippy::too_many_lines, dead_code)]
+#![allow(clippy::redundant_else, clippy::too_many_lines, clippy::wrong_self_convention)]
+#![allow(dead_code)]
 
 mod backup;
 mod cli;
@@ -79,7 +80,7 @@ async fn main() {
     }
 
     if env::var("DEBUG_WALK").unwrap_or("0".to_string()) == "1" {
-        backup::walker::walk().await.unwrap();
+        backup::filesystem_walker::walk().await.unwrap();
         std::process::exit(0);
     }
 

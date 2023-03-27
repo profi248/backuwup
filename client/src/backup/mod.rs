@@ -1,14 +1,13 @@
 pub mod blob_index;
 pub mod file_chunker;
+pub mod filesystem_walker;
 pub mod packfile_handler;
-pub mod walker;
 
 use std::{
     ffi::OsString,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
-use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -74,8 +73,7 @@ struct Tree {
 
 #[derive(Default, Debug)]
 struct DirTreeMem {
-    // todo fill in the name properly
-    name: String,
+    path: PathBuf,
     // todo fill in metadata properly
     metadata: TreeMetadata,
     children: Vec<Arc<Mutex<TreeFuture>>>,
@@ -85,17 +83,19 @@ struct DirTreeMem {
 enum TreeFutureState {
     Unexplored(PathBuf),
     Explored(DirTreeMem),
-    Completed(BlobHash)
+    Completed(BlobHash),
 }
 
 #[derive(Debug)]
 struct TreeFuture {
-    data: TreeFutureState
+    data: TreeFutureState,
 }
 
 impl TreeFuture {
     fn new_path(path: impl Into<PathBuf>) -> Self {
-        TreeFuture { data: TreeFutureState::Unexplored(path.into()) }
+        TreeFuture {
+            data: TreeFutureState::Unexplored(path.into()),
+        }
     }
 
     fn wrapped_new(path: impl Into<PathBuf>) -> Arc<Mutex<Self>> {
@@ -104,10 +104,18 @@ impl TreeFuture {
 
     fn wrapped_new_visited(path: impl Into<PathBuf>) -> Arc<Mutex<Self>> {
         let future = Self {
-            data: TreeFutureState::Explored(DirTreeMem::default())
+            data: TreeFutureState::Explored(DirTreeMem::default()),
         };
 
         Arc::new(Mutex::new(future))
+    }
+
+    fn set_visited_with_path(&mut self, path: impl Into<PathBuf>) {
+        self.data = TreeFutureState::Explored(DirTreeMem {
+            path: path.into(),
+            metadata: TreeMetadata::default(),
+            children: vec![],
+        });
     }
 
     fn unexplored_get_path(&self) -> &PathBuf {
@@ -125,9 +133,14 @@ impl TreeFuture {
             panic!("Invalid Explored tree future state");
         }
     }
+
+    fn unwrap_explored(&self) -> &DirTreeMem {
+        match &self.data {
+            TreeFutureState::Explored(data) => data,
+            _ => panic!("Unwrap explored failed, state is invalid")
+        }
+    }
 }
-
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackfileError {
