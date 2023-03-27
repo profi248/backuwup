@@ -2,6 +2,7 @@ pub mod blob_index;
 pub mod file_chunker;
 pub mod filesystem_walker;
 pub mod packfile_handler;
+pub mod walker2;
 
 use std::{
     ffi::OsString,

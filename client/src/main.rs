@@ -80,7 +80,8 @@ async fn main() {
     }
 
     if env::var("DEBUG_WALK").unwrap_or("0".to_string()) == "1" {
-        backup::filesystem_walker::walk().await.unwrap();
+        //backup::filesystem_walker::walk().await.unwrap();
+        backup::walker2::walk("/home/david/FIT/bachelors-thesis/backup-test".into()).await.unwrap();
         std::process::exit(0);
     }
 
