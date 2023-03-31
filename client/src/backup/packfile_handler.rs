@@ -7,12 +7,11 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
 };
 use zstd::bulk::{Compressor, Decompressor};
-use crate::defaults::BLOB_MAX_UNCOMPRESSED_SIZE;
 
 use super::{
     blob_index::BlobIndex, Blob, BlobHash, CompressionKind, PackfileBlob, PackfileError, PackfileId,
 };
-use crate::KEYS;
+use crate::{defaults::BLOB_MAX_UNCOMPRESSED_SIZE, KEYS};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB

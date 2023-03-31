@@ -1,8 +1,7 @@
 pub mod blob_index;
 pub mod file_chunker;
-pub mod filesystem_walker;
 pub mod packfile_handler;
-pub mod walker2;
+pub mod walker;
 
 use std::{
     ffi::OsString,
@@ -138,7 +137,7 @@ impl TreeFuture {
     fn unwrap_explored(&self) -> &DirTreeMem {
         match &self.data {
             TreeFutureState::Explored(data) => data,
-            _ => panic!("Unwrap explored failed, state is invalid")
+            _ => panic!("Unwrap explored failed, state is invalid"),
         }
     }
 }
