@@ -1,7 +1,6 @@
-pub mod blob_index;
-pub mod file_chunker;
-pub mod packfile_handler;
-pub mod walker;
+pub mod backup;
+mod packfile;
+pub mod restore;
 
 use std::{
     ffi::OsString,
@@ -56,7 +55,7 @@ pub struct BlobEncrypted {
     pub hash: BlobHash,
     pub kind: BlobKind,
     pub data: Vec<u8>,
-    pub nonce: BlobNonce
+    pub nonce: BlobNonce,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]

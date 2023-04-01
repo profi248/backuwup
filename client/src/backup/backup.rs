@@ -7,7 +7,6 @@ use std::{
     fs::{File, Metadata},
     path::PathBuf,
     rc::Rc,
-    sync::Arc,
     time::UNIX_EPOCH,
 };
 
@@ -15,12 +14,9 @@ use fastcdc::v2020::StreamCDC;
 use futures_util::future::join_all;
 use pathdiff::diff_paths;
 use sha2::{Digest, Sha256};
-use tokio::sync::Mutex;
 
 use crate::{
-    backup::{
-        packfile_handler::PackfileHandler, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata,
-    },
+    backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
 };
 
@@ -40,8 +36,8 @@ struct FsNode {
 pub async fn walk(
     backup_root: impl Into<PathBuf> + Clone,
     pack_folder: impl Into<String>,
-) -> anyhow::Result<()> {
-    let packer = PackfileHandler::new(pack_folder.into()).await?;
+) -> anyhow::Result<BlobHash> {
+    let packer = packfile::Manager::new(pack_folder.into()).await?;
 
     let mut processing_queue = VecDeque::<FsNodePtr>::new();
 
@@ -58,11 +54,10 @@ pub async fn walk(
     browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue)?;
     println!("{processing_queue:?}");
 
-    pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
-
+    let root_hash = pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
     packer.flush().await?;
 
-    Ok(())
+    Ok(root_hash)
 }
 
 /// Browse the provided directory, and fill the processing queue with directories,
@@ -124,8 +119,10 @@ fn browse_dir_tree(
 async fn pack_files_in_directory(
     root_path: &PathBuf,
     processing_queue: &mut VecDeque<FsNodePtr>,
-    packer: PackfileHandler,
-) -> anyhow::Result<()> {
+    packer: packfile::Manager,
+) -> anyhow::Result<BlobHash> {
+    let mut root_tree_hash = Default::default();
+
     while let Some(node) = processing_queue.pop_front() {
         let path = get_node_path(root_path, node.clone());
         println!("{:?}", get_node_path(root_path, node.clone()));
@@ -188,19 +185,18 @@ async fn pack_files_in_directory(
         let dir_blob_root_hash = add_tree_to_blobs(packer.clone(), &mut dir_tree).await?;
 
         // add our hash to our parent directory, unless we are the root
+        // if we are the root, store our hash so we can use it as a snapshot
         match &node.as_ref().unwrap().parent {
-            Some(parent) => {
-                parent.children.borrow_mut().push(dir_blob_root_hash);
-            }
-            None => {}
+            Some(parent) => parent.children.borrow_mut().push(dir_blob_root_hash),
+            None => root_tree_hash = dir_blob_root_hash
         }
     }
 
-    Ok(())
+    Ok(root_tree_hash)
 }
 
 async fn add_tree_to_blobs(
-    packer: PackfileHandler,
+    packer: packfile::Manager,
     dir_tree: &mut Tree,
 ) -> anyhow::Result<BlobHash> {
     let tree_blobs = split_serialize_tree(dir_tree)?;
@@ -249,10 +245,7 @@ fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
     path
 }
 
-async fn process_file(
-    path: PathBuf,
-    packer: PackfileHandler,
-) -> anyhow::Result<BlobHash> {
+async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Result<BlobHash> {
     let filename = path.file_name().unwrap_or_else(|| "".as_ref()).to_string_lossy();
 
     let mut file_tree = Tree {

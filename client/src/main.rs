@@ -1,6 +1,6 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::redundant_else, clippy::too_many_lines, clippy::wrong_self_convention)]
+#![allow(clippy::redundant_else, clippy::too_many_lines, clippy::wrong_self_convention, clippy::manual_let_else)]
 #![allow(dead_code)]
 
 mod backup;
@@ -81,9 +81,14 @@ async fn main() {
 
     if env::var("DEBUG_WALK").unwrap_or("0".to_string()) == "1" {
         //backup::filesystem_walker::walk().await.unwrap();
-        backup::walker::walk("/home/david/FIT/bachelors-thesis/backup-test", "/home/david/_packs")
+        let hash = backup::backup::walk("/home/david/FIT/bachelors-thesis/backup-test", "/home/david/_packs")
             .await
             .unwrap();
+
+        println!("backup done, snapshot hash: {}", hex::encode(hash));
+        println!("restoring...");
+
+        backup::restore::unpack("/home/david/_packs", "/home/david/FIT/bachelors-thesis/restored", hash).await.unwrap();
         std::process::exit(0);
     }
 

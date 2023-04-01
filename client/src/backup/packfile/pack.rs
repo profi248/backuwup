@@ -1,113 +1,41 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
 use tokio::{
-    fs::{self, File, OpenOptions},
-    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+    fs::{self, OpenOptions},
+    io::{AsyncSeekExt, AsyncWriteExt},
 };
-use tokio::sync::Mutex;
-use zstd::bulk::{Compressor, Decompressor};
+use zstd::bulk::Compressor;
 
-use super::{
-    Blob, blob_index::BlobIndex, BlobHash, CompressionKind, PackfileHeaderBlob, PackfileError, PackfileId,
+use crate::{
+    backup::{
+        packfile::{
+            Manager, KEY_DERIVATION_CONSTANT_HEADER, PACKFILE_MAX_BLOBS, PACKFILE_MAX_SIZE,
+            PACKFILE_TARGET_SIZE, ZSTD_COMPRESSION_LEVEL,
+        },
+        Blob, BlobEncrypted, BlobNonce, CompressionKind, PackfileError, PackfileHeaderBlob,
+        PackfileId, NONCE_SIZE,
+    },
+    defaults::BLOB_MAX_UNCOMPRESSED_SIZE,
+    KEYS,
 };
-use crate::{defaults::BLOB_MAX_UNCOMPRESSED_SIZE, KEYS};
-use crate::backup::{BlobEncrypted, BlobNonce, NONCE_SIZE};
 
-/// Total blob size, after which it's attempted to write the packfile to disk.
-pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
-/// Maximum possible size of a packfile.
-pub const PACKFILE_MAX_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
-/// Maximum number of blobs that can be stored in a packfile.
-pub const PACKFILE_MAX_BLOBS: usize = 100_000;
-
-const ZSTD_COMPRESSION_LEVEL: i32 = 5;
-const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
-
-const PACKFILE_FOLDER: &str = "pack";
-const INDEX_FOLDER: &str = "index";
-
-/// A struct used for writing and reading packfiles, a file format used for storing blobs efficiently
-/// and securely. Packfiles can contain one or more blobs, and are useful for preventing the
-/// existence of many small loose files, and instead pack those small files together so all
-/// packfiles are around the same size. PackfileHandler is also responsible for deduplicating blobs
-/// so identical data is only stored once. Along with the packfiles, an index is also stored in
-/// the output folder to allow for quick seeking.
-///
-/// When creating a backup, PackfileHandler takes in blobs, compresses and encrypts them and saves
-/// them to packfiles. A reverse operation is done when restoring a backup. Packfiles are stored in
-/// a folder named "pack" in the output folder, and the index is stored in a folder named "index"
-/// in the output folder.
-///
-/// The format of a packfile is as follows:
-/// - header length [8 bytes]
-/// - encrypted header (encoded with bincode)
-///     - (for each blob):
-///         - blob hash (of unencrypted, uncompressed data)
-///         - blob kind (file or directory)
-///         - blob compression type (currently only zstd)
-///         - blob data length (after encryption)
-///         - blob data offset (from start of blob section, including nonce)
-/// - individually encrypted blob data
-///     - (for each blob):
-///         - nonce [12 bytes]
-///         - actual encrypted blob data
-///
-/// The header is encrypted with a key derived from the master key and a constant. Packfile ID is
-/// random and used as a nonce for encrypting the header. Each blob is encrypted with a key derived
-/// from the master key and the specific blob hash, nonce is random and stored along with the
-/// encrypted data. All encryption/authentication is done using AES-256-GCM. Header length is
-/// currently not encrypted, so it's possible to estimate the number of blobs stored in a file,
-/// but I don't think it's a big problem now.
-///
-
-#[derive(Clone)]
-pub struct PackfileHandler {
-    inner: Arc<PackfileHandlerInner>
-}
-
-struct PackfileHandlerInner {
-    // Blobs in queue to be written to packfile.
-    blobs: Mutex<VecDeque<BlobEncrypted>>,
-    /// Keeps track if data has been successfully flushed to disk.
-    dirty: AtomicBool,
-    /// Index struct managing blob => packfile mapping.
-    index: Mutex<BlobIndex>,
-    /// The path to the output folder.
-    output_path: String,
-}
-
-impl Drop for PackfileHandlerInner {
-    fn drop(&mut self) {
-        if self.dirty.load(Ordering::Acquire) {
-            panic!("Packer was dropped while dirty, without calling flush()");
-        }
-    }
-}
-
-impl PackfileHandler {
-    pub async fn new(output_path: String) -> Result<Self, PackfileError> {
-        let packfile_path = format!("{output_path}/{PACKFILE_FOLDER}");
-        let index_path = format!("{output_path}/{INDEX_FOLDER}");
-
-        Ok(Self {
-            inner: Arc::new(PackfileHandlerInner {
-                blobs: Mutex::new(VecDeque::new()),
-                output_path: packfile_path,
-                index: Mutex::new(BlobIndex::new(index_path).await?),
-                dirty: AtomicBool::new(false),
-            })
-        })
-    }
-
+impl Manager {
     pub async fn add_blob(&self, blob: Blob) -> Result<(), PackfileError> {
-        if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE { return Err(PackfileError::BlobTooLarge); }
+        if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
+            return Err(PackfileError::BlobTooLarge);
+        }
 
         // deduplication: we won't queue a blob if has been queued already
-        if self.inner.index.lock().await.is_blob_duplicate(&blob.hash).await? {
+        if self
+            .inner
+            .index
+            .lock()
+            .await
+            .is_blob_duplicate(&blob.hash)
+            .await?
+        {
             return Ok(());
         }
 
@@ -149,74 +77,6 @@ impl PackfileHandler {
         cipher.encrypt_in_place(nonce, b"", &mut blob_data)?;
 
         Ok((blob_data, nonce_bytes))
-    }
-
-    pub async fn get_blob(&mut self, blob_hash: BlobHash) -> Result<Option<Blob>, PackfileError> {
-        let mut index = self.inner.index.lock().await;
-
-        if let Some(packfile_id) = index.find_packfile(&blob_hash).await? {
-            let path = self.get_packfile_path(packfile_id, false).await?;
-            let mut packfile = File::open(path).await?;
-            let packfile_size = packfile.metadata().await?.len();
-            if packfile_size > PACKFILE_MAX_SIZE as u64 {
-                return Err(PackfileError::PackfileTooLarge);
-            }
-
-            let mut header_size_bytes: [u8; core::mem::size_of::<u64>()] = Default::default();
-            packfile.read_exact(&mut header_size_bytes).await?;
-            let header_size = u64::from_le_bytes(header_size_bytes);
-
-            if header_size > packfile_size || header_size == 0 {
-                return Err(PackfileError::InvalidHeaderSize);
-            }
-
-            let mut header_buf = vec![0; header_size as usize];
-            packfile.read_exact(&mut header_buf).await?;
-
-            let key = KEYS
-                .get()
-                .unwrap()
-                .derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
-            let cipher = Aes256Gcm::new(&key.into());
-            cipher.decrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header_buf)?;
-
-            let header: Vec<PackfileHeaderBlob> = bincode::options()
-                .with_varint_encoding()
-                .deserialize(&header_buf)?;
-
-            for blob_metadata in header {
-                if blob_metadata.hash == blob_hash {
-                    let mut blob_nonce = [0; NONCE_SIZE];
-                    let mut blob_buf = vec![0; blob_metadata.length as usize];
-                    packfile
-                        .seek(std::io::SeekFrom::Current(blob_metadata.offset as i64))
-                        .await?;
-
-                    packfile.read_exact(&mut blob_nonce).await?;
-                    packfile.read_exact(&mut blob_buf).await?;
-
-                    let key = KEYS.get().unwrap().derive_backup_key(&blob_metadata.hash);
-                    let cipher = Aes256Gcm::new(&key.into());
-                    cipher.decrypt_in_place(Nonce::from_slice(&blob_nonce), b"", &mut blob_buf)?;
-
-                    let mut decompressor = Decompressor::new()?;
-                    decompressor.include_magicbytes(false)?;
-                    let blob_data =
-                        decompressor.decompress(&blob_buf, BLOB_MAX_UNCOMPRESSED_SIZE)?;
-
-                    return Ok(Some(Blob {
-                        hash: blob_metadata.hash,
-                        kind: blob_metadata.kind,
-                        data: blob_data,
-                    }));
-                }
-            }
-
-            Err(PackfileError::IndexHeaderMismatch)
-        } else {
-            // todo handle index not having the blob better
-            Ok(None)
-        }
     }
 
     pub async fn flush(&self) -> Result<(), PackfileError> {
@@ -297,7 +157,8 @@ impl PackfileHandler {
                 continue;
             }
 
-            let (packfile_id, buffer) = Self::serialize_packfile(&mut data, &mut header, bytes_written)?;
+            let (packfile_id, buffer) =
+                Self::serialize_packfile(&mut data, &mut header, bytes_written)?;
 
             assert!(
                 buffer.len() <= PACKFILE_MAX_SIZE,
@@ -324,7 +185,11 @@ impl PackfileHandler {
         Ok(())
     }
 
-    fn serialize_packfile(mut data: &mut Vec<u8>, header: &mut Vec<PackfileHeaderBlob>, mut bytes_written: usize) -> Result<(PackfileId, Vec<u8>), PackfileError> {
+    fn serialize_packfile(
+        mut data: &mut Vec<u8>,
+        header: &mut Vec<PackfileHeaderBlob>,
+        mut bytes_written: usize,
+    ) -> Result<(PackfileId, Vec<u8>), PackfileError> {
         // generate a random packfile ID that will be used as a filename and a nonce for the header
         let mut packfile_id: PackfileId = Default::default();
         getrandom::getrandom(&mut packfile_id)?;
@@ -337,8 +202,7 @@ impl PackfileHandler {
         let cipher = Aes256Gcm::new(&key.into());
 
         // serialize and encrypt the header
-        let mut header: Vec<u8> =
-            bincode::options().with_varint_encoding().serialize(&header)?;
+        let mut header: Vec<u8> = bincode::options().with_varint_encoding().serialize(&header)?;
         cipher.encrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header)?;
 
         let mut buffer: Vec<u8> =
@@ -353,7 +217,7 @@ impl PackfileHandler {
         Ok((packfile_id, buffer))
     }
 
-    async fn get_packfile_path(
+    pub(crate) async fn get_packfile_path(
         &self,
         packfile_hash: PackfileId,
         create_folders: bool,

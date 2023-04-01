@@ -19,6 +19,7 @@ hkdf = "0.12.3"
 # Backups
 zstd = { version = "0.12.3", features = ["experimental"] }
 fastcdc = "3.0.2"
+filetime = "0.2"
 
 # Async runtime
 tokio = { version = "1.25.0", features = ["full"] }

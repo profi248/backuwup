@@ -8,8 +8,10 @@ use tokio::{
 };
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
-use super::{BlobHash, PackfileError, PackfileId};
-use crate::KEYS;
+use crate::{
+    backup::{BlobHash, PackfileError, PackfileId},
+    KEYS,
+};
 
 const MAX_FILE_ENTRIES: usize = 50_000;
 
@@ -87,6 +89,13 @@ impl BlobIndex {
             last_file_num: max_num,
             dirty: false,
         })
+    }
+
+    pub async fn dump(&mut self) {
+        self.find_packfile(&Default::default()).await.unwrap();
+        for pair in &self.items {
+            println!("{}: {}", hex::encode(pair.0), hex::encode(pair.1));
+        }
     }
 
     pub fn begin_packfile(&mut self) -> IndexPackfileHandle {
