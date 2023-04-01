@@ -1,4 +1,6 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
@@ -6,6 +8,7 @@ use tokio::{
     fs::{self, File, OpenOptions},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
 };
+use tokio::sync::Mutex;
 use zstd::bulk::{Compressor, Decompressor};
 
 use super::{
@@ -60,15 +63,30 @@ const INDEX_FOLDER: &str = "index";
 /// encrypted data. All encryption/authentication is done using AES-256-GCM. Header length is
 /// currently not encrypted, so it's possible to estimate the number of blobs stored in a file,
 /// but I don't think it's a big problem now.
+///
+
+#[derive(Clone)]
 pub struct PackfileHandler {
+    inner: Arc<PackfileHandlerInner>
+}
+
+struct PackfileHandlerInner {
+    // Blobs in queue to be written to packfile.
+    blobs: Mutex<VecDeque<Blob>>,
+    /// Keeps track if data has been successfully flushed to disk.
+    dirty: AtomicBool,
+    /// Index struct managing blob => packfile mapping.
+    index: Mutex<BlobIndex>,
     /// The path to the output folder.
     output_path: String,
-    /// Index struct managing blob => packfile mapping.
-    index: BlobIndex,
-    /// Blobs in queue to be written to packfile.
-    blobs: VecDeque<Blob>,
-    /// Keeps track if data has been successfully flushed to disk.
-    dirty: bool,
+}
+
+impl Drop for PackfileHandlerInner {
+    fn drop(&mut self) {
+        if self.dirty.load(Ordering::Acquire) {
+            panic!("Packer was dropped while dirty, without calling flush()");
+        }
+    }
 }
 
 impl PackfileHandler {
@@ -77,25 +95,33 @@ impl PackfileHandler {
         let index_path = format!("{output_path}/{INDEX_FOLDER}");
 
         Ok(Self {
-            output_path: packfile_path,
-            index: BlobIndex::new(index_path).await?,
-            blobs: VecDeque::new(),
-            dirty: false,
+            inner: Arc::new(PackfileHandlerInner {
+                blobs: Mutex::new(VecDeque::new()),
+                output_path: packfile_path,
+                index: Mutex::new(BlobIndex::new(index_path).await?),
+                dirty: AtomicBool::new(false),
+            })
         })
     }
 
-    pub async fn add_blob(&mut self, blob: Blob) -> Result<(), PackfileError> {
+    pub async fn add_blob(&self, blob: Blob) -> Result<(), PackfileError> {
         if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
             return Err(PackfileError::BlobTooLarge);
         }
-        self.blobs.push_back(blob);
-        self.dirty = true;
+
+        {
+            self.inner.blobs.lock().await.push_back(blob);
+            self.inner.dirty.store(true, Ordering::Relaxed);
+        }
+
         self.trigger_write_if_desired().await?;
         Ok(())
     }
 
     pub async fn get_blob(&mut self, blob_hash: BlobHash) -> Result<Option<Blob>, PackfileError> {
-        if let Some(packfile_id) = self.index.find_packfile(&blob_hash).await? {
+        let mut index = self.inner.index.lock().await;
+
+        if let Some(packfile_id) = index.find_packfile(&blob_hash).await? {
             let path = self.get_packfile_path(packfile_id, false).await?;
             let mut packfile = File::open(path).await?;
             let packfile_size = packfile.metadata().await?.len();
@@ -160,34 +186,44 @@ impl PackfileHandler {
         }
     }
 
-    pub async fn flush(&mut self) -> Result<(), PackfileError> {
+    pub async fn flush(&self) -> Result<(), PackfileError> {
         self.write_packfiles().await?;
-        self.index.flush().await?;
-        self.dirty = false;
+
+        self.inner.index.lock().await.flush().await?;
+        self.inner.dirty.store(false, Ordering::Release);
 
         Ok(())
     }
 
-    async fn trigger_write_if_desired(&mut self) -> Result<bool, PackfileError> {
+    async fn trigger_write_if_desired(&self) -> Result<bool, PackfileError> {
         let mut candidates_size: usize = 0;
         let mut candidates_cnt: usize = 0;
-        for blob in &self.blobs {
-            if !self.index.is_blob_duplicate(&blob.hash).await? {
-                candidates_size += blob.data.len();
-                candidates_cnt += 1;
-            }
 
-            if candidates_size >= PACKFILE_TARGET_SIZE || candidates_cnt >= PACKFILE_MAX_BLOBS {
-                return self.write_packfiles().await.map(|_| true);
+        {
+            let blobs = self.inner.blobs.lock().await;
+            let mut index = self.inner.index.lock().await;
+
+            for blob in blobs.iter() {
+                if !index.is_blob_duplicate(&blob.hash).await? {
+                    candidates_size += blob.data.len();
+                    candidates_cnt += 1;
+                }
             }
+        }
+
+        if candidates_size >= PACKFILE_TARGET_SIZE || candidates_cnt >= PACKFILE_MAX_BLOBS {
+            return self.write_packfiles().await.map(|_| true);
         }
 
         Ok(false)
     }
 
-    async fn write_packfiles(&mut self) -> Result<(), PackfileError> {
-        while !self.blobs.is_empty() {
-            let mut packfile_index = self.index.begin_packfile();
+    async fn write_packfiles(&self) -> Result<(), PackfileError> {
+        let mut blobs = self.inner.blobs.lock().await;
+        let mut index = self.inner.index.lock().await;
+
+        while !blobs.is_empty() {
+            let mut packfile_index = index.begin_packfile();
             let mut data: Vec<u8> = Vec::new();
             let mut header: Vec<PackfileBlob> = Vec::new();
             let mut blob_count: usize = 0;
@@ -198,10 +234,10 @@ impl PackfileHandler {
             compressor.include_contentsize(false)?;
             compressor.include_magicbytes(false)?;
 
-            while let Some(blob) = &self.blobs.pop_front() {
+            while let Some(blob) = &blobs.pop_front() {
                 // Deduplication - if the blob is already saved in this or other existing
                 // packfiles, skip it.
-                if self.index.is_blob_duplicate(&blob.hash).await? {
+                if index.is_blob_duplicate(&blob.hash).await? {
                     continue;
                 }
 
@@ -221,7 +257,7 @@ impl PackfileHandler {
 
                 // Add blob to header.
                 header.push(PackfileBlob {
-                    hash: blob.hash.clone(),
+                    hash: blob.hash,
                     kind: blob.kind,
                     compression: CompressionKind::Zstd,
                     offset: bytes_written as u64,
@@ -234,7 +270,7 @@ impl PackfileHandler {
                 data.append(&mut nonce_bytes.to_vec());
                 data.append(&mut blob_data);
 
-                self.index.add_to_packfile(&mut packfile_index, blob.hash)?;
+                index.add_to_packfile(&mut packfile_index, blob.hash)?;
 
                 blob_count += 1;
 
@@ -289,7 +325,7 @@ impl PackfileHandler {
 
             file.write_all(&buffer).await?;
 
-            self.index
+            index
                 .finalize_packfile(&mut packfile_index, packfile_id)
                 .await?;
             println!("wrote packfile {} of size {}", hex::encode(packfile_id), buffer.len());
@@ -299,7 +335,7 @@ impl PackfileHandler {
     }
 
     async fn get_packfile_path(
-        &mut self,
+        &self,
         packfile_hash: PackfileId,
         create_folders: bool,
     ) -> Result<String, PackfileError> {
@@ -307,7 +343,7 @@ impl PackfileHandler {
 
         // Split packfiles into directories based on the first two hex characters of the hash,
         // to avoid having too many files in the same directory.
-        let directory = format!("{}/{}", self.output_path, &packfile_hash_hex[..2]);
+        let directory = format!("{}/{}", self.inner.output_path, &packfile_hash_hex[..2]);
         let file_path = format!("{directory}/{packfile_hash_hex}");
 
         if create_folders {
@@ -315,14 +351,6 @@ impl PackfileHandler {
         };
 
         Ok(file_path)
-    }
-}
-
-impl Drop for PackfileHandler {
-    fn drop(&mut self) {
-        if self.dirty {
-            panic!("Packer was dropped while dirty, without calling flush()");
-        }
     }
 }
 

@@ -41,7 +41,7 @@ pub async fn walk(
     backup_root: impl Into<PathBuf> + Clone,
     pack_folder: impl Into<String>,
 ) -> anyhow::Result<()> {
-    let packer = Arc::new(Mutex::new(PackfileHandler::new(pack_folder.into()).await?));
+    let packer = PackfileHandler::new(pack_folder.into()).await?;
 
     let mut processing_queue = VecDeque::<FsNodePtr>::new();
 
@@ -60,7 +60,7 @@ pub async fn walk(
 
     pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
 
-    packer.lock().await.flush().await?;
+    packer.flush().await?;
 
     Ok(())
 }
@@ -109,7 +109,7 @@ fn browse_dir_tree(
                     }
                 },
                 Err(e) => {
-                    println!("error when scanning files: {e}, continuing")
+                    println!("error when scanning files: {e}, continuing");
                 }
             }
         }
@@ -124,7 +124,7 @@ fn browse_dir_tree(
 async fn pack_files_in_directory(
     root_path: &PathBuf,
     processing_queue: &mut VecDeque<FsNodePtr>,
-    packer: Arc<Mutex<PackfileHandler>>,
+    packer: PackfileHandler,
 ) -> anyhow::Result<()> {
     while let Some(node) = processing_queue.pop_front() {
         let path = get_node_path(root_path, node.clone());
@@ -148,7 +148,7 @@ async fn pack_files_in_directory(
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
                         // start processing all the files and collect hashes later
-                        futures.push(tokio::spawn(process_file(entry.path(), Arc::clone(&packer))));
+                        futures.push(tokio::spawn(process_file(entry.path(), packer.clone())));
                     }
                     Ok(ftype) if ftype.is_dir() => {
                         // directory hashes have already been added to FsNode by their children
@@ -185,7 +185,7 @@ async fn pack_files_in_directory(
 
         println!("tree!! {dir_tree:?}");
 
-        let dir_blob_root_hash = add_tree_to_blobs(Arc::clone(&packer), &mut dir_tree).await?;
+        let dir_blob_root_hash = add_tree_to_blobs(packer.clone(), &mut dir_tree).await?;
 
         // add our hash to our parent directory, unless we are the root
         match &node.as_ref().unwrap().parent {
@@ -200,15 +200,14 @@ async fn pack_files_in_directory(
 }
 
 async fn add_tree_to_blobs(
-    packer: Arc<Mutex<PackfileHandler>>,
+    packer: PackfileHandler,
     dir_tree: &mut Tree,
 ) -> anyhow::Result<BlobHash> {
-    let mut packer_guard = packer.lock().await;
-    let tree_blobs = split_serialize_tree(&dir_tree)?;
+    let tree_blobs = split_serialize_tree(dir_tree)?;
     let first_blob_hash = tree_blobs[0].hash;
 
     for blob in tree_blobs {
-        packer_guard.add_blob(blob).await?;
+        packer.add_blob(blob).await?;
     }
 
     Ok(first_blob_hash)
@@ -252,7 +251,7 @@ fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
 
 async fn process_file(
     path: PathBuf,
-    packer: Arc<Mutex<PackfileHandler>>,
+    packer: PackfileHandler,
 ) -> anyhow::Result<BlobHash> {
     let filename = path.file_name().unwrap_or_else(|| "".as_ref()).to_string_lossy();
 
@@ -273,15 +272,13 @@ async fn process_file(
         BLOB_MAX_UNCOMPRESSED_SIZE as u32,
     );
 
-    let mut packer_guard = packer.lock().await;
-
     for result in chunker {
         let chunk = result?;
         let hash = hash_bytes(&chunk.data);
 
         file_tree.children.push(hash);
 
-        packer_guard
+        packer
             .add_blob(Blob {
                 hash,
                 kind: BlobKind::FileChunk,
@@ -304,7 +301,7 @@ async fn process_file(
     let first_blob_hash = tree_blobs[0].hash;
 
     for blob in tree_blobs {
-        packer_guard.add_blob(blob).await?;
+        packer.add_blob(blob).await?;
     }
 
     Ok(first_blob_hash)
