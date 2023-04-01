@@ -3,3 +3,8 @@ members = ["server", "client", "shared"]
 
 [profile.release]
 lto = true
+
+[profile.release-dbg]
+inherits = "release"
+debug = true
+lto = false

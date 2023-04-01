@@ -12,9 +12,10 @@ use tokio::sync::Mutex;
 use zstd::bulk::{Compressor, Decompressor};
 
 use super::{
-    blob_index::BlobIndex, Blob, BlobHash, CompressionKind, PackfileBlob, PackfileError, PackfileId,
+    Blob, blob_index::BlobIndex, BlobHash, CompressionKind, PackfileHeaderBlob, PackfileError, PackfileId,
 };
 use crate::{defaults::BLOB_MAX_UNCOMPRESSED_SIZE, KEYS};
+use crate::backup::{BlobEncrypted, BlobNonce, NONCE_SIZE};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
@@ -24,8 +25,6 @@ pub const PACKFILE_MAX_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
 pub const PACKFILE_MAX_BLOBS: usize = 100_000;
 
 const ZSTD_COMPRESSION_LEVEL: i32 = 5;
-
-const NONCE_SIZE: usize = 12;
 const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
 
 const PACKFILE_FOLDER: &str = "pack";
@@ -72,7 +71,7 @@ pub struct PackfileHandler {
 
 struct PackfileHandlerInner {
     // Blobs in queue to be written to packfile.
-    blobs: Mutex<VecDeque<Blob>>,
+    blobs: Mutex<VecDeque<BlobEncrypted>>,
     /// Keeps track if data has been successfully flushed to disk.
     dirty: AtomicBool,
     /// Index struct managing blob => packfile mapping.
@@ -105,17 +104,51 @@ impl PackfileHandler {
     }
 
     pub async fn add_blob(&self, blob: Blob) -> Result<(), PackfileError> {
-        if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
-            return Err(PackfileError::BlobTooLarge);
+        if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE { return Err(PackfileError::BlobTooLarge); }
+
+        // deduplication: we won't queue a blob if has been queued already
+        if self.inner.index.lock().await.is_blob_duplicate(&blob.hash).await? {
+            return Ok(());
         }
 
+        let (blob_data, nonce_bytes) = Self::compress_encrypt_blob(&blob)?;
+
         {
-            self.inner.blobs.lock().await.push_back(blob);
+            self.inner.blobs.lock().await.push_back(BlobEncrypted {
+                hash: blob.hash,
+                kind: blob.kind,
+                data: blob_data,
+                nonce: nonce_bytes,
+            });
+
             self.inner.dirty.store(true, Ordering::Relaxed);
         }
 
         self.trigger_write_if_desired().await?;
         Ok(())
+    }
+
+    fn compress_encrypt_blob(blob: &Blob) -> Result<(Vec<u8>, BlobNonce), PackfileError> {
+        let mut compressor = Compressor::new(ZSTD_COMPRESSION_LEVEL)?;
+        compressor.include_checksum(false)?;
+        compressor.include_contentsize(false)?;
+        compressor.include_magicbytes(false)?;
+
+        let mut blob_data = compressor.compress(&blob.data)?;
+
+        // derive a new key for each for each blob based on the (unencrypted) hash,
+        // to ensure that we have a unique nonce/key combo
+        let key = KEYS.get().unwrap().derive_backup_key(&blob.hash);
+        let cipher = Aes256Gcm::new(&key.into());
+
+        // generate a random nonce for each blob
+        let mut nonce_bytes: BlobNonce = Default::default();
+        getrandom::getrandom(&mut nonce_bytes)?;
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        cipher.encrypt_in_place(nonce, b"", &mut blob_data)?;
+
+        Ok((blob_data, nonce_bytes))
     }
 
     pub async fn get_blob(&mut self, blob_hash: BlobHash) -> Result<Option<Blob>, PackfileError> {
@@ -147,7 +180,7 @@ impl PackfileHandler {
             let cipher = Aes256Gcm::new(&key.into());
             cipher.decrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header_buf)?;
 
-            let header: Vec<PackfileBlob> = bincode::options()
+            let header: Vec<PackfileHeaderBlob> = bincode::options()
                 .with_varint_encoding()
                 .deserialize(&header_buf)?;
 
@@ -225,50 +258,30 @@ impl PackfileHandler {
         while !blobs.is_empty() {
             let mut packfile_index = index.begin_packfile();
             let mut data: Vec<u8> = Vec::new();
-            let mut header: Vec<PackfileBlob> = Vec::new();
+            let mut header: Vec<PackfileHeaderBlob> = Vec::new();
             let mut blob_count: usize = 0;
             let mut bytes_written: usize = 0;
 
-            let mut compressor = Compressor::new(ZSTD_COMPRESSION_LEVEL)?;
-            compressor.include_checksum(false)?;
-            compressor.include_contentsize(false)?;
-            compressor.include_magicbytes(false)?;
-
-            while let Some(blob) = &blobs.pop_front() {
-                // Deduplication - if the blob is already saved in this or other existing
-                // packfiles, skip it.
+            while let Some(blob) = &mut blobs.pop_front() {
+                // deduplication: double check that blob is unique
                 if index.is_blob_duplicate(&blob.hash).await? {
                     continue;
                 }
 
-                // Derive a new key for each for each blob based on the (unencrypted) hash,
-                // to ensure that we have a unique nonce/key combo.
-                let key = KEYS.get().unwrap().derive_backup_key(&blob.hash);
-                let cipher = Aes256Gcm::new(&key.into());
-
-                let mut blob_data = compressor.compress(&blob.data)?;
-
-                // Generate a random nonce for each blob.
-                let mut nonce_bytes: [u8; NONCE_SIZE] = Default::default();
-                getrandom::getrandom(&mut nonce_bytes)?;
-                let nonce = Nonce::from_slice(&nonce_bytes);
-
-                cipher.encrypt_in_place(nonce, b"", &mut blob_data)?;
-
-                // Add blob to header.
-                header.push(PackfileBlob {
+                // add blob to header
+                header.push(PackfileHeaderBlob {
                     hash: blob.hash,
                     kind: blob.kind,
                     compression: CompressionKind::Zstd,
                     offset: bytes_written as u64,
-                    length: blob_data.len() as u64,
+                    length: blob.data.len() as u64,
                 });
 
-                bytes_written += blob_data.len() + NONCE_SIZE;
+                bytes_written += blob.data.len() + NONCE_SIZE;
 
-                // Write blob to packfile buffer, as nonce[NONCE_SIZE] || encrypted_data[length].
-                data.append(&mut nonce_bytes.to_vec());
-                data.append(&mut blob_data);
+                // write blob to packfile buffer, as nonce[NONCE_SIZE] || encrypted_data[length]
+                data.append(&mut blob.nonce.to_vec());
+                data.append(&mut blob.data);
 
                 index.add_to_packfile(&mut packfile_index, blob.hash)?;
 
@@ -279,34 +292,12 @@ impl PackfileHandler {
                 }
             }
 
-            // If no blobs were added to the packfile because of deduplication, skip writing it.
+            // if no blobs were added to the packfile because of deduplication, skip writing it
             if blob_count == 0 {
                 continue;
             }
 
-            // Generate a random packfile ID that will be used as a filename and a nonce for the header.
-            let mut packfile_id: PackfileId = Default::default();
-            getrandom::getrandom(&mut packfile_id)?;
-
-            // Derive a key for headers based on a constant.
-            let key = KEYS
-                .get()
-                .unwrap()
-                .derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
-            let cipher = Aes256Gcm::new(&key.into());
-
-            let mut header: Vec<u8> =
-                bincode::options().with_varint_encoding().serialize(&header)?;
-            cipher.encrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header)?;
-
-            let mut buffer: Vec<u8> =
-                Vec::with_capacity(core::mem::size_of::<u64>() + header.len() + bytes_written);
-
-            // Create a packfile buffer with the following structure:
-            // header_length[sizeof u64] || encrypted_header[header_length] || data.
-            buffer.append(&mut (header.len() as u64).to_le_bytes().to_vec());
-            buffer.append(&mut header);
-            buffer.append(&mut data);
+            let (packfile_id, buffer) = Self::serialize_packfile(&mut data, &mut header, bytes_written)?;
 
             assert!(
                 buffer.len() <= PACKFILE_MAX_SIZE,
@@ -316,22 +307,50 @@ impl PackfileHandler {
 
             let file_path = self.get_packfile_path(packfile_id, true).await?;
 
-            // Ensure that we are not overwriting an existing packfile by chance.
+            // ensure that we are not overwriting an existing packfile by chance
             let mut file = OpenOptions::new()
                 .write(true)
                 .create_new(true)
                 .open(file_path)
                 .await?;
 
+            // save the packfile data to disk and add it to index
             file.write_all(&buffer).await?;
+            index.finalize_packfile(&packfile_index, packfile_id).await?;
 
-            index
-                .finalize_packfile(&mut packfile_index, packfile_id)
-                .await?;
             println!("wrote packfile {} of size {}", hex::encode(packfile_id), buffer.len());
         }
 
         Ok(())
+    }
+
+    fn serialize_packfile(mut data: &mut Vec<u8>, header: &mut Vec<PackfileHeaderBlob>, mut bytes_written: usize) -> Result<(PackfileId, Vec<u8>), PackfileError> {
+        // generate a random packfile ID that will be used as a filename and a nonce for the header
+        let mut packfile_id: PackfileId = Default::default();
+        getrandom::getrandom(&mut packfile_id)?;
+
+        // derive a key for headers based on a constant
+        let key = KEYS
+            .get()
+            .unwrap()
+            .derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
+        let cipher = Aes256Gcm::new(&key.into());
+
+        // serialize and encrypt the header
+        let mut header: Vec<u8> =
+            bincode::options().with_varint_encoding().serialize(&header)?;
+        cipher.encrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header)?;
+
+        let mut buffer: Vec<u8> =
+            Vec::with_capacity(core::mem::size_of::<u64>() + header.len() + bytes_written);
+
+        // create a packfile buffer with the following structure:
+        // header_length[sizeof u64] || encrypted_header[header_length] || data
+        buffer.append(&mut (header.len() as u64).to_le_bytes().to_vec());
+        buffer.append(&mut header);
+        buffer.append(&mut data);
+
+        Ok((packfile_id, buffer))
     }
 
     async fn get_packfile_path(
@@ -361,7 +380,7 @@ mod tests {
 
     #[test]
     fn validate_size_constraints() {
-        let entry = PackfileBlob {
+        let entry = PackfileHeaderBlob {
             hash: [0; 32],
             kind: BlobKind::FileChunk,
             compression: CompressionKind::Zstd,

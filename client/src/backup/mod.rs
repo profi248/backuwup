@@ -11,8 +11,11 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+const NONCE_SIZE: usize = 12;
+
 type BlobHash = [u8; 32];
 type PackfileId = [u8; 12];
+type BlobNonce = [u8; NONCE_SIZE];
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum BlobKind {
@@ -33,7 +36,7 @@ pub enum TreeKind {
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
-struct PackfileBlob {
+struct PackfileHeaderBlob {
     hash: BlobHash,
     kind: BlobKind,
     compression: CompressionKind,
@@ -46,6 +49,14 @@ pub struct Blob {
     pub hash: BlobHash,
     pub kind: BlobKind,
     pub data: Vec<u8>,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct BlobEncrypted {
+    pub hash: BlobHash,
+    pub kind: BlobKind,
+    pub data: Vec<u8>,
+    pub nonce: BlobNonce
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
