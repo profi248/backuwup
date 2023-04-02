@@ -49,7 +49,6 @@ pub struct BlobIndex {
     /// Index entries waiting to be written to disk.
     items_buf: Entry,
     /// All blob hashes that have been queued for writing or have already been written.
-    // todo: wat is this
     blobs_queued: HashSet<BlobHash>,
     /// Numeric ID of the last written index file.
     last_file_num: u32,
@@ -95,7 +94,7 @@ impl BlobIndex {
     }
 
     pub async fn dump(&mut self) {
-        self.find_packfile(&Default::default()).unwrap();
+        self.find_packfile(&Default::default());
         for pair in &self.items {
             println!("{}: {}", hex::encode(pair.0), hex::encode(pair.1));
         }
@@ -131,22 +130,22 @@ impl BlobIndex {
         Ok(())
     }
 
-    pub fn is_blob_duplicate(&mut self, blob_hash: &BlobHash) -> Result<bool, PackfileError> {
+    pub fn is_blob_duplicate(&mut self, blob_hash: &BlobHash) -> bool {
         if self.blobs_queued.contains(blob_hash) {
-            return Ok(true);
+            return true;
         }
 
-        if self.find_packfile(blob_hash)?.is_some() {
-            return Ok(true);
+        if self.find_packfile(blob_hash).is_some() {
+            return true;
         }
 
-        Ok(false)
+        false
     }
 
-    pub fn find_packfile(&self, blob_hash: &BlobHash) -> Result<Option<PackfileId>, PackfileError> {
+    pub fn find_packfile(&self, blob_hash: &BlobHash) -> Option<PackfileId> {
         match self.items.binary_search_by_key(&blob_hash, |(a, _)| a) {
-            Ok(entry_idx) => Ok(Some(self.items[entry_idx].1)),
-            Err(_) => Ok(None),
+            Ok(entry_idx) => Some(self.items[entry_idx].1),
+            Err(_) => None,
         }
     }
 

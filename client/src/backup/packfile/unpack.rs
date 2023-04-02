@@ -17,7 +17,7 @@ use crate::{
 
 impl Manager {
     pub async fn get_blob(&mut self, blob_hash: &BlobHash) -> Result<Option<Blob>, PackfileError> {
-        if let Some(packfile_id) = self.inner.index.lock().await.find_packfile(blob_hash)? {
+        if let Some(packfile_id) = self.inner.index.lock().await.find_packfile(blob_hash) {
             let path = self.get_packfile_path(packfile_id, false).await?;
             let mut packfile = File::open(path).await?;
             let packfile_size = packfile.metadata().await?.len();

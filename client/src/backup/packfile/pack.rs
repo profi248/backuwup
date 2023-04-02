@@ -33,7 +33,7 @@ impl Manager {
             .index
             .lock()
             .await
-            .is_blob_duplicate(&blob.hash)?
+            .is_blob_duplicate(&blob.hash)
         {
             return Ok(());
         }
@@ -96,7 +96,7 @@ impl Manager {
             let mut index = self.inner.index.lock().await;
 
             for blob in blobs.iter() {
-                if !index.is_blob_duplicate(&blob.hash)? {
+                if !index.is_blob_duplicate(&blob.hash) {
                     candidates_size += blob.data.len();
                     candidates_cnt += 1;
                 }
@@ -123,7 +123,7 @@ impl Manager {
 
             while let Some(blob) = &mut blobs.pop_front() {
                 // deduplication: double check that blob is unique
-                if index.is_blob_duplicate(&blob.hash)? {
+                if index.is_blob_duplicate(&blob.hash) {
                     continue;
                 }
 

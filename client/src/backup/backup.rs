@@ -55,8 +55,6 @@ pub async fn walk(
 
     browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue)?;
 
-    println!("{processing_queue:?}");
-
     let root_hash =
         pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
     packer.flush().await?;
@@ -129,7 +127,6 @@ async fn pack_files_in_directory(
 
     while let Some(node) = processing_queue.pop_front() {
         let path = get_node_path(root_path, node.clone());
-        println!("{:?}", get_node_path(root_path, node.clone()));
         let iter = fs::read_dir(get_node_path(root_path, node.clone()))?;
 
         // a rudimentary multithreading for the chunker, most of the other tasks are still single-threaded
@@ -149,12 +146,12 @@ async fn pack_files_in_directory(
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
                         // start processing all the files and collect hashes later
-                        println!("backing up file {:?}", entry.path());
+                        // println!("backing up file {:?}", entry.path());
                         futures.push(tokio::spawn(process_file(entry.path(), packer.clone())));
                     }
                     Ok(ftype) if ftype.is_dir() => {
                         // directory hashes have already been added to FsNode by their children
-                        println!("discovered directory {:?}", entry.path());
+                        // println!("discovered directory {:?}", entry.path());
                     }
                     Ok(_) => {
                         println!(
@@ -278,7 +275,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
         for chunk in chunker {
             let data = &mmap[chunk.offset..(chunk.offset + chunk.length)];
-            let hash = hash_bytes(data);
+            let hash = blake3::hash(data).into();
 
             file_tree.children.push(hash);
 
@@ -292,7 +289,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
         }
     } else {
         let blob = fs::read(path.clone())?;
-        let hash = hash_bytes(&blob);
+        let hash = blake3::hash(&blob).into();
         file_tree.children.push(hash);
 
         packer
@@ -314,19 +311,13 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     Ok(first_blob_hash)
 }
 
-fn hash_bytes(data: &[u8]) -> BlobHash {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hasher.finalize().into()
-}
-
 fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
     // at this point, we could sort the vector of children for directory blobs
 
     if tree.children.len() <= TREE_BLOB_MAX_CHILDREN {
         let data = bincode::serialize(&tree)?;
         let vec = vec![Blob {
-            hash: hash_bytes(&data),
+            hash: blake3::hash(&data).into(),
             kind: BlobKind::Tree,
             data,
         }];
@@ -359,7 +350,7 @@ fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
 
             let data = bincode::serialize(&tree)?;
             let blob = Blob {
-                hash: hash_bytes(&data),
+                hash: blake3::hash(&data).into(),
                 kind: BlobKind::Tree,
                 data,
             };
