@@ -1,12 +1,9 @@
-use std::{fs, path::PathBuf};
-use std::collections::VecDeque;
-use std::fs::File;
-use std::io::Write;
-use anyhow::{bail};
+use std::{collections::VecDeque, fs, fs::File, io::Write, path::PathBuf};
+
+use anyhow::bail;
 use futures_util::future::join_all;
 
-use crate::backup::{packfile, BlobHash, Tree, BlobKind, TreeKind};
-use crate::backup::packfile::Manager;
+use crate::backup::{packfile, packfile::Manager, BlobHash, BlobKind, Tree, TreeKind};
 
 pub async fn unpack(
     packfile_dir: impl Into<String>,
@@ -40,8 +37,11 @@ pub async fn unpack(
 
                     match child_tree.kind {
                         TreeKind::File => {
-                            println!("restoring file: {} | {:?}", hex::encode(hash), rel_path);
-                            futures.push(tokio::spawn(restore_file(packer.clone(), Box::new(child_tree), abs_path)));
+                            futures.push(tokio::spawn(restore_file(
+                                packer.clone(),
+                                Box::new(child_tree),
+                                abs_path,
+                            )));
                         }
                         TreeKind::Dir => {
                             fs::create_dir_all(&abs_path)?;
@@ -70,7 +70,13 @@ pub async fn unpack(
     Ok(())
 }
 
-async fn restore_file(mut packer: Manager, child_tree: Box<Tree>, path: PathBuf) -> anyhow::Result<()> {
+async fn restore_file(
+    mut packer: Manager,
+    child_tree: Box<Tree>,
+    path: PathBuf,
+) -> anyhow::Result<()> {
+    println!("restoring file {path:?}");
+
     let mut file = File::create(path)?;
     for blob_hash in &child_tree.children {
         match packer.get_blob(blob_hash).await? {
@@ -106,10 +112,12 @@ async fn fetch_full_tree(packer: packfile::Manager, hash: &BlobHash) -> anyhow::
 async fn fetch_tree(mut packer: packfile::Manager, hash: &BlobHash) -> anyhow::Result<Tree> {
     let tree_blob = match packer.get_blob(hash).await? {
         Some(t) => t,
-        None => bail!(format!("Chunk {} was not found", hex::encode(hash)))
+        None => bail!(format!("Chunk {} was not found", hex::encode(hash))),
     };
 
-    if tree_blob.kind != BlobKind::Tree { bail!(format!("Chunk {} is not a tree", hex::encode(hash))) }
+    if tree_blob.kind != BlobKind::Tree {
+        bail!(format!("Chunk {} is not a tree", hex::encode(hash)))
+    }
 
     let tree: Tree = bincode::deserialize(&tree_blob.data)?;
     Ok(tree)

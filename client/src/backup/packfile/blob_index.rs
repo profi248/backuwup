@@ -81,18 +81,21 @@ impl BlobIndex {
             );
         }
 
-        Ok(Self {
+        let mut index = Self {
             output_path,
             items: Default::default(),
             items_buf: Default::default(),
             blobs_queued: Default::default(),
             last_file_num: max_num,
             dirty: false,
-        })
+        };
+
+        index.load().await?;
+        Ok(index)
     }
 
     pub async fn dump(&mut self) {
-        self.find_packfile(&Default::default()).await.unwrap();
+        self.find_packfile(&Default::default()).unwrap();
         for pair in &self.items {
             println!("{}: {}", hex::encode(pair.0), hex::encode(pair.1));
         }
@@ -133,22 +136,15 @@ impl BlobIndex {
             return Ok(true);
         }
 
-        if self.find_packfile(blob_hash).await?.is_some() {
+        if self.find_packfile(blob_hash)?.is_some() {
             return Ok(true);
         }
 
         Ok(false)
     }
 
-    pub async fn find_packfile(
-        &mut self,
-        blob_hash: &BlobHash,
-    ) -> Result<Option<PackfileId>, PackfileError> {
-        if self.items.is_empty() {
-            self.load().await?;
-        }
-
-        match self.items.binary_search_by_key(&blob_hash, |(a, _)| &a) {
+    pub fn find_packfile(&self, blob_hash: &BlobHash) -> Result<Option<PackfileId>, PackfileError> {
+        match self.items.binary_search_by_key(&blob_hash, |(a, _)| a) {
             Ok(entry_idx) => Ok(Some(self.items[entry_idx].1)),
             Err(_) => Ok(None),
         }

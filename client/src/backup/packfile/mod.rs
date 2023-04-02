@@ -29,13 +29,13 @@ use crate::{
 };
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
-pub const PACKFILE_TARGET_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
+pub const PACKFILE_TARGET_SIZE: usize = 3 * 1024 * 1024; // 3 MiB
 /// Maximum possible size of a packfile.
 pub const PACKFILE_MAX_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
 /// Maximum number of blobs that can be stored in a packfile.
 pub const PACKFILE_MAX_BLOBS: usize = 100_000;
 
-const ZSTD_COMPRESSION_LEVEL: i32 = 5;
+const ZSTD_COMPRESSION_LEVEL: i32 = 3;
 const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
 
 const PACKFILE_FOLDER: &str = "pack";

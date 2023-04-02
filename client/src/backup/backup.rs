@@ -52,9 +52,11 @@ pub async fn walk(
     println!("scanning folders...");
 
     browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue)?;
+
     println!("{processing_queue:?}");
 
-    let root_hash = pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
+    let root_hash =
+        pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
     packer.flush().await?;
 
     Ok(root_hash)
@@ -145,11 +147,13 @@ async fn pack_files_in_directory(
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
                         // start processing all the files and collect hashes later
+                        println!("backing up file {:?}", entry.path());
+                        //dir_tree.children.push(process_file(entry.path(), packer.clone()).await?);
                         futures.push(tokio::spawn(process_file(entry.path(), packer.clone())));
                     }
                     Ok(ftype) if ftype.is_dir() => {
                         // directory hashes have already been added to FsNode by their children
-                        println!("discovered directory {entry:?}");
+                        println!("discovered directory {:?}", entry.path());
                     }
                     Ok(_) => {
                         println!(
@@ -180,15 +184,13 @@ async fn pack_files_in_directory(
             }
         }
 
-        println!("tree!! {dir_tree:?}");
-
         let dir_blob_root_hash = add_tree_to_blobs(packer.clone(), &mut dir_tree).await?;
 
         // add our hash to our parent directory, unless we are the root
         // if we are the root, store our hash so we can use it as a snapshot
         match &node.as_ref().unwrap().parent {
             Some(parent) => parent.children.borrow_mut().push(dir_blob_root_hash),
-            None => root_tree_hash = dir_blob_root_hash
+            None => root_tree_hash = dir_blob_root_hash,
         }
     }
 
@@ -256,39 +258,46 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
         next_sibling: None,
     };
 
-    let source = File::open(path.clone())?;
+    // split file into chunks if it's large
+    if fs::metadata(path.clone())?.len() > BLOB_MINIMUM_TARGET_SIZE as u64 {
+        let file = File::open(path.clone())?;
 
-    let chunker = StreamCDC::new(
-        source,
-        BLOB_MINIMUM_TARGET_SIZE as u32,
-        BLOB_DESIRED_TARGET_SIZE as u32,
-        BLOB_MAX_UNCOMPRESSED_SIZE as u32,
-    );
+        // wtf, after moving this to this path, memory usage dropped dramatically
+        // todo try memmap instead
+        let chunker = StreamCDC::new(
+            file,
+            BLOB_MINIMUM_TARGET_SIZE as u32,
+            BLOB_DESIRED_TARGET_SIZE as u32,
+            BLOB_MAX_UNCOMPRESSED_SIZE as u32,
+        );
 
-    for result in chunker {
-        let chunk = result?;
-        let hash = hash_bytes(&chunk.data);
+        for result in chunker {
+            let chunk = result?;
+            let hash = hash_bytes(&chunk.data);
 
+            file_tree.children.push(hash);
+
+            packer
+                .add_blob(Blob {
+                    hash,
+                    kind: BlobKind::FileChunk,
+                    data: chunk.data,
+                })
+                .await?;
+        }
+    } else {
+        let blob = fs::read(path.clone())?;
+        let hash = hash_bytes(&blob);
         file_tree.children.push(hash);
 
         packer
             .add_blob(Blob {
                 hash,
                 kind: BlobKind::FileChunk,
-                data: chunk.data,
+                data: blob,
             })
             .await?;
-
-        println!(
-            "path={:?} offset={} length={} hash={}",
-            &path,
-            chunk.offset,
-            chunk.length,
-            hex::encode(hash)
-        );
     }
-
-    println!("{file_tree:?}");
 
     let tree_blobs = split_serialize_tree(&file_tree)?;
     let first_blob_hash = tree_blobs[0].hash;

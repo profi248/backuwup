@@ -8,13 +8,13 @@ pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";
 pub const PEER_STORAGE_USAGE_SPREAD: u64 = 32 * 1024 * 1024; // 32 MiB
 
 /// Maximum size of blob data that's allowed in a packfile.
-pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
+pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 3 * 1024 * 1024; // 3 MiB
 
 /// Minimum size of blob data, targeted by chunker. Actual blobs can be smaller.
-pub const BLOB_MINIMUM_TARGET_SIZE: usize = 512 * 1024; // 512 KiB
+pub const BLOB_MINIMUM_TARGET_SIZE: usize = 256 * 1024; // 256 KiB
 
 /// Desired size of blob data, targeted by chunker.
-pub const BLOB_DESIRED_TARGET_SIZE: usize = 2 * 1024 * 1024; // 4 MiB
+pub const BLOB_DESIRED_TARGET_SIZE: usize = 1 * 1024 * 1024; // 1 MiB
 
 pub const SERVER_ROOT_TLS_CERT_PEM: &str = "\
 -----BEGIN CERTIFICATE-----
