@@ -15,12 +15,8 @@ use filetime::FileTime;
 use futures_util::future::join_all;
 use memmap2::Mmap;
 use pathdiff::diff_paths;
-use sha2::{Digest, Sha256};
 
-use crate::{
-    backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
-    defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
-};
+use crate::{backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata}, defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE}, LOGGER};
 
 type FsNodePtr = Option<Rc<FsNode>>;
 
@@ -45,7 +41,7 @@ pub async fn walk(
 
     let root_node: FsNodePtr = Some(Rc::new(FsNode {
         parent: None,
-        name: Default::default(),
+        name: OsString::default(),
         children: RefCell::new(vec![]),
     }));
 
@@ -53,7 +49,9 @@ pub async fn walk(
 
     println!("scanning folders...");
 
-    browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue)?;
+    let mut total_file_count: u64 = 0;
+    browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue, &mut total_file_count)?;
+    LOGGER.get().unwrap().progress_set_total(total_file_count);
 
     let root_hash =
         pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
@@ -69,6 +67,7 @@ fn browse_dir_tree(
     root_path: &PathBuf,
     root_node: FsNodePtr,
     processing_queue: &mut VecDeque<FsNodePtr>,
+    total_file_count: &mut u64
 ) -> anyhow::Result<()> {
     let mut browsing_queue = VecDeque::<(FsNodePtr, PathBuf)>::new();
     browsing_queue.push_back((root_node, root_path.clone()));
@@ -91,7 +90,9 @@ fn browse_dir_tree(
                         processing_queue.push_front(node.clone());
                         browsing_queue.push_front((node, rel_path));
                     }
-                    Ok(ftype) if ftype.is_file() => {}
+                    Ok(ftype) if ftype.is_file() => {
+                        *total_file_count += 1;
+                    }
                     Ok(_) => {
                         println!(
                             "file {} is neither a file or a directory, ignored",
@@ -258,7 +259,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     };
 
     // split file into chunks if it's large
-    if fs::metadata(path.clone())?.len() > BLOB_MINIMUM_TARGET_SIZE as u64 {
+    if fs::metadata(path.clone())?.len() > BLOB_DESIRED_TARGET_SIZE as u64 {
         let file = File::open(path.clone())?;
 
         // safety: the worst that could happen here if data gets modified while mmap'd, is that the
@@ -307,6 +308,8 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     for blob in tree_blobs {
         packer.add_blob(blob).await?;
     }
+
+    LOGGER.get().unwrap().increment_progress(path.to_string_lossy().to_string());
 
     Ok(first_blob_hash)
 }

@@ -24,6 +24,7 @@
             font-display: swap;
             src: url('/fonts/Mulish-Regular.ttf') format('truetype');
         }
+
         @font-face {
             font-family: 'Mulish';
             font-style: italic;
@@ -31,6 +32,7 @@
             font-display: swap;
             src: url('/fonts/Mulish-Italic.ttf') format('truetype');
         }
+
         @font-face {
             font-family: 'Mulish';
             font-style: normal;
@@ -38,6 +40,7 @@
             font-display: swap;
             src: url('/fonts/Mulish-SemiBold.ttf') format('truetype');
         }
+
         @font-face {
             font-family: 'Mulish';
             font-style: italic;
@@ -45,6 +48,7 @@
             font-display: swap;
             src: url('/fonts/Mulish-SemiBoldItalic.ttf') format('truetype');
         }
+
         @font-face {
             font-family: 'Fira Code';
             font-style: normal;
@@ -52,6 +56,7 @@
             font-display: swap;
             src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
         }
+
         * {
             font-family: 'Mulish', sans-serif;
         }
@@ -60,85 +65,145 @@
     <link rel="stylesheet" href="lib/bootstrap.min.css">
 </head>
 <body>
-    <div id="app">
-        <nav class="navbar py-3 mb-3">
-            <div class="container">
-                <a class="navbar-brand">Backup</a>
-                <form class="d-flex">
-                    <div id="status" v-if="status"><h5><span class="badge rounded-pill text-bg-success">Connected</span></h5></div>
-                    <div id="status" v-else><h5><span class="badge rounded-pill text-bg-danger">Disconnected</span></h5></div>
-                </form>
-            </div>
-        </nav>
+<div id="app">
+    <nav class="navbar py-3 mb-3">
         <div class="container">
-            <!-- <h2 class="text-center">Log</h2> -->
-            <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs" disabled>{{ logs }}</textarea>
-            <div class="card text-center mt-4">
-                <div class="card-header">
-                    <h3 class="my-3">Tools</h3>
+            <a class="navbar-brand">Backup</a>
+            <form class="d-flex">
+                <div id="status" v-if="status"><h5><span class="badge rounded-pill text-bg-success">Connected</span>
+                </h5></div>
+                <div id="status" v-else><h5><span class="badge rounded-pill text-bg-danger">Disconnected</span></h5>
                 </div>
-                <div class="card-body p-4">
-                    <button class="btn btn-primary" v-on:click="send_ws('request')">Backup request</button>
+            </form>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="card mb-3">
+            <div class="progress rounded-bottom-0"
+                 style="height: 2.2rem; border-top-left-radius: 5.15px; border-top-right-radius: 5.15px">
+                <h6 class="position-absolute py-2 ps-3">Backup status</h6>
+                <div :style="{ width: percent + '%' }"
+                     class="progress-bar progress-bar-striped bg-primary-subtle progress-bar-animated"></div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card-body">
+                        <h5 class="card-title">File compression & encryption</h5>
+                        <table class="table" style="table-layout: fixed">
+                            <tr>
+                                <td style="width: 120px">Progress</td>
+                                <td>{{ current }}/{{ total }} files</td>
+                            </tr>
+                            <tr>
+                                <td>Current file</td>
+                                <td class="text-nowrap text-truncate d-inline-block w-100">{{ curr_file }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card-body"><h5 class="card-title">Data transfer</h5>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Peer 1
+                                <span class="badge bg-primary rounded-pill">14</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Peer 2
+                                <span class="badge bg-primary rounded-pill">2</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Peer 3
+                                <span class="badge bg-primary rounded-pill">1</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
+        <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs" disabled>{{ logs }}</textarea>
+        <div class="card text-center mt-4">
+            <div class="card-header">
+                <h3 class="my-3">Tools</h3>
+            </div>
+            <div class="card-body p-4">
+                <button class="btn btn-primary" v-on:click="send_ws('request')">Backup request</button>
+            </div>
+        </div>
     </div>
+</div>
 
-    <script src="lib/vue.global.min.js"></script>
-    <script>
-        const { createApp } = Vue;
+<script src="lib/vue.global.min.js"></script>
+<script>
+    const {createApp} = Vue;
 
-        createApp({
-            data() {
-                return {
-                    logs: "",
-                    status: false,
-                    socket: null,
-                    reconnector: null
-                }
-            },
-            methods: {
-                connect_ws() {
-                    this.socket = new WebSocket(`ws://${window.location.host}/ws`);
+    createApp({
+        data() {
+            return {
+                logs: "",
+                status: false,
+                socket: null,
+                reconnector: null,
+                current: 0,
+                total: 0,
+                curr_file: "",
+            }
+        },
+        computed: {
+            percent() {
+                return Math.max((this.current / this.total) * 100 - 1, 0);
+            }
+        },
+        methods: {
+            connect_ws() {
+                this.socket = new WebSocket(`ws://${window.location.host}/ws`);
 
-                    this.socket.addEventListener('message', (event) => {
-                        console.log('Message from server ', event.data);
-                        this.logs += event.data + "\n";
+                this.socket.addEventListener('message', (event) => {
+                    let message = JSON.parse(event.data);
 
+                    if (message["Progress"]) {
+                        this.current = message["Progress"].current;
+                        this.total = message["Progress"].total;
+                        this.curr_file = message["Progress"].file;
+                    } else if (message["Message"]) {
+                        this.logs += message["Message"] + "\n";
                         let el = document.querySelector("#logs");
                         el.scrollTo(0, el.scrollHeight);
-                    });
-
-                    this.socket.addEventListener('open', (event) => {
-                        this.status = true;
-                        clearInterval(this.reconnctor);
-                    });
-
-                    this.socket.addEventListener('close', () => {
-                        this.closed_ws();
-                    });
-
-                    this.socket.addEventListener('error', () => {
-                        this.closed_ws();
-                    });
-                },
-                closed_ws() {
-                    this.socket = null;
-                    this.status = false;
-                    clearInterval(this.reconnctor);
-                    this.reconnctor = setInterval(() => { this.connect_ws() }, 1000);
-                },
-                send_ws(msg) {
-                    if (this.socket) {
-                        this.socket.send(msg);
                     }
-                }
+                });
+
+                this.socket.addEventListener('open', (event) => {
+                    this.status = true;
+                    clearInterval(this.reconnctor);
+                });
+
+                this.socket.addEventListener('close', () => {
+                    this.closed_ws();
+                });
+
+                this.socket.addEventListener('error', () => {
+                    this.closed_ws();
+                });
             },
-            mounted() {
-                document.querySelector("#app").style.display = "block";
-                this.connect_ws();
+            closed_ws() {
+                this.socket = null;
+                this.status = false;
+                clearInterval(this.reconnctor);
+                this.reconnctor = setInterval(() => {
+                    this.connect_ws()
+                }, 1000);
+            },
+            send_ws(msg) {
+                if (this.socket) {
+                    this.socket.send(msg);
+                }
             }
-        }).mount('#app');
-    </script>
+        },
+        mounted() {
+            document.querySelector("#app").style.display = "block";
+            this.connect_ws();
+        }
+    }).mount('#app');
+</script>
 </body>
 </html>

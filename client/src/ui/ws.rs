@@ -9,6 +9,7 @@ use poem::{
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 
 use crate::LOGGER;
+use crate::ui::logger::LogItem;
 
 #[poem::handler]
 pub fn handler(ws: WebSocket) -> impl IntoResponse {
@@ -26,7 +27,7 @@ pub fn handler(ws: WebSocket) -> impl IntoResponse {
 
 async fn send_log_messages(
     mut ws_send: SplitSink<WebSocketStream, Message>,
-    mut log_receiver: Receiver<String>,
+    mut log_receiver: Receiver<LogItem>,
 ) {
     loop {
         let msg = match log_receiver.recv().await {
@@ -40,7 +41,7 @@ async fn send_log_messages(
             Ok(msg) => msg,
         };
 
-        match ws_send.send(Message::Text(msg)).await {
+        match ws_send.send(Message::Text(serde_json::to_string(&msg).unwrap())).await {
             // end the thread if sending to socket failed (it's likely closed)
             Err(_) => break,
             Ok(_) => continue,
