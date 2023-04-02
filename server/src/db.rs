@@ -12,7 +12,8 @@ pub struct Database {
 
 impl Database {
     pub async fn init() -> Self {
-        let db_url = dotenv::var("DB_URL").expect("DB_URL environment variable not set or invalid");
+        let db_url =
+            dotenvy::var("DB_URL").expect("DB_URL environment variable not set or invalid");
 
         let db = Self {
             conn_pool: PgPoolOptions::new()

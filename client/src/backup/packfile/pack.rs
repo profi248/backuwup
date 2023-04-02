@@ -4,7 +4,7 @@ use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
 use tokio::{
     fs::{self, OpenOptions},
-    io::{AsyncSeekExt, AsyncWriteExt},
+    io::AsyncWriteExt,
 };
 use zstd::bulk::Compressor;
 
@@ -33,8 +33,7 @@ impl Manager {
             .index
             .lock()
             .await
-            .is_blob_duplicate(&blob.hash)
-            .await?
+            .is_blob_duplicate(&blob.hash)?
         {
             return Ok(());
         }
@@ -97,7 +96,7 @@ impl Manager {
             let mut index = self.inner.index.lock().await;
 
             for blob in blobs.iter() {
-                if !index.is_blob_duplicate(&blob.hash).await? {
+                if !index.is_blob_duplicate(&blob.hash)? {
                     candidates_size += blob.data.len();
                     candidates_cnt += 1;
                 }
@@ -124,7 +123,7 @@ impl Manager {
 
             while let Some(blob) = &mut blobs.pop_front() {
                 // deduplication: double check that blob is unique
-                if index.is_blob_duplicate(&blob.hash).await? {
+                if index.is_blob_duplicate(&blob.hash)? {
                     continue;
                 }
 
@@ -188,7 +187,7 @@ impl Manager {
     fn serialize_packfile(
         mut data: &mut Vec<u8>,
         header: &mut Vec<PackfileHeaderBlob>,
-        mut bytes_written: usize,
+        bytes_written: usize,
     ) -> Result<(PackfileId, Vec<u8>), PackfileError> {
         // generate a random packfile ID that will be used as a filename and a nonce for the header
         let mut packfile_id: PackfileId = Default::default();
@@ -217,15 +216,15 @@ impl Manager {
         Ok((packfile_id, buffer))
     }
 
-    pub(crate) async fn get_packfile_path(
+    pub async fn get_packfile_path(
         &self,
         packfile_hash: PackfileId,
         create_folders: bool,
     ) -> Result<String, PackfileError> {
         let packfile_hash_hex = hex::encode(packfile_hash);
 
-        // Split packfiles into directories based on the first two hex characters of the hash,
-        // to avoid having too many files in the same directory.
+        // split packfiles into directories based on the first two hex characters of the hash,
+        // to avoid having too many files in the same directory
         let directory = format!("{}/{}", self.inner.output_path, &packfile_hash_hex[..2]);
         let file_path = format!("{directory}/{packfile_hash_hex}");
 

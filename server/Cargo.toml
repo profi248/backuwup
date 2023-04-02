@@ -33,6 +33,6 @@ sum-queue = "1.0.0"
 
 # Utils
 thiserror = "1.0.38"
-dotenv = "0.15.0"
+dotenvy = "0.15.7"
 anyhow = "1.0.69"
 hex = "0.4.3"

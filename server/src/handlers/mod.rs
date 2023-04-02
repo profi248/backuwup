@@ -6,10 +6,9 @@ pub mod transport_request;
 use anyhow::anyhow;
 use poem::{error::ResponseError, http::StatusCode, Body, Request, Response};
 use shared::{
-    server_message::ErrorType,
+    server_message::{ErrorType, ServerMessage},
     types::{ClientId, SessionToken},
 };
-use shared::server_message::ServerMessage;
 
 use crate::AUTH_MANAGER;
 
@@ -72,7 +71,8 @@ impl ResponseError for Error {
         };
 
         println!("[err] sending error response to client: {msg:?}");
-        let body = Body::from_json(ServerMessage::Error(msg)).expect("Failed to serialize response");
+        let body =
+            Body::from_json(ServerMessage::Error(msg)).expect("Failed to serialize response");
         Response::builder().status(self.status()).body(body)
     }
 }

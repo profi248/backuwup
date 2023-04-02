@@ -10,23 +10,9 @@ use std::{
     },
 };
 
-use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
-use bincode::Options;
-use tokio::{
-    fs::{self, File, OpenOptions},
-    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
-    sync::Mutex,
-};
-use zstd::bulk::{Compressor, Decompressor};
+use tokio::sync::Mutex;
 
-use crate::{
-    backup::{
-        packfile::blob_index::BlobIndex, Blob, BlobEncrypted, BlobHash, BlobNonce, CompressionKind,
-        PackfileError, PackfileHeaderBlob, PackfileId, NONCE_SIZE,
-    },
-    defaults::BLOB_MAX_UNCOMPRESSED_SIZE,
-    KEYS,
-};
+use crate::backup::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 3 * 1024 * 1024; // 3 MiB

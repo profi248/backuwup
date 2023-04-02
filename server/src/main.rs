@@ -33,9 +33,9 @@ static AUTH_MANAGER: OnceCell<ClientAuthManager> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() {
-    let bind_ip = dotenv::var("BIND_IP").expect("BIND_IP environment variable not set or invalid");
-    let cert = dotenv::var("TLS_CERT").expect("TLS_CERT environment variable not set or invalid");
-    let key = dotenv::var("TLS_KEY").expect("TLS_KEY environment variable not set or invalid");
+    let bind_ip = dotenvy::var("BIND_IP").expect("BIND_IP environment variable not set or invalid");
+    let cert = dotenvy::var("TLS_CERT").expect("TLS_CERT environment variable not set or invalid");
+    let key = dotenvy::var("TLS_KEY").expect("TLS_KEY environment variable not set or invalid");
 
     let db = Database::init().await;
 

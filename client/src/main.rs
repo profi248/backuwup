@@ -84,22 +84,25 @@ async fn main() {
         requests::backup_transport_begin(cid, nonce).await.unwrap();
     }
 
-    if env::var("DEBUG_WALK").unwrap_or("0".to_string()) == "1" {
+    if env::var("DEBUG_BACKUP").unwrap_or("0".to_string()) == "1" {
         //backup::filesystem_walker::walk().await.unwrap();
         let hash = backup::backup::walk(
-            "/home/david/FIT/bachelors-thesis/backup-test",
-            "/home/david/_packs",
+            "/home/david/backup-testing/source",
+            "/home/david/backup-testing/packs",
         )
         .await
         .unwrap();
 
         println!("backup done, snapshot hash: {}", hex::encode(hash));
-        println!("restoring...");
+        std::process::exit(0);
+    }
 
+    if let Ok(hash) = env::var("DEBUG_RESTORE") {
+        println!("restoring...");
         backup::restore::unpack(
-            "/home/david/_packs",
-            "/home/david/FIT/bachelors-thesis/restored",
-            hash,
+            "/home/david/backup-testing/packs",
+            "/home/david/backup-testing/restored",
+            hex::decode(hash).unwrap().try_into().unwrap(),
         )
         .await
         .unwrap();

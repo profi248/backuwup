@@ -131,7 +131,7 @@ impl BlobIndex {
         Ok(())
     }
 
-    pub async fn is_blob_duplicate(&mut self, blob_hash: &BlobHash) -> Result<bool, PackfileError> {
+    pub fn is_blob_duplicate(&mut self, blob_hash: &BlobHash) -> Result<bool, PackfileError> {
         if self.blobs_queued.contains(blob_hash) {
             return Ok(true);
         }

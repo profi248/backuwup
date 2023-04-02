@@ -4,14 +4,16 @@ use std::{
     ffi::OsString,
     fmt::{Debug, Formatter},
     fs,
-    fs::{File, Metadata},
+    fs::File,
     path::PathBuf,
     rc::Rc,
-    time::UNIX_EPOCH,
 };
 
-use fastcdc::v2020::StreamCDC;
+use anyhow::bail;
+use fastcdc::v2020::FastCDC;
+use filetime::FileTime;
 use futures_util::future::join_all;
+use memmap2::Mmap;
 use pathdiff::diff_paths;
 use sha2::{Digest, Sha256};
 
@@ -79,7 +81,7 @@ fn browse_dir_tree(
             match item {
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_dir() => {
-                        let rel_path = diff_paths(entry.path(), &root_path).unwrap_or(entry.path());
+                        let rel_path = diff_paths(entry.path(), root_path).unwrap_or(entry.path());
                         let node = Some(Rc::new(FsNode {
                             parent: current_node.clone(),
                             name: entry.path().file_name().unwrap_or("".as_ref()).to_owned(),
@@ -136,7 +138,7 @@ async fn pack_files_in_directory(
         let mut dir_tree = Tree {
             kind: TreeKind::Dir,
             name: path.file_name().unwrap_or("".as_ref()).to_string_lossy().into(),
-            metadata: get_metadata(path.metadata()?),
+            metadata: get_metadata(&path)?,
             // move child directory hashes from temporary FsNode structure to our actual tree
             children: Vec::from(node.as_ref().unwrap().children.borrow_mut().as_mut()),
             next_sibling: None,
@@ -148,7 +150,6 @@ async fn pack_files_in_directory(
                     Ok(ftype) if ftype.is_file() => {
                         // start processing all the files and collect hashes later
                         println!("backing up file {:?}", entry.path());
-                        //dir_tree.children.push(process_file(entry.path(), packer.clone()).await?);
                         futures.push(tokio::spawn(process_file(entry.path(), packer.clone())));
                     }
                     Ok(ftype) if ftype.is_dir() => {
@@ -211,24 +212,22 @@ async fn add_tree_to_blobs(
     Ok(first_blob_hash)
 }
 
-fn get_metadata(metadata: Metadata) -> TreeMetadata {
-    TreeMetadata {
+fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
+    let metadata = path.metadata()?;
+
+    Ok(TreeMetadata {
         size: Some(metadata.len()),
-        mtime: match metadata.modified() {
-            Ok(systime) => match systime.duration_since(UNIX_EPOCH) {
-                Ok(ts) => Some(ts.as_secs()),
-                Err(_) => None,
-            },
+        mtime: match metadata.modified().map(|t| FileTime::from(t).unix_seconds()) {
+            Ok(ts @ 0..) => Some(ts as u64),
+            Ok(_) => None,
             Err(_) => None,
         },
-        ctime: match metadata.created() {
-            Ok(systime) => match systime.duration_since(UNIX_EPOCH) {
-                Ok(ts) => Some(ts.as_secs()),
-                Err(_) => None,
-            },
+        ctime: match metadata.created().map(|t| FileTime::from(t).unix_seconds()) {
+            Ok(ts @ 0..) => Some(ts as u64),
+            Ok(_) => None,
             Err(_) => None,
         },
-    }
+    })
 }
 
 fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
@@ -248,12 +247,15 @@ fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
 }
 
 async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Result<BlobHash> {
-    let filename = path.file_name().unwrap_or_else(|| "".as_ref()).to_string_lossy();
+    let filename = match path.file_name() {
+        Some(f) => f,
+        None => bail!("Unable to get file name at {path:?}"),
+    };
 
     let mut file_tree = Tree {
         kind: TreeKind::File,
-        name: filename.clone().into(),
-        metadata: get_metadata(path.metadata()?),
+        name: filename.to_string_lossy().into(),
+        metadata: get_metadata(&path)?,
         children: Vec::default(),
         next_sibling: None,
     };
@@ -262,18 +264,21 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     if fs::metadata(path.clone())?.len() > BLOB_MINIMUM_TARGET_SIZE as u64 {
         let file = File::open(path.clone())?;
 
-        // wtf, after moving this to this path, memory usage dropped dramatically
-        // todo try memmap instead
-        let chunker = StreamCDC::new(
-            file,
+        // safety: the worst that could happen here if data gets modified while mmap'd, is that the
+        // resulting backup would be wrong. while that's bad, it's something that's hard to avoid in
+        // general. we can try to also store file hashes to prevent errors like this, or try using locks
+        let mmap = unsafe { Mmap::map(&file)? };
+
+        let chunker = FastCDC::new(
+            &mmap,
             BLOB_MINIMUM_TARGET_SIZE as u32,
             BLOB_DESIRED_TARGET_SIZE as u32,
             BLOB_MAX_UNCOMPRESSED_SIZE as u32,
         );
 
-        for result in chunker {
-            let chunk = result?;
-            let hash = hash_bytes(&chunk.data);
+        for chunk in chunker {
+            let data = &mmap[chunk.offset..(chunk.offset + chunk.length)];
+            let hash = hash_bytes(data);
 
             file_tree.children.push(hash);
 
@@ -281,7 +286,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
                 .add_blob(Blob {
                     hash,
                     kind: BlobKind::FileChunk,
-                    data: chunk.data,
+                    data: Vec::from(data),
                 })
                 .await?;
         }
