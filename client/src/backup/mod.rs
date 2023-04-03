@@ -6,9 +6,12 @@ use std::{
 
 use anyhow::bail;
 use fs_extra::dir::get_size;
+use shared::server_message_ws::{BackupMatched, FinalizeTransportRequest};
 use tokio::sync::{oneshot, Mutex, OnceCell};
 
-use crate::{backup::filesystem::package, CONFIG, LOGGER};
+use crate::{
+    backup::filesystem::package, net_server::requests, CONFIG, LOGGER, TRANSPORT_REQUESTS,
+};
 
 pub mod filesystem;
 
@@ -60,22 +63,68 @@ pub async fn run() -> anyhow::Result<()> {
         bail!("backup path not set");
     }
 
-    let result = package::pack(backup_path.unwrap(), destination).await;
+    let result = tokio::spawn(package::pack(backup_path.unwrap(), destination));
 
-    match result {
-        Ok(hash) => {
+    // wait for having enough data and send them in a loop
+
+    match result.await {
+        Ok(Ok(hash)) => {
             LOGGER
                 .get()
                 .unwrap()
                 .send(format!("backup done, snapshot hash: {}", hex::encode(hash)));
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             LOGGER
                 .get()
                 .unwrap()
                 .send_backup_finished(false, format!("Backup failed: {e:?}"));
         }
+        Err(e) => {
+            LOGGER
+                .get()
+                .unwrap()
+                .send_backup_finished(false, format!("Unexpected backup error: {e:?}"));
+        }
     };
+
+    Ok(())
+}
+
+// todo properly handle errors
+pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::Result<()> {
+    let nonce = TRANSPORT_REQUESTS
+        .get()
+        .unwrap()
+        .add_request(matched.destination_id)
+        .await?;
+    requests::backup_transport_begin(matched.destination_id, nonce)
+        .await
+        .unwrap();
+
+    Ok(())
+}
+
+pub async fn handle_finalize_transport_request(
+    request: FinalizeTransportRequest,
+) -> anyhow::Result<()> {
+    let mut transport = TRANSPORT_REQUESTS
+        .get()
+        .unwrap()
+        .finalize_request(request.destination_client_id, request.destination_ip_address)
+        .await
+        .unwrap()
+        .unwrap();
+
+    // send the data
+
+    transport.done().await.unwrap();
+
+    Ok(())
+}
+
+pub async fn make_backup_storage_request(storage_required: u64) -> anyhow::Result<()> {
+    requests::backup_storage_request(storage_required).await?;
 
     Ok(())
 }

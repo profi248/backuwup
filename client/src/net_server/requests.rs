@@ -3,8 +3,8 @@ use std::time::Duration;
 use anyhow::bail;
 use shared::{
     client_message::{
-        BeginTransportRequest, ClientLoginAuth, ClientLoginRequest, ClientRegistrationAuth,
-        ClientRegistrationRequest, ConfirmTransportRequest,
+        BackupRequest, BeginTransportRequest, ClientLoginAuth, ClientLoginRequest,
+        ClientRegistrationAuth, ClientRegistrationRequest, ConfirmTransportRequest,
     },
     server_message::{ClientLoginToken, ErrorType, ServerMessage},
     types::{ChallengeNonce, ClientId, TransportSessionNonce},
@@ -142,6 +142,42 @@ pub async fn backup_transport_confirm(
                     session_token: token.unwrap(),
                     source_client_id,
                     destination_ip_address: destination_ip_address.clone(),
+                })
+                .send()
+                .await?;
+
+            match response.json().await? {
+                ServerMessage::Ok => return Ok(()),
+                ServerMessage::Error(ErrorType::Unauthorized) => {
+                    config.save_auth_token(None).await?;
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                }
+                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
+                _ => bail!("Unexpected response"),
+            };
+        } else {
+            identity::login().await?;
+        }
+    }
+
+    bail!("Unrecoverable auth error");
+}
+
+pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
+    let client = reqwest::Client::new();
+    let config = CONFIG.get().unwrap();
+
+    // todo fix these
+    // login reattempt was supposed to be in a separate function, but I was not able to convince
+    // the compiler to take an async closure as a parameter and gave up for now
+    for _ in 0..2 {
+        let token = config.load_auth_token().await?;
+        if token.is_some() {
+            let response = client
+                .post(url("backups/request"))
+                .json(&BackupRequest {
+                    session_token: token.unwrap(),
+                    storage_required: amount,
                 })
                 .send()
                 .await?;

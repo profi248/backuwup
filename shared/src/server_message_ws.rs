@@ -13,8 +13,8 @@ pub enum ServerMessageWs {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BackupMatched {
-    storage_available: u64,
-    destination_id: crate::types::ClientId,
+    pub storage_available: u64,
+    pub destination_id: ClientId,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

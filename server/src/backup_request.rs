@@ -16,17 +16,8 @@ use crate::{handlers, CONNECTIONS};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
-    storage_required: u64,
-    client_id: shared::types::ClientId,
-}
-
-impl From<BackupRequest> for Request {
-    fn from(request: BackupRequest) -> Self {
-        Self {
-            storage_required: request.storage_required,
-            client_id: request.requester_id,
-        }
-    }
+    pub storage_required: u64,
+    pub client_id: shared::types::ClientId,
 }
 
 // sum will be the total requested space

@@ -63,6 +63,7 @@ impl BackupTransportManager {
     }
 
     pub async fn send_data(&mut self, data: Vec<u8>) -> anyhow::Result<()> {
+        // todo maybe change this to blake3 as well
         let mut hasher = Sha256::new();
         hasher.update(&data);
         let hash = hasher.finalize();

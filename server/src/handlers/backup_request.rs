@@ -1,14 +1,25 @@
 use poem::{handler, web::Json};
 use shared::{client_message::BackupRequest, server_message::ServerMessage};
 
-use crate::BACKUP_REQUESTS;
+use crate::{AUTH_MANAGER, BACKUP_REQUESTS};
+use crate::backup_request::Request;
+use crate::handlers::Error;
 
 #[handler]
 pub async fn make_backup_request(
     Json(request): Json<BackupRequest>,
 ) -> poem::Result<Json<ServerMessage>> {
-    // todo verify client token
-    let request = request.into();
+    let client_id = AUTH_MANAGER
+        .get()
+        .unwrap()
+        .get_session(request.session_token)
+        .ok_or(Error::Unauthorized)?;
+
+    let request = Request {
+        storage_required: request.storage_required,
+        client_id
+    };
+
     let queue = BACKUP_REQUESTS.get().unwrap();
 
     println!("[backup request] new request: {request:?}");
