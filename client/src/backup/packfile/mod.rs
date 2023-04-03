@@ -4,6 +4,7 @@ pub mod unpack;
 
 use std::{
     collections::VecDeque,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -74,7 +75,7 @@ struct PackfileHandlerInner {
     /// Index struct managing blob => packfile mapping.
     index: Mutex<BlobIndex>,
     /// The path to the output folder.
-    output_path: String,
+    output_path: PathBuf,
 }
 
 impl Drop for PackfileHandlerInner {
@@ -86,9 +87,9 @@ impl Drop for PackfileHandlerInner {
 }
 
 impl Manager {
-    pub async fn new(output_path: String) -> Result<Self, PackfileError> {
-        let packfile_path = format!("{output_path}/{PACKFILE_FOLDER}");
-        let index_path = format!("{output_path}/{INDEX_FOLDER}");
+    pub async fn new(output_path: PathBuf) -> Result<Self, PackfileError> {
+        let packfile_path = output_path.join(PACKFILE_FOLDER);
+        let index_path = output_path.join(INDEX_FOLDER);
 
         Ok(Self {
             inner: Arc::new(PackfileHandlerInner {

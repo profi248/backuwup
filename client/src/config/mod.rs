@@ -1,3 +1,4 @@
+mod backup;
 mod identity;
 mod peers;
 
@@ -22,7 +23,7 @@ impl Config {
         let mut structure_initialized = true;
 
         let mut config_file = dirs::config_dir().expect("Cannot find the system config directory");
-        config_file.push(crate::defaults::CONFIG_FOLDER);
+        config_file.push(crate::defaults::APP_FOLDER_NAME);
 
         fs::create_dir_all(config_file.clone()).unwrap_or_else(|_| {
             panic!("Unable write to the config folder {}", config_file.display())

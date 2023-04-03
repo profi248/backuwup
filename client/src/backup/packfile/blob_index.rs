@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, path::PathBuf};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
@@ -43,7 +43,7 @@ type Entry = Vec<(BlobHash, PackfileId)>;
 /// or 2 500 000 individual files), total index size would range from about 50 to 112 megabytes.
 pub struct BlobIndex {
     /// Path to the index folder.
-    output_path: String,
+    output_path: PathBuf,
     /// Index entries loaded from disk.
     items: Entry,
     /// Index entries waiting to be written to disk.
@@ -62,7 +62,7 @@ pub struct IndexPackfileHandle {
 }
 
 impl BlobIndex {
-    pub async fn new(output_path: String) -> Result<Self, PackfileError> {
+    pub async fn new(output_path: PathBuf) -> Result<Self, PackfileError> {
         fs::create_dir_all(&output_path).await?;
         let mut index_files = ReadDirStream::new(fs::read_dir(&output_path).await?);
 
@@ -219,7 +219,8 @@ impl BlobIndex {
         // todo: add associated data (to make sure we're decrypting a index so "index" could work)
         cipher.encrypt_in_place(nonce, b"", &mut buf)?;
 
-        let file_path = format!("{}/{:0>10}", self.output_path, new_file_num);
+        let file_name = format!("{:0>10}", new_file_num);
+        let file_path = self.output_path.join(file_name);
         let mut file = File::create(file_path.clone()).await?;
         file.write_all(&buf).await?;
 

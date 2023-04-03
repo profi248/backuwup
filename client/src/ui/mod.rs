@@ -1,5 +1,6 @@
 pub mod logger;
 pub mod ws;
+mod ws_dispatcher;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;

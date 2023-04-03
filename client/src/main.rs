@@ -86,9 +86,9 @@ async fn main() {
 
     if env::var("DEBUG_BACKUP").unwrap_or("0".to_string()) == "1" {
         //backup::filesystem_walker::walk().await.unwrap();
-        let hash = backup::backup::walk(
-            "/home/david/backup-testing/source",
-            "/home/david/backup-testing/packs",
+        let hash = backup::backup::create(
+            "/home/david/backup-testing/source".into(),
+            "/home/david/backup-testing/packs".into(),
         )
         .await
         .unwrap();

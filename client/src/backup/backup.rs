@@ -1,12 +1,12 @@
 use std::{
-    cell::RefCell,
     collections::VecDeque,
     ffi::OsString,
     fmt::{Debug, Formatter},
     fs,
     fs::File,
     path::PathBuf,
-    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use anyhow::bail;
@@ -16,9 +16,13 @@ use futures_util::future::join_all;
 use memmap2::Mmap;
 use pathdiff::diff_paths;
 
-use crate::{backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata}, defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE}, LOGGER};
+use crate::{
+    backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
+    defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
+    LOGGER,
+};
 
-type FsNodePtr = Option<Rc<FsNode>>;
+type FsNodePtr = Option<Arc<FsNode>>;
 
 /// Maximum amount of children before it's split off to a sibling. This is to prevent the blob from
 /// growing too big and exceeding the maximum size, as well as for effective deduplication.
@@ -27,35 +31,54 @@ const TREE_BLOB_MAX_CHILDREN: usize = 10_000;
 struct FsNode {
     parent: FsNodePtr,
     name: OsString,
-    children: RefCell<Vec<BlobHash>>,
+    children: Mutex<Vec<BlobHash>>,
 }
 
 #[allow(clippy::unused_async)]
-pub async fn walk(
-    backup_root: impl Into<PathBuf> + Clone,
-    pack_folder: impl Into<String>,
-) -> anyhow::Result<BlobHash> {
+pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<BlobHash> {
     let packer = packfile::Manager::new(pack_folder.into()).await?;
 
     let mut processing_queue = VecDeque::<FsNodePtr>::new();
 
-    let root_node: FsNodePtr = Some(Rc::new(FsNode {
+    let root_node: FsNodePtr = Some(Arc::new(FsNode {
         parent: None,
         name: OsString::default(),
-        children: RefCell::new(vec![]),
+        children: Mutex::new(vec![]),
     }));
 
     processing_queue.push_back(root_node.clone());
 
-    println!("scanning folders...");
+    if backup_root.exists() {
+        LOGGER.get().unwrap().send_backup_started();
+    }
+
+    let start = Instant::now();
 
     let mut total_file_count: u64 = 0;
-    browse_dir_tree(&backup_root.clone().into(), root_node, &mut processing_queue, &mut total_file_count)?;
+    browse_dir_tree(
+        &backup_root.clone().into(),
+        root_node,
+        &mut processing_queue,
+        &mut total_file_count,
+    )?;
     LOGGER.get().unwrap().progress_set_total(total_file_count);
 
+    // todo flush here on error, and also implement index rebuilding
+    // todo handle sigterm
     let root_hash =
         pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
     packer.flush().await?;
+
+    let elapsed = start.elapsed();
+    LOGGER.get().unwrap().send_backup_finished(
+        true,
+        format!(
+            "Backup finished successfully, processed {} files in {:02}:{:02}",
+            total_file_count,
+            elapsed.as_secs() / 60,
+            elapsed.as_secs() % 60
+        ),
+    );
 
     Ok(root_hash)
 }
@@ -67,7 +90,7 @@ fn browse_dir_tree(
     root_path: &PathBuf,
     root_node: FsNodePtr,
     processing_queue: &mut VecDeque<FsNodePtr>,
-    total_file_count: &mut u64
+    total_file_count: &mut u64,
 ) -> anyhow::Result<()> {
     let mut browsing_queue = VecDeque::<(FsNodePtr, PathBuf)>::new();
     browsing_queue.push_back((root_node, root_path.clone()));
@@ -79,10 +102,10 @@ fn browse_dir_tree(
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_dir() => {
                         let rel_path = diff_paths(entry.path(), root_path).unwrap_or(entry.path());
-                        let node = Some(Rc::new(FsNode {
+                        let node = Some(Arc::new(FsNode {
                             parent: current_node.clone(),
                             name: entry.path().file_name().unwrap_or("".as_ref()).to_owned(),
-                            children: RefCell::new(vec![]),
+                            children: Mutex::new(vec![]),
                         }));
 
                         println!("found folder {rel_path:?}");
@@ -138,7 +161,7 @@ async fn pack_files_in_directory(
             name: path.file_name().unwrap_or("".as_ref()).to_string_lossy().into(),
             metadata: get_metadata(&path)?,
             // move child directory hashes from temporary FsNode structure to our actual tree
-            children: Vec::from(node.as_ref().unwrap().children.borrow_mut().as_mut()),
+            children: Vec::from(node.as_ref().unwrap().children.lock().unwrap().as_mut()),
             next_sibling: None,
         };
 
@@ -155,16 +178,22 @@ async fn pack_files_in_directory(
                         // println!("discovered directory {:?}", entry.path());
                     }
                     Ok(_) => {
-                        println!(
+                        let logger = LOGGER.get().unwrap();
+
+                        logger.progress_increment_failed();
+                        logger.send(format!(
                             "file {} is neither a file or a directory, ignored",
                             entry.path().display()
-                        );
+                        ));
                     }
                     Err(e) => {
-                        println!(
+                        let logger = LOGGER.get().unwrap();
+
+                        logger.progress_increment_failed();
+                        logger.send(format!(
                             "error when scanning file {}: {e}, continuing",
                             entry.path().display()
-                        );
+                        ));
                     }
                 },
                 Err(e) => {
@@ -188,7 +217,7 @@ async fn pack_files_in_directory(
         // add our hash to our parent directory, unless we are the root
         // if we are the root, store our hash so we can use it as a snapshot
         match &node.as_ref().unwrap().parent {
-            Some(parent) => parent.children.borrow_mut().push(dir_blob_root_hash),
+            Some(parent) => parent.children.lock().unwrap().push(dir_blob_root_hash),
             None => root_tree_hash = dir_blob_root_hash,
         }
     }
@@ -309,7 +338,10 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
         packer.add_blob(blob).await?;
     }
 
-    LOGGER.get().unwrap().increment_progress(path.to_string_lossy().to_string());
+    LOGGER
+        .get()
+        .unwrap()
+        .progress_notify_increment(path.to_string_lossy().to_string());
 
     Ok(first_blob_hash)
 }

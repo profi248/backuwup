@@ -1,6 +1,7 @@
 pub const SERVER_URL: &str = "localhost:8080";
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";
-pub const CONFIG_FOLDER: &str = "p2p-backup";
+pub const APP_FOLDER_NAME: &str = "p2p-backup";
+pub const PACKFILE_FOLDER_NAME: &str = "packfiles";
 pub const CONFIG_DB_FILE: &str = "config.db";
 
 pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";

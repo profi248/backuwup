@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::{path::PathBuf, sync::atomic::Ordering};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
@@ -28,13 +28,7 @@ impl Manager {
         }
 
         // deduplication: we won't queue a blob if has been queued already
-        if self
-            .inner
-            .index
-            .lock()
-            .await
-            .is_blob_duplicate(&blob.hash)
-        {
+        if self.inner.index.lock().await.is_blob_duplicate(&blob.hash) {
             return Ok(());
         }
 
@@ -220,13 +214,13 @@ impl Manager {
         &self,
         packfile_hash: PackfileId,
         create_folders: bool,
-    ) -> Result<String, PackfileError> {
+    ) -> Result<PathBuf, PackfileError> {
         let packfile_hash_hex = hex::encode(packfile_hash);
 
         // split packfiles into directories based on the first two hex characters of the hash,
         // to avoid having too many files in the same directory
-        let directory = format!("{}/{}", self.inner.output_path, &packfile_hash_hex[..2]);
-        let file_path = format!("{directory}/{packfile_hash_hex}");
+        let directory = self.inner.output_path.join(&packfile_hash_hex[..2]);
+        let file_path = directory.join(packfile_hash_hex);
 
         if create_folders {
             fs::create_dir_all(directory).await?;

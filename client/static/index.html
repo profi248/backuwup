@@ -61,6 +61,16 @@
             font-family: 'Mulish', sans-serif;
         }
 
+        .v-enter-active,
+        .v-leave-active {
+            transition: opacity 0.15s ease-out;
+        }
+
+        .v-enter-from,
+        .v-leave-to {
+            opacity: 0;
+        }
+
     </style>
     <link rel="stylesheet" href="lib/bootstrap.min.css">
 </head>
@@ -78,58 +88,122 @@
         </div>
     </nav>
     <div class="container">
-        <div class="card mb-3">
-            <div class="progress rounded-bottom-0"
-                 style="height: 2.2rem; border-top-left-radius: 5.15px; border-top-right-radius: 5.15px">
-                <h6 class="position-absolute py-2 ps-3">Backup status</h6>
-                <div :style="{ width: percent + '%' }"
-                     class="progress-bar progress-bar-striped bg-primary-subtle progress-bar-animated"></div>
-            </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card-body">
-                        <h5 class="card-title">File compression & encryption</h5>
-                        <table class="table" style="table-layout: fixed">
-                            <tr>
-                                <td style="width: 120px">Progress</td>
-                                <td>{{ current }}/{{ total }} files</td>
-                            </tr>
-                            <tr>
-                                <td>Current file</td>
-                                <td class="text-nowrap text-truncate d-inline-block w-100">{{ curr_file }}</td>
-                            </tr>
-                        </table>
+        <Transition>
+            <div id="main" v-if="status">
+                <div class="card mb-3">
+                    <div class="progress rounded-bottom-0" :class="{ 'bg-light': !backup_running,
+                     'bg-success-subtle': (last_backup_success === true) && !backup_running,
+                      'bg-danger-subtle': (last_backup_success === false) && !backup_running }"
+                         style="height: 2.2rem; border-top-left-radius: 5.15px; border-top-right-radius: 5.15px">
+                        <h6 class="position-absolute py-2 ps-3" v-if="backup_running">Backup status</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else-if="!backup_running && (last_backup_success === true)">Backup successful</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else-if="!backup_running && (last_backup_success === false)">Backup error</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else>Backup</h6>
+                        <div :style="{ width: percent + '%' }"
+                             class="progress-bar progress-bar-striped bg-primary-subtle progress-bar-animated"></div>
+                    </div>
+                    <Transition mode="out-in">
+                        <div class="row" v-if="backup_running">
+                            <div class="col-md-6">
+                                <div class="card-body">
+                                    <h5 class="card-title">File compression & encryption</h5>
+                                    <table class="table" style="table-layout: fixed">
+                                        <tr>
+                                            <td style="width: 120px">Progress</td>
+                                            <td>{{ current }}/{{ total }} files</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Current file</td>
+                                            <td class="text-nowrap text-truncate d-inline-block w-100">{{ curr_file }}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Skipped</td>
+                                            <td class="text-nowrap text-truncate d-inline-block w-100">{{ failed }}
+                                                items
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card-body"><h5 class="card-title">Data transfer</h5>
+                                    <ul class="list-group">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Peer 1
+                                            <span class="badge bg-primary rounded-pill">14</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Peer 2
+                                            <span class="badge bg-primary rounded-pill">2</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            Peer 3
+                                            <span class="badge bg-primary rounded-pill">1</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" v-else>
+                            <div class="col-md-6">
+                                <div class="card-body">
+                                    <h5 class="card-title">Backup</h5>
+                                    <div v-if="backup_msg">
+                                        {{ backup_msg }}
+                                    </div>
+                                    <div v-else>
+                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut in lectus quis eros
+                                        congue imperdiet at non lacus. Fusce interdum arcu id tellus dignissim, in aliquam
+                                        orci venenatis. Nunc cursus est et ipsum viverra viverra.
+                                    </div>
+
+                                    <div class="d-grid gap-2 d-md-block mt-2">
+                                        <button type="button" class="btn btn-primary" v-on:click="start_backup()">Start
+                                            backup
+                                        </button>
+                                        <button type="button" class="btn btn-outline-dark ms-md-2"
+                                                @click="settings_editable = true" :disabled="settings_editable">Change
+                                            settings
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card-body">
+                                    <h5 class="card-title">Configuration</h5>
+                                    <!--                        <div class="d-flex h-100 justify-content-center align-items-center">-->
+                                    <!--                            <button type="button" class="btn btn-outline-dark align-content-center">Change settings</button>-->
+                                    <!--                        </div>-->
+
+                                    <div class="form-floating mb-3">
+                                        <input type="text" class="form-control" v-model="configuration.path" id="path"
+                                               placeholder="name@example.com" :disabled="!settings_editable">
+                                        <label for="path">Backup path</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Transition>
+                </div>
+                <!--            <div class="d-flex justify-content-center z-n1 position-absolute" v-else>-->
+                <!--                <div class="spinner-border" role="status">-->
+                <!--                    <span class="visually-hidden">Loading...</span>-->
+                <!--                </div>-->
+                <!--            </div>-->
+
+                <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs"
+                          disabled>{{ logs }}</textarea>
+                <div class="card text-center mt-4">
+                    <div class="card-header">
+                        <h3 class="my-3">Tools</h3>
+                    </div>
+                    <div class="card-body p-4">
+                        <button class="btn btn-primary" v-on:click="send_ws('request')">Backup request</button>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="card-body"><h5 class="card-title">Data transfer</h5>
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Peer 1
-                                <span class="badge bg-primary rounded-pill">14</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Peer 2
-                                <span class="badge bg-primary rounded-pill">2</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Peer 3
-                                <span class="badge bg-primary rounded-pill">1</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
             </div>
-        </div>
-        <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs" disabled>{{ logs }}</textarea>
-        <div class="card text-center mt-4">
-            <div class="card-header">
-                <h3 class="my-3">Tools</h3>
-            </div>
-            <div class="card-body p-4">
-                <button class="btn btn-primary" v-on:click="send_ws('request')">Backup request</button>
-            </div>
-        </div>
+        </Transition>
     </div>
 </div>
 
@@ -146,34 +220,86 @@
                 reconnector: null,
                 current: 0,
                 total: 0,
+                failed: 0,
                 curr_file: "",
+                settings_editable: true,
+                backup_running: false,
+                backup_msg: "",
+                last_backup_success: null,
+                configuration: {
+                    path: ""
+                }
             }
         },
         computed: {
             percent() {
+                if (this.total === 0) return 0;
                 return Math.max((this.current / this.total) * 100 - 1, 0);
             }
         },
         methods: {
+            get_config() {
+                if (this.socket) {
+                    this.socket.send(JSON.stringify({
+                        type: "GetConfig"
+                    }));
+                }
+            },
+            send_config() {
+                if (this.socket) {
+                    this.socket.send(JSON.stringify({
+                        type: "Config",
+                        data: this.configuration
+                    }));
+                }
+            },
+            start_backup() {
+                if (this.socket) {
+                    if (this.settings_editable) {
+                        this.send_config();
+                    }
+
+                    this.socket.send(JSON.stringify({
+                        type: "StartBackup"
+                    }));
+                }
+            },
             connect_ws() {
                 this.socket = new WebSocket(`ws://${window.location.host}/ws`);
 
                 this.socket.addEventListener('message', (event) => {
                     let message = JSON.parse(event.data);
 
-                    if (message["Progress"]) {
-                        this.current = message["Progress"].current;
-                        this.total = message["Progress"].total;
-                        this.curr_file = message["Progress"].file;
-                    } else if (message["Message"]) {
-                        this.logs += message["Message"] + "\n";
+                    if (message["type"] === "Progress") {
+                        this.current = message["data"].current;
+                        this.total = message["data"].total;
+                        this.curr_file = message["data"].file;
+                        this.failed = message["data"].failed;
+                        this.backup_running = true;
+                    } else if (message["type"] === "Message") {
+                        this.logs += message["data"] + "\n";
                         let el = document.querySelector("#logs");
                         el.scrollTo(0, el.scrollHeight);
+                    } else if (message["type"] === "BackupFinished") {
+                        this.last_backup_success = message["data"][0];
+                        this.backup_msg = message["data"][1];
+                        this.total = 0;
+                        this.current = 0;
+                        this.failed = 0;
+                        this.backup_running = false;
+                    } else if (message["type"] === "BackupStarted") {
+                        this.backup_running = true;
+                    } else if (message["type"] === "Config") {
+                        this.configuration = message["data"];
+                        if (this.configuration.path) {
+                            this.settings_editable = false;
+                        }
                     }
                 });
 
                 this.socket.addEventListener('open', (event) => {
                     this.status = true;
+                    this.get_config();
                     clearInterval(this.reconnctor);
                 });
 
@@ -188,6 +314,7 @@
             closed_ws() {
                 this.socket = null;
                 this.status = false;
+                this.backup_running = false;
                 clearInterval(this.reconnctor);
                 this.reconnctor = setInterval(() => {
                     this.connect_ws()

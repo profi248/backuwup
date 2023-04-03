@@ -8,7 +8,7 @@ use tokio::{fs, fs::File, io::AsyncWriteExt};
 use crate::backup::{packfile, BlobHash, BlobKind, Tree, TreeKind};
 
 pub async fn unpack(
-    packfile_dir: impl Into<String>,
+    packfile_dir: impl Into<PathBuf>,
     destination_dir: impl Into<PathBuf> + Clone,
     root_hash: BlobHash,
 ) -> anyhow::Result<()> {

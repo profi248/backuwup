@@ -8,8 +8,10 @@ use poem::{
 };
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 
-use crate::LOGGER;
-use crate::ui::logger::LogItem;
+use crate::{
+    ui::{logger::LogItem, ws_dispatcher},
+    LOGGER,
+};
 
 #[poem::handler]
 pub fn handler(ws: WebSocket) -> impl IntoResponse {
@@ -21,7 +23,7 @@ pub fn handler(ws: WebSocket) -> impl IntoResponse {
         let (ws_send, ws_recv) = socket.split();
 
         tokio::spawn(send_log_messages(ws_send, log_receiver));
-        tokio::spawn(dispatch_commands(ws_recv));
+        tokio::spawn(ws_dispatcher::dispatch_commands(ws_recv));
     })
 }
 
@@ -41,32 +43,13 @@ async fn send_log_messages(
             Ok(msg) => msg,
         };
 
-        match ws_send.send(Message::Text(serde_json::to_string(&msg).unwrap())).await {
+        match ws_send
+            .send(Message::Text(serde_json::to_string(&msg).unwrap()))
+            .await
+        {
             // end the thread if sending to socket failed (it's likely closed)
             Err(_) => break,
             Ok(_) => continue,
         }
-    }
-}
-
-async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
-    loop {
-        let msg = match ws_recv.next().await {
-            // for when the socket has closed
-            None => break,
-            Some(Ok(msg)) => msg,
-            Some(Err(e)) => {
-                println!("error: {e:?}");
-                break;
-            }
-        };
-
-        let msg = match msg {
-            Message::Text(s) => s,
-            _ => continue,
-        };
-
-        // todo: implement a message dispatcher
-        println!("message from client: {msg}");
     }
 }
