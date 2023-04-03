@@ -9,7 +9,7 @@ use tokio::{
 use zstd::bulk::Compressor;
 
 use crate::{
-    backup::{
+    backup::filesystem::{
         packfile::{
             Manager, KEY_DERIVATION_CONSTANT_HEADER, PACKFILE_MAX_BLOBS, PACKFILE_MAX_SIZE,
             PACKFILE_TARGET_SIZE, ZSTD_COMPRESSION_LEVEL,
@@ -233,7 +233,7 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backup::BlobKind;
+    use crate::backup::filesystem::{BlobKind, CompressionKind};
 
     #[test]
     fn validate_size_constraints() {

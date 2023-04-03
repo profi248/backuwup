@@ -9,7 +9,7 @@ use tokio::{
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
 use crate::{
-    backup::{BlobHash, PackfileError, PackfileId},
+    backup::filesystem::{BlobHash, PackfileError, PackfileId},
     KEYS,
 };
 

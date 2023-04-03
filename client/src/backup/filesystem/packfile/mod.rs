@@ -13,7 +13,7 @@ use std::{
 
 use tokio::sync::Mutex;
 
-use crate::backup::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError};
+use crate::backup::filesystem::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 3 * 1024 * 1024; // 3 MiB

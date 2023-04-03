@@ -5,7 +5,7 @@ use futures_util::{stream::SplitStream, StreamExt};
 use poem::web::websocket::{Message, WebSocketStream};
 use serde::{Deserialize, Serialize};
 
-use crate::{backup::backup, CONFIG, LOGGER};
+use crate::{backup::filesystem::package, CONFIG, LOGGER};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -64,7 +64,7 @@ async fn start_backup_from_config() -> anyhow::Result<()> {
 
     if let Some(path) = backup_path {
         tokio::spawn(async move {
-            let result = backup::create(path, destination).await;
+            let result = package::pack(path, destination).await;
 
             match result {
                 Ok(hash) => {

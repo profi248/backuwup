@@ -7,7 +7,7 @@ use tokio::{
 use zstd::bulk::Decompressor;
 
 use crate::{
-    backup::{
+    backup::filesystem::{
         packfile::{Manager, KEY_DERIVATION_CONSTANT_HEADER, PACKFILE_MAX_SIZE},
         Blob, BlobHash, PackfileError, PackfileHeaderBlob, NONCE_SIZE,
     },

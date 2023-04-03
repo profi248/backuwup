@@ -5,7 +5,7 @@ use filetime::{set_file_mtime, FileTime};
 use futures_util::future::join_all;
 use tokio::{fs, fs::File, io::AsyncWriteExt};
 
-use crate::backup::{packfile, BlobHash, BlobKind, Tree, TreeKind};
+use crate::backup::filesystem::{packfile, BlobHash, BlobKind, Tree, TreeKind};
 
 pub async fn unpack(
     packfile_dir: impl Into<PathBuf>,

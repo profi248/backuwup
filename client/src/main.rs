@@ -86,7 +86,7 @@ async fn main() {
 
     if env::var("DEBUG_BACKUP").unwrap_or("0".to_string()) == "1" {
         //backup::filesystem_walker::walk().await.unwrap();
-        let hash = backup::backup::create(
+        let hash = backup::filesystem::package::pack(
             "/home/david/backup-testing/source".into(),
             "/home/david/backup-testing/packs".into(),
         )
@@ -99,7 +99,7 @@ async fn main() {
 
     if let Ok(hash) = env::var("DEBUG_RESTORE") {
         println!("restoring...");
-        backup::restore::unpack(
+        backup::filesystem::unpackage::unpack(
             "/home/david/backup-testing/packs",
             "/home/david/backup-testing/restored",
             hex::decode(hash).unwrap().try_into().unwrap(),

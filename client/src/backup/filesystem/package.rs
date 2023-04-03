@@ -17,7 +17,7 @@ use memmap2::Mmap;
 use pathdiff::diff_paths;
 
 use crate::{
-    backup::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
+    backup::filesystem::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     LOGGER,
 };
@@ -34,8 +34,10 @@ struct FsNode {
     children: Mutex<Vec<BlobHash>>,
 }
 
-#[allow(clippy::unused_async)]
-pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<BlobHash> {
+/// Recursively walk a directory tree, and generate packfiles from all the files and directories.
+/// Returns the hash of the blob that represents the root of the tree (a snapshot ID),
+/// used to restore the exact state of the directory at the time of backup.
+pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<BlobHash> {
     let packer = packfile::Manager::new(pack_folder).await?;
 
     let mut processing_queue = VecDeque::<FsNodePtr>::new();
@@ -55,12 +57,7 @@ pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Resul
     let start = Instant::now();
 
     let mut total_file_count: u64 = 0;
-    browse_dir_tree(
-        &backup_root,
-        root_node,
-        &mut processing_queue,
-        &mut total_file_count,
-    )?;
+    browse_dir_tree(&backup_root, root_node, &mut processing_queue, &mut total_file_count)?;
     LOGGER.get().unwrap().progress_set_total(total_file_count);
 
     // todo flush here on error, and also implement index rebuilding
@@ -176,6 +173,7 @@ async fn pack_files_in_directory(
                         // directory hashes have already been added to FsNode by their children
                     }
                     Ok(_) => {
+                        // for now, skip entries that are not regular files or directories (symlinks, block devices, etc)
                         let logger = LOGGER.get().unwrap();
 
                         logger.progress_increment_failed();
@@ -198,9 +196,7 @@ async fn pack_files_in_directory(
                     let logger = LOGGER.get().unwrap();
 
                     logger.progress_increment_failed();
-                    logger.send(format!(
-                        "error trying to discover files: {e}, continuing",
-                    ));
+                    logger.send(format!("error trying to discover files: {e}, continuing",));
                 }
             }
         }
@@ -214,7 +210,7 @@ async fn pack_files_in_directory(
                     let logger = LOGGER.get().unwrap();
                     logger.progress_increment_failed();
                     logger.send(format!("error backing up a file: {e}"));
-                },
+                }
                 Err(e) => bail!("error processing backups: {e}"),
             }
         }
@@ -232,54 +228,10 @@ async fn pack_files_in_directory(
     Ok(root_tree_hash)
 }
 
-async fn add_tree_to_blobs(
-    packer: packfile::Manager,
-    dir_tree: &mut Tree,
-) -> anyhow::Result<BlobHash> {
-    let tree_blobs = split_serialize_tree(dir_tree)?;
-    let first_blob_hash = tree_blobs[0].hash;
-
-    for blob in tree_blobs {
-        packer.add_blob(blob).await?;
-    }
-
-    Ok(first_blob_hash)
-}
-
-fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
-    let metadata = path.metadata()?;
-
-    Ok(TreeMetadata {
-        size: Some(metadata.len()),
-        mtime: match metadata.modified().map(|t| FileTime::from(t).unix_seconds()) {
-            Ok(ts @ 0..) => Some(ts as u64),
-            Ok(_) => None,
-            Err(_) => None,
-        },
-        ctime: match metadata.created().map(|t| FileTime::from(t).unix_seconds()) {
-            Ok(ts @ 0..) => Some(ts as u64),
-            Ok(_) => None,
-            Err(_) => None,
-        },
-    })
-}
-
-fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
-    let mut components = Vec::new();
-    let mut path = root_path.clone();
-
-    while node.is_some() {
-        components.push(node.as_ref().as_ref().unwrap().name.clone());
-        node = node.as_ref().as_ref().unwrap().parent.clone();
-    }
-
-    for str in components.iter().rev() {
-        path.push(str);
-    }
-
-    path
-}
-
+/// Back up a single sile by path, it will be split into chunks if it's over a certain size
+/// threshold. All the blobs (file data chunks and the file tree) will have their hash calculated
+/// and passed on to the packfile manager, which will compress them,
+/// encrypt them and store them in a packfile.
 async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Result<BlobHash> {
     let filename = match path.file_name() {
         Some(f) => f,
@@ -353,6 +305,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     Ok(first_blob_hash)
 }
 
+/// Split a file tree into multiple trees if necessary, and serialize them so they can be stored as blobs.
 fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
     // at this point, we could sort the vector of children for directory blobs
 
@@ -402,6 +355,54 @@ fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
 
         Ok(split_serialized)
     }
+}
+
+async fn add_tree_to_blobs(
+    packer: packfile::Manager,
+    dir_tree: &mut Tree,
+) -> anyhow::Result<BlobHash> {
+    let tree_blobs = split_serialize_tree(dir_tree)?;
+    let first_blob_hash = tree_blobs[0].hash;
+
+    for blob in tree_blobs {
+        packer.add_blob(blob).await?;
+    }
+
+    Ok(first_blob_hash)
+}
+
+fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
+    let metadata = path.metadata()?;
+
+    Ok(TreeMetadata {
+        size: Some(metadata.len()),
+        mtime: match metadata.modified().map(|t| FileTime::from(t).unix_seconds()) {
+            Ok(ts @ 0..) => Some(ts as u64),
+            Ok(_) => None,
+            Err(_) => None,
+        },
+        ctime: match metadata.created().map(|t| FileTime::from(t).unix_seconds()) {
+            Ok(ts @ 0..) => Some(ts as u64),
+            Ok(_) => None,
+            Err(_) => None,
+        },
+    })
+}
+
+fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
+    let mut components = Vec::new();
+    let mut path = root_path.clone();
+
+    while node.is_some() {
+        components.push(node.as_ref().as_ref().unwrap().name.clone());
+        node = node.as_ref().as_ref().unwrap().parent.clone();
+    }
+
+    for str in components.iter().rev() {
+        path.push(str);
+    }
+
+    path
 }
 
 impl Debug for FsNode {
