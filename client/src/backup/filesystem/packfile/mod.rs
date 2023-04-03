@@ -6,11 +6,12 @@ use std::{
     collections::VecDeque,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
 };
 
+use fs_extra::dir::get_size;
 use tokio::sync::Mutex;
 
 use crate::backup::filesystem::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError};
@@ -76,6 +77,10 @@ struct PackfileHandlerInner {
     index: Mutex<BlobIndex>,
     /// The path to the output folder.
     output_path: PathBuf,
+    /// Current size of local packfiles on disk.
+    packfiles_size: AtomicU64,
+    /// Maximum size of local packfiles on disk.
+    packfiles_size_max: u64,
 }
 
 impl Drop for PackfileHandlerInner {
@@ -91,12 +96,16 @@ impl Manager {
         let packfile_path = output_path.join(PACKFILE_FOLDER);
         let index_path = output_path.join(INDEX_FOLDER);
 
+        let packfiles_size = get_size(packfile_path.clone()).unwrap_or(0);
+
         Ok(Self {
             inner: Arc::new(PackfileHandlerInner {
                 blobs: Mutex::new(VecDeque::new()),
                 output_path: packfile_path,
                 index: Mutex::new(BlobIndex::new(index_path).await?),
                 dirty: AtomicBool::new(false),
+                packfiles_size: AtomicU64::new(packfiles_size),
+                packfiles_size_max: crate::defaults::MAX_PACKFILE_LOCAL_BUFFER_SIZE as u64,
             }),
         })
     }

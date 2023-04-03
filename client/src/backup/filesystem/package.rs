@@ -9,7 +9,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use fastcdc::v2020::FastCDC;
 use filetime::FileTime;
 use futures_util::future::join_all;
@@ -17,7 +17,12 @@ use memmap2::Mmap;
 use pathdiff::diff_paths;
 
 use crate::{
-    backup::filesystem::{packfile, Blob, BlobHash, BlobKind, Tree, TreeKind, TreeMetadata},
+    backup::{
+        filesystem::{
+            packfile, Blob, BlobHash, BlobKind, PackfileError, Tree, TreeKind, TreeMetadata,
+        },
+        BACKUP_STATE,
+    },
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     LOGGER,
 };
@@ -60,10 +65,18 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
     browse_dir_tree(&backup_root, root_node, &mut processing_queue, &mut total_file_count)?;
     LOGGER.get().unwrap().progress_set_total(total_file_count);
 
-    // todo flush here on error, and also implement index rebuilding
+    // todo implement index rebuilding
     // todo handle sigterm
     let root_hash =
-        pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await?;
+        match pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await {
+            Ok(h) => h,
+            Err(e) => {
+                // manually flush packer on errors
+                packer.flush().await?;
+                bail!(e);
+            }
+        };
+
     packer.flush().await?;
 
     let elapsed = start.elapsed();
@@ -163,6 +176,11 @@ async fn pack_files_in_directory(
         };
 
         for item in iter {
+            if !BACKUP_STATE.get().unwrap().should_continue() {
+                // block the backup until we can continue
+                BACKUP_STATE.get().unwrap().subscribe().await.await.unwrap();
+            }
+
             match item {
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
@@ -264,45 +282,48 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
         for chunk in chunker {
             let data = &mmap[chunk.offset..(chunk.offset + chunk.length)];
-            let hash = blake3::hash(data).into();
 
+            let hash = add_file_blob(&packer, data).await?;
             file_tree.children.push(hash);
-
-            packer
-                .add_blob(Blob {
-                    hash,
-                    kind: BlobKind::FileChunk,
-                    data: Vec::from(data),
-                })
-                .await?;
         }
     } else {
         let blob = fs::read(path.clone())?;
-        let hash = blake3::hash(&blob).into();
+
+        let hash = add_file_blob(&packer, &blob).await?;
+
         file_tree.children.push(hash);
-
-        packer
-            .add_blob(Blob {
-                hash,
-                kind: BlobKind::FileChunk,
-                data: blob,
-            })
-            .await?;
     }
 
-    let tree_blobs = split_serialize_tree(&file_tree)?;
-    let first_blob_hash = tree_blobs[0].hash;
-
-    for blob in tree_blobs {
-        packer.add_blob(blob).await?;
-    }
+    let hash = add_tree_to_blobs(packer, &mut file_tree).await?;
 
     LOGGER
         .get()
         .unwrap()
         .progress_notify_increment(path.to_string_lossy().to_string());
 
-    Ok(first_blob_hash)
+    Ok(hash)
+}
+
+async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Result<BlobHash> {
+    let hash = blake3::hash(data).into();
+
+    let blob = Blob {
+        hash,
+        kind: BlobKind::FileChunk,
+        data: Vec::from(data),
+    };
+
+    match packer.add_blob(blob).await {
+        Ok(_) => Ok(hash),
+        Err(PackfileError::ExceededBufferLimit) => {
+            packer.flush().await?;
+
+            // block here, wait until we are allowed to backup again
+            BACKUP_STATE.get().unwrap().pause().await.await.unwrap();
+            Ok(hash)
+        }
+        Err(e) => Err(anyhow!(e)),
+    }
 }
 
 /// Split a file tree into multiple trees if necessary, and serialize them so they can be stored as blobs.
@@ -365,7 +386,16 @@ async fn add_tree_to_blobs(
     let first_blob_hash = tree_blobs[0].hash;
 
     for blob in tree_blobs {
-        packer.add_blob(blob).await?;
+        match packer.add_blob(blob).await {
+            Ok(_) => {}
+            Err(PackfileError::ExceededBufferLimit) => {
+                packer.flush().await?;
+
+                // block here, wait until we are allowed to backup again
+                BACKUP_STATE.get().unwrap().pause().await.await.unwrap();
+            }
+            Err(e) => return Err(anyhow!(e)),
+        };
     }
 
     Ok(first_blob_hash)

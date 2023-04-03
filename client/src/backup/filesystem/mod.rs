@@ -79,6 +79,9 @@ struct Tree {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PackfileError {
+    #[error("Packfile local buffer over limit")]
+    ExceededBufferLimit,
+
     #[error("Invalid packfile header size")]
     InvalidHeaderSize,
     #[error("Packfile too large")]
@@ -91,6 +94,8 @@ pub enum PackfileError {
     DuplicateBlob,
     #[error("{0}")]
     IoError(#[from] std::io::Error),
+    #[error("{0}")]
+    FsError(#[from] fs_extra::error::Error),
     #[error("Data decryption/encryption error")]
     CryptoError(#[from] aes_gcm::Error),
     #[error("{0}")]

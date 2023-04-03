@@ -5,7 +5,7 @@ use futures_util::{stream::SplitStream, StreamExt};
 use poem::web::websocket::{Message, WebSocketStream};
 use serde::{Deserialize, Serialize};
 
-use crate::{backup::filesystem::package, CONFIG, LOGGER};
+use crate::{backup::run, CONFIG, LOGGER};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -33,7 +33,13 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
         };
 
         let msg: serde_json::Result<ClientMessage> = match msg {
-            Message::Text(s) => serde_json::from_str(&s),
+            Message::Text(s) => {
+                if s == "request" {
+                    println!("asdasd");
+                    crate::backup::BACKUP_STATE.get().unwrap().resume().await;
+                }
+                serde_json::from_str(&s)
+            }
             _ => continue,
         };
 
@@ -49,40 +55,9 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
 async fn process_message(msg: &serde_json::Result<ClientMessage>) -> anyhow::Result<()> {
     match msg {
         Ok(ClientMessage::Config(conf)) => set_config(conf).await?,
-        Ok(ClientMessage::StartBackup) => start_backup_from_config().await?,
+        Ok(ClientMessage::StartBackup) => run().await?,
         Ok(ClientMessage::GetConfig) => send_config_message().await?,
         Err(e) => bail!("invalid message from client: {e:?}"),
-    }
-
-    Ok(())
-}
-
-async fn start_backup_from_config() -> anyhow::Result<()> {
-    let config = CONFIG.get().unwrap();
-    let backup_path = config.get_backup_path().await?;
-    let destination = config.get_packfile_path().await?;
-
-    if let Some(path) = backup_path {
-        tokio::spawn(async move {
-            let result = package::pack(path, destination).await;
-
-            match result {
-                Ok(hash) => {
-                    LOGGER
-                        .get()
-                        .unwrap()
-                        .send(format!("backup done, snapshot hash: {}", hex::encode(hash)));
-                }
-                Err(e) => {
-                    LOGGER
-                        .get()
-                        .unwrap()
-                        .send_backup_finished(false, format!("Backup failed: {e:?}"));
-                }
-            }
-        });
-    } else {
-        bail!("backup path is not set");
     }
 
     Ok(())
@@ -104,6 +79,8 @@ async fn send_config_message() -> anyhow::Result<()> {
     LOGGER.get().unwrap().send_config(Config {
         path: config.get_backup_path().await?,
     });
+
+    LOGGER.get().unwrap().progress_resend();
 
     Ok(())
 }

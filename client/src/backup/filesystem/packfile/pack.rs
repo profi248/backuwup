@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::atomic::Ordering};
+use std::{
+    path::PathBuf,
+    sync::atomic::{Ordering, Ordering::Relaxed},
+};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
@@ -73,7 +76,7 @@ impl Manager {
     }
 
     pub async fn flush(&self) -> Result<(), PackfileError> {
-        self.write_packfiles().await?;
+        self.write_packfiles(false).await?;
 
         self.inner.index.lock().await.flush().await?;
         self.inner.dirty.store(false, Ordering::Release);
@@ -98,15 +101,17 @@ impl Manager {
         }
 
         if candidates_size >= PACKFILE_TARGET_SIZE || candidates_cnt >= PACKFILE_MAX_BLOBS {
-            return self.write_packfiles().await.map(|_| true);
+            return self.write_packfiles(true).await.map(|_| true);
         }
 
         Ok(false)
     }
 
-    async fn write_packfiles(&self) -> Result<(), PackfileError> {
+    async fn write_packfiles(&self, report_buffer_limit: bool) -> Result<(), PackfileError> {
         let mut blobs = self.inner.blobs.lock().await;
         let mut index = self.inner.index.lock().await;
+
+        let mut buffer_limit_exceeded = false;
 
         while !blobs.is_empty() {
             let mut packfile_index = index.begin_packfile();
@@ -171,11 +176,25 @@ impl Manager {
             // save the packfile data to disk and add it to index
             file.write_all(&buffer).await?;
             index.finalize_packfile(&packfile_index, packfile_id).await?;
-
             println!("wrote packfile {} of size {}", hex::encode(packfile_id), buffer.len());
+
+            let all_written_packfiles_size =
+                self.inner.packfiles_size.fetch_add(buffer.len() as u64, Relaxed);
+
+            if all_written_packfiles_size > self.inner.packfiles_size_max {
+                println!(
+                    "buffer limit exceeded: {} > {}",
+                    all_written_packfiles_size, self.inner.packfiles_size_max
+                );
+                buffer_limit_exceeded = true;
+            };
         }
 
-        Ok(())
+        if buffer_limit_exceeded && report_buffer_limit {
+            Err(PackfileError::ExceededBufferLimit)
+        } else {
+            Ok(())
+        }
     }
 
     fn serialize_packfile(

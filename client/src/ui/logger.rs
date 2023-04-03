@@ -1,5 +1,5 @@
 use std::{
-    sync::atomic::{AtomicU64, Ordering::Relaxed},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -15,6 +15,7 @@ pub struct Logger {
     failed: AtomicU64,
     total: AtomicU64,
     last_sent: AtomicU64,
+    running: AtomicBool,
 }
 
 #[derive(Clone, Serialize)]
@@ -43,6 +44,7 @@ impl Logger {
             failed: Default::default(),
             total: Default::default(),
             last_sent: Default::default(),
+            running: Default::default(),
         }
     }
 
@@ -80,7 +82,23 @@ impl Logger {
         }
     }
 
+    pub fn progress_resend(&self) {
+        if !self.running.load(Relaxed) {
+            return;
+        }
+
+        self.sender
+            .send(LogItem::Progress(Progress {
+                current: self.current.load(Relaxed),
+                total: self.total.load(Relaxed),
+                failed: self.failed.load(Relaxed),
+                file: "...".to_string(),
+            }))
+            .ok();
+    }
+
     pub fn send_backup_started(&self) {
+        self.running.store(true, Relaxed);
         self.sender.send(LogItem::BackupStarted).ok();
     }
 
@@ -91,6 +109,7 @@ impl Logger {
         self.total.store(0, Relaxed);
         self.current.store(0, Relaxed);
         self.failed.store(0, Relaxed);
+        self.running.store(false, Relaxed);
     }
 
     pub fn send_config(&self, config: Config) {
