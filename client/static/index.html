@@ -148,9 +148,13 @@
                         <div class="row" v-else>
                             <div class="col-md-6">
                                 <div class="card-body">
-                                    <h5 class="card-title">Backup</h5>
+                                    <h5 class="card-title">Create backup</h5>
                                     <div v-if="backup_msg">
                                         {{ backup_msg }}
+                                        <span v-if="failed != 0">
+                                            <br>
+                                            {{ failed }} items were not backed up.
+                                        </span>
                                     </div>
                                     <div v-else>
                                         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut in lectus quis eros
@@ -285,7 +289,6 @@
                         this.backup_msg = message["data"][1];
                         this.total = 0;
                         this.current = 0;
-                        this.failed = 0;
                         this.backup_running = false;
                     } else if (message["type"] === "BackupStarted") {
                         this.backup_running = true;

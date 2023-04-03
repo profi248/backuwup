@@ -36,7 +36,7 @@ struct FsNode {
 
 #[allow(clippy::unused_async)]
 pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<BlobHash> {
-    let packer = packfile::Manager::new(pack_folder.into()).await?;
+    let packer = packfile::Manager::new(pack_folder).await?;
 
     let mut processing_queue = VecDeque::<FsNodePtr>::new();
 
@@ -56,7 +56,7 @@ pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Resul
 
     let mut total_file_count: u64 = 0;
     browse_dir_tree(
-        &backup_root.clone().into(),
+        &backup_root,
         root_node,
         &mut processing_queue,
         &mut total_file_count,
@@ -66,17 +66,17 @@ pub async fn create(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Resul
     // todo flush here on error, and also implement index rebuilding
     // todo handle sigterm
     let root_hash =
-        pack_files_in_directory(&backup_root.into(), &mut processing_queue, packer.clone()).await?;
+        pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await?;
     packer.flush().await?;
 
     let elapsed = start.elapsed();
     LOGGER.get().unwrap().send_backup_finished(
         true,
         format!(
-            "Backup finished successfully, processed {} files in {:02}:{:02}",
+            "Backup finished successfully, processed {} files in {:02}:{:02}.",
             total_file_count,
             elapsed.as_secs() / 60,
-            elapsed.as_secs() % 60
+            elapsed.as_secs() % 60,
         ),
     );
 
@@ -170,12 +170,10 @@ async fn pack_files_in_directory(
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
                         // start processing all the files and collect hashes later
-                        // println!("backing up file {:?}", entry.path());
                         futures.push(tokio::spawn(process_file(entry.path(), packer.clone())));
                     }
                     Ok(ftype) if ftype.is_dir() => {
                         // directory hashes have already been added to FsNode by their children
-                        // println!("discovered directory {:?}", entry.path());
                     }
                     Ok(_) => {
                         let logger = LOGGER.get().unwrap();
@@ -197,7 +195,12 @@ async fn pack_files_in_directory(
                     }
                 },
                 Err(e) => {
-                    println!("error when scanning files: {e}, continuing");
+                    let logger = LOGGER.get().unwrap();
+
+                    logger.progress_increment_failed();
+                    logger.send(format!(
+                        "error trying to discover files: {e}, continuing",
+                    ));
                 }
             }
         }
@@ -207,8 +210,12 @@ async fn pack_files_in_directory(
         for result in files {
             match result {
                 Ok(Ok(hash)) => dir_tree.children.push(hash),
-                Ok(Err(e)) => println!("error backing up a file: {e}"),
-                Err(e) => println!("error when processing backups: {e}"),
+                Ok(Err(e)) => {
+                    let logger = LOGGER.get().unwrap();
+                    logger.progress_increment_failed();
+                    logger.send(format!("error backing up a file: {e}"));
+                },
+                Err(e) => bail!("error processing backups: {e}"),
             }
         }
 
@@ -276,7 +283,7 @@ fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
 async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Result<BlobHash> {
     let filename = match path.file_name() {
         Some(f) => f,
-        None => bail!("Unable to get file name at {path:?}"),
+        None => bail!("unable to get file name at {path:?}"),
     };
 
     let mut file_tree = Tree {
