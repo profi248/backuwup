@@ -1,7 +1,7 @@
 use std::{
     cmp::min,
     path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use anyhow::bail;
@@ -15,12 +15,19 @@ use crate::{
 
 pub mod filesystem;
 
+// todo add a lock to prevent multiple backups from running at the same time
 pub static BACKUP_STATE: OnceCell<State> = OnceCell::const_new();
 
 #[derive(Default, Debug)]
 pub struct State {
+    /// Channels to notify when the backup is resumed.
     listeners: Mutex<Vec<oneshot::Sender<()>>>,
+    /// Whether the backup is currently paused, for example waiting for storage requests.
     paused: AtomicBool,
+    /// The total number of bytes that have been written to all packfiles this session.
+    packfile_bytes_written: AtomicU64,
+    /// The total number of bytes of packfiles that have been sent to peers and deleted this session.
+    packfile_bytes_sent: AtomicU64,
 }
 
 impl State {
@@ -50,6 +57,17 @@ impl State {
             listener.send(()).unwrap();
         }
     }
+
+    pub fn update_packfile_bytes_written(&self, bytes: u64) {
+        self.packfile_bytes_written.store(bytes, Ordering::Relaxed);
+    }
+
+    pub fn available_packfile_bytes(&self) -> u64 {
+        // this might not be entirely accurate, but it's available in real time,
+        // we just need an estimate if enough data is available, and how much storage to request
+        self.packfile_bytes_written.load(Ordering::Relaxed)
+            - self.packfile_bytes_sent.load(Ordering::Relaxed)
+    }
 }
 
 pub async fn run() -> anyhow::Result<()> {
@@ -65,7 +83,8 @@ pub async fn run() -> anyhow::Result<()> {
 
     let result = tokio::spawn(package::pack(backup_path.unwrap(), destination));
 
-    // wait for having enough data and send them in a loop
+    // wait for having enough data and send them in a loop (spawn it here)
+    // probably notify the task when we got a request fulfilled
 
     match result.await {
         Ok(Ok(hash)) => {
@@ -92,6 +111,8 @@ pub async fn run() -> anyhow::Result<()> {
 }
 
 // todo properly handle errors
+// todo store the storage granted to other peers in config
+// todo maybe store to which peers we have sent a packfile
 pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::Result<()> {
     let nonce = TRANSPORT_REQUESTS
         .get()

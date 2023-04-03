@@ -314,7 +314,14 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
     };
 
     match packer.add_blob(blob).await {
-        Ok(_) => Ok(hash),
+        Ok(written) => {
+            if let Some(bytes) = written {
+                // todo maybe notify the logger too
+                BACKUP_STATE.get().unwrap().update_packfile_bytes_written(bytes);
+            }
+
+            Ok(hash)
+        }
         Err(PackfileError::ExceededBufferLimit) => {
             packer.flush().await?;
 
@@ -387,7 +394,12 @@ async fn add_tree_to_blobs(
 
     for blob in tree_blobs {
         match packer.add_blob(blob).await {
-            Ok(_) => {}
+            Ok(written) => {
+                if let Some(bytes) = written {
+                    // todo maybe notify the logger too
+                    BACKUP_STATE.get().unwrap().update_packfile_bytes_written(bytes);
+                }
+            }
             Err(PackfileError::ExceededBufferLimit) => {
                 packer.flush().await?;
 

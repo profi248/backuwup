@@ -25,14 +25,14 @@ use crate::{
 };
 
 impl Manager {
-    pub async fn add_blob(&self, blob: Blob) -> Result<(), PackfileError> {
+    pub async fn add_blob(&self, blob: Blob) -> Result<Option<u64>, PackfileError> {
         if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
             return Err(PackfileError::BlobTooLarge);
         }
 
         // deduplication: we won't queue a blob if has been queued already
         if self.inner.index.lock().await.is_blob_duplicate(&blob.hash) {
-            return Ok(());
+            return Ok(None);
         }
 
         let (blob_data, nonce_bytes) = Self::compress_encrypt_blob(&blob)?;
@@ -48,8 +48,7 @@ impl Manager {
             self.inner.dirty.store(true, Ordering::Relaxed);
         }
 
-        self.trigger_write_if_desired().await?;
-        Ok(())
+        self.trigger_write_if_desired().await
     }
 
     fn compress_encrypt_blob(blob: &Blob) -> Result<(Vec<u8>, BlobNonce), PackfileError> {
@@ -84,7 +83,7 @@ impl Manager {
         Ok(())
     }
 
-    async fn trigger_write_if_desired(&self) -> Result<bool, PackfileError> {
+    async fn trigger_write_if_desired(&self) -> Result<Option<u64>, PackfileError> {
         let mut candidates_size: usize = 0;
         let mut candidates_cnt: usize = 0;
 
@@ -101,13 +100,13 @@ impl Manager {
         }
 
         if candidates_size >= PACKFILE_TARGET_SIZE || candidates_cnt >= PACKFILE_MAX_BLOBS {
-            return self.write_packfiles(true).await.map(|_| true);
+            return self.write_packfiles(true).await.map(|val| Some(val));
         }
 
-        Ok(false)
+        Ok(None)
     }
 
-    async fn write_packfiles(&self, report_buffer_limit: bool) -> Result<(), PackfileError> {
+    async fn write_packfiles(&self, report_buffer_limit: bool) -> Result<u64, PackfileError> {
         let mut blobs = self.inner.blobs.lock().await;
         let mut index = self.inner.index.lock().await;
 
@@ -193,7 +192,7 @@ impl Manager {
         if buffer_limit_exceeded && report_buffer_limit {
             Err(PackfileError::ExceededBufferLimit)
         } else {
-            Ok(())
+            Ok(self.inner.packfiles_size.load(Relaxed))
         }
     }
 
