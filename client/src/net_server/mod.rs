@@ -1,5 +1,6 @@
 pub mod requests;
 
+use anyhow::anyhow;
 use futures_util::StreamExt;
 use shared::server_message_ws::ServerMessageWs;
 use tokio::{net::TcpStream, time};
@@ -10,6 +11,7 @@ use tokio_tungstenite::{
 };
 
 use crate::{identity, packfile_receiver, CONFIG, LOGGER, TRANSPORT_REQUESTS};
+use crate::backup::send::{handle_finalize_transport_request, handle_storage_request_matched};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -45,55 +47,25 @@ pub async fn connect_ws() {
 async fn process_message(msg: Message) {
     // process the message in a separate task
     tokio::spawn(async {
-        let text = match msg.into_text() {
-            Ok(text) => text,
-            Err(e) => {
-                LOGGER
-                    .get()
-                    .unwrap()
-                    .send(format!("[net] Received invalid message: {e}"));
-                return;
-            }
-        };
+        let msg: Option<ServerMessageWs> = match msg.into_text() {
+            Ok(text) => match serde_json::from_str(&text) {
+                Ok(msg) => Ok(msg),
+                Err(e) => Err(anyhow!(e))
+            },
+            Err(e) => Err(anyhow!(e))
+        }.map_err(|e| LOGGER.get().unwrap().send(format!("[net] Received invalid message: {e}"))).ok();
 
-        let msg: Result<ServerMessageWs, serde_json::Error> = serde_json::from_str(&text);
+        if msg.is_none() { return }
+        let msg = msg.unwrap();
 
         match msg {
-            Ok(ServerMessageWs::Ping) => {}
-            Ok(ServerMessageWs::BackupMatched(_)) => {}
-            Ok(ServerMessageWs::IncomingTransportRequest(request)) => {
-                if let Err(e) = packfile_receiver::receive_request(request).await {
-                    LOGGER
-                        .get()
-                        .unwrap()
-                        .send(format!("[net] Error processing incoming transport request: {e}"));
-                };
-            }
-            Ok(ServerMessageWs::FinalizeTransportRequest(request)) => {
-                // todo temp test
-                let mut mgr = TRANSPORT_REQUESTS
-                    .get()
-                    .unwrap()
-                    .finalize_request(request.destination_client_id, request.destination_ip_address)
-                    .await
-                    .unwrap()
-                    .unwrap();
+            ServerMessageWs::Ping => Ok(()),
+            ServerMessageWs::BackupMatched(request) => handle_storage_request_matched(request).await,
+            ServerMessageWs::IncomingTransportRequest(request) => packfile_receiver::receive_request(request).await,
+            ServerMessageWs::FinalizeTransportRequest(request) => handle_finalize_transport_request(request).await,
+            ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
+        }.map_err(|e| LOGGER.get().unwrap().send(format!("[net] Error processing incoming message: {e}"))).ok();
 
-                for i in 0..10 {
-                    mgr.send_data(vec![i]).await.unwrap();
-                    time::sleep(time::Duration::from_secs(5)).await;
-                }
-
-                mgr.done().await.unwrap();
-            }
-            Ok(ServerMessageWs::StorageChallengeRequest(_)) => {}
-            Err(e) => {
-                LOGGER
-                    .get()
-                    .unwrap()
-                    .send(format!("[net] Decoding message failed: {e}"));
-            }
-        }
     });
 }
 

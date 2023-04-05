@@ -21,7 +21,7 @@ use crate::{
         filesystem::{
             packfile, Blob, BlobHash, BlobKind, PackfileError, Tree, TreeKind, TreeMetadata,
         },
-        BACKUP_STATE,
+        BACKUP_ORCHESTRATOR,
     },
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     LOGGER,
@@ -55,8 +55,10 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
 
     processing_queue.push_back(root_node.clone());
 
-    if backup_root.exists() {
+    if backup_root.try_exists()? {
         LOGGER.get().unwrap().send_backup_started();
+    } else {
+        bail!("Backup source {} does not exist, aborting", backup_root.display());
     }
 
     let start = Instant::now();
@@ -89,6 +91,8 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
             elapsed.as_secs() % 60,
         ),
     );
+
+    BACKUP_ORCHESTRATOR.get().unwrap().set_packing_completed();
 
     Ok(root_hash)
 }
@@ -176,9 +180,9 @@ async fn pack_files_in_directory(
         };
 
         for item in iter {
-            if !BACKUP_STATE.get().unwrap().should_continue() {
+            if !BACKUP_ORCHESTRATOR.get().unwrap().should_continue() {
                 // block the backup until we can continue
-                BACKUP_STATE.get().unwrap().subscribe().await.await.unwrap();
+                BACKUP_ORCHESTRATOR.get().unwrap().subscribe().await.await.unwrap();
             }
 
             match item {
@@ -317,7 +321,7 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
         Ok(written) => {
             if let Some(bytes) = written {
                 // todo maybe notify the logger too
-                BACKUP_STATE.get().unwrap().update_packfile_bytes_written(bytes);
+                BACKUP_ORCHESTRATOR.get().unwrap().update_packfile_bytes_written(bytes);
             }
 
             Ok(hash)
@@ -326,7 +330,7 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
             packer.flush().await?;
 
             // block here, wait until we are allowed to backup again
-            BACKUP_STATE.get().unwrap().pause().await.await.unwrap();
+            BACKUP_ORCHESTRATOR.get().unwrap().pause().await.await.unwrap();
             Ok(hash)
         }
         Err(e) => Err(anyhow!(e)),
@@ -397,14 +401,14 @@ async fn add_tree_to_blobs(
             Ok(written) => {
                 if let Some(bytes) = written {
                     // todo maybe notify the logger too
-                    BACKUP_STATE.get().unwrap().update_packfile_bytes_written(bytes);
+                    BACKUP_ORCHESTRATOR.get().unwrap().update_packfile_bytes_written(bytes);
                 }
             }
             Err(PackfileError::ExceededBufferLimit) => {
                 packer.flush().await?;
 
                 // block here, wait until we are allowed to backup again
-                BACKUP_STATE.get().unwrap().pause().await.await.unwrap();
+                BACKUP_ORCHESTRATOR.get().unwrap().pause().await.await.unwrap();
             }
             Err(e) => return Err(anyhow!(e)),
         };

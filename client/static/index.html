@@ -163,8 +163,9 @@
                                     </div>
 
                                     <div class="d-grid gap-2 d-md-block mt-2">
-                                        <button type="button" class="btn btn-primary" v-on:click="start_backup()">Start
-                                            backup
+                                        <button type="button" class="btn btn-primary" v-on:click="start_backup(); starting = true" :disabled="starting">
+                                            <span v-if="!starting">Start backup</span>
+                                            <span v-else>Starting...</span>
                                         </button>
                                         <button type="button" class="btn btn-outline-dark ms-md-2"
                                                 @click="settings_editable = true" :disabled="settings_editable">Change
@@ -230,6 +231,7 @@
                 backup_running: false,
                 backup_msg: "",
                 last_backup_success: null,
+                starting: false,
                 configuration: {
                     path: ""
                 }

@@ -6,18 +6,19 @@ use std::{
 };
 
 use shared::{
-    client_message::BackupRequest,
     constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
     server_message_ws::ServerMessageWs,
 };
 use sum_queue::SumQueue;
+use shared::server_message_ws::BackupMatched;
+use shared::types::ClientId;
 
 use crate::{handlers, CONNECTIONS};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
     pub storage_required: u64,
-    pub client_id: shared::types::ClientId,
+    pub client_id: ClientId,
 }
 
 // sum will be the total requested space
@@ -75,7 +76,12 @@ impl Queue {
             match CONNECTIONS
                 .get()
                 .unwrap()
-                .notify_client(destination.client_id, ServerMessageWs::Ping)
+                .notify_client(destination.client_id, ServerMessageWs::BackupMatched(
+                    BackupMatched {
+                        storage_available: request.storage_required,
+                        destination_id: request.client_id
+                    },
+                ))
                 .await
             {
                 Ok(_) => {

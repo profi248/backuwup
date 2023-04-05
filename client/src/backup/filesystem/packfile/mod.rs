@@ -6,15 +6,16 @@ use std::{
     collections::VecDeque,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 
 use fs_extra::dir::get_size;
 use tokio::sync::Mutex;
 
-use crate::backup::filesystem::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError};
+use crate::backup::filesystem::{BlobEncrypted, packfile::blob_index::BlobIndex, PackfileError};
+use crate::defaults::{INDEX_FOLDER, PACKFILE_FOLDER};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 3 * 1024 * 1024; // 3 MiB
@@ -25,9 +26,6 @@ pub const PACKFILE_MAX_BLOBS: usize = 100_000;
 
 const ZSTD_COMPRESSION_LEVEL: i32 = 3;
 const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
-
-const PACKFILE_FOLDER: &str = "pack";
-const INDEX_FOLDER: &str = "index";
 
 /// A struct used for writing and reading packfiles, a file format used for storing blobs efficiently
 /// and securely. Packfiles can contain one or more blobs, and are useful for preventing the

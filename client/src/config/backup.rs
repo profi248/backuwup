@@ -4,7 +4,7 @@ use sqlx::Row;
 
 use crate::{
     config::{Config, Transaction},
-    defaults::{APP_FOLDER_NAME, PACKFILE_FOLDER_NAME},
+    defaults::{APP_FOLDER_NAME, BACKUP_BUFFER_FOLDER_NAME},
 };
 
 impl Config {
@@ -27,7 +27,7 @@ impl Config {
     pub async fn get_packfile_path(&self) -> anyhow::Result<PathBuf> {
         let mut dir = dirs::data_local_dir().expect("Cannot find the system app data directory");
         dir.push(APP_FOLDER_NAME);
-        dir.push(PACKFILE_FOLDER_NAME);
+        dir.push(BACKUP_BUFFER_FOLDER_NAME);
 
         Ok(dir)
     }

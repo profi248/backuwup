@@ -16,6 +16,7 @@ use tokio_tungstenite::{
 
 use crate::{net_p2p::get_ws_config, KEYS, LOGGER};
 
+#[derive(Debug)]
 pub struct BackupTransportManager {
     socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
     msg_counter: u64,
@@ -88,8 +89,8 @@ impl BackupTransportManager {
         Ok(())
     }
 
-    pub async fn done(mut self) -> anyhow::Result<()> {
-        self.socket.close(None).await?;
-        Ok(())
+    pub async fn done(mut self) {
+        // try to close gracefully or ignore the error
+        self.socket.close(None).await.ok();
     }
 }

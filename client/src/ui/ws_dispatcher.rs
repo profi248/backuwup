@@ -33,13 +33,7 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
         };
 
         let msg: serde_json::Result<ClientMessage> = match msg {
-            Message::Text(s) => {
-                if s == "request" {
-                    println!("asdasd");
-                    crate::backup::BACKUP_STATE.get().unwrap().resume().await;
-                }
-                serde_json::from_str(&s)
-            }
+            Message::Text(s) => serde_json::from_str(&s),
             _ => continue,
         };
 
