@@ -1,4 +1,4 @@
-pub mod logger;
+pub mod ws_status_message;
 pub mod ws;
 mod ws_dispatcher;
 

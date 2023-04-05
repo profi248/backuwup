@@ -27,12 +27,12 @@ use tokio::sync::{broadcast::channel, OnceCell};
 
 use crate::{
     config::Config, key_manager::KeyManager, net_p2p::TransportRequestManager,
-    net_server::requests, ui::logger::Logger,
+    net_server::requests, ui::ws_status_message::Messenger,
 };
 
 static TRANSPORT_REQUESTS: OnceCell<TransportRequestManager> = OnceCell::const_new();
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
-static LOGGER: OnceCell<Logger> = OnceCell::const_new();
+static UI: OnceCell<Messenger> = OnceCell::const_new();
 static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
 
 #[tokio::main]
@@ -60,7 +60,7 @@ async fn main() {
 
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
-    LOGGER.set(Logger::new(log_sender.clone())).unwrap();
+    UI.set(Messenger::new(log_sender.clone())).unwrap();
 
     let client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())

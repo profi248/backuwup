@@ -10,7 +10,7 @@ use shared::constants::BACKUP_REQUEST_EXPIRY;
 use crate::backup::BACKUP_ORCHESTRATOR;
 use crate::defaults::PACKFILE_FOLDER;
 use crate::net_server::requests;
-use crate::{LOGGER, TRANSPORT_REQUESTS};
+use crate::{UI, TRANSPORT_REQUESTS};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
@@ -33,7 +33,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                     last_written = current_written;
                 },
                 Err(e) => {
-                    LOGGER.get().unwrap().send(format!("Error sending packfiles: {e}"));
+                    UI.get().unwrap().log(format!("Error sending packfiles: {e}"));
                 }
             }
         }
@@ -84,14 +84,14 @@ async fn send_single_packfile(path: &PathBuf) -> anyhow::Result<()> {
     let size = fs::metadata(path)?.len();
 
     for (idx, session) in orchestrator.active_transport_sessions.lock().await.iter_mut().enumerate() {
-        LOGGER.get().unwrap().send(format!("Sending packfile {}", path.display()));
+        UI.get().unwrap().log(format!("Sending packfile {}", path.display()));
 
         // todo currently we don't really know if the packfile was sent successfully, acknowledgment is probably needed
         // we also need to know how much data can we send to that peer
         if session.send_data(fs::read(path)?).await.is_ok() {
             fs::remove_file(path)?;
             orchestrator.increment_packfile_bytes_sent(size);
-            LOGGER.get().unwrap().send(format!("Packfile {} sent successfully, deleting", path.display()));
+            UI.get().unwrap().log(format!("Packfile {} sent successfully, deleting", path.display()));
             return Ok(())
         } else {
             orchestrator.active_transport_sessions.lock().await.swap_remove(idx).done().await;
@@ -104,12 +104,12 @@ async fn send_single_packfile(path: &PathBuf) -> anyhow::Result<()> {
 
 async fn send_storage_request_if_needed(path: &PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
-    let logger = LOGGER.get().unwrap();
+    let logger = UI.get().unwrap();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
     if now - orchestrator.get_storage_request_last_sent() > BACKUP_REQUEST_EXPIRY {
         let request_size = estimate_storage_request_size(path)?;
-        logger.send(format!("Sending a new storage request of size {request_size} B"));
+        logger.log(format!("Sending a new storage request of size {request_size} B"));
 
         requests::backup_storage_request(request_size).await?;
         orchestrator.update_storage_request_last_sent();

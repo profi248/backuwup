@@ -9,14 +9,14 @@ use poem::{
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 
 use crate::{
-    ui::{logger::LogItem, ws_dispatcher},
-    LOGGER,
+    ui::{ws_status_message::StatusMessage, ws_dispatcher},
+    UI,
 };
 
 #[poem::handler]
 pub fn handler(ws: WebSocket) -> impl IntoResponse {
     // subscribe to the sender
-    let mut log_receiver = LOGGER.get().unwrap().subscribe();
+    let mut log_receiver = UI.get().unwrap().subscribe();
 
     ws.on_upgrade(|mut socket| async move {
         // split the WebSocket into a separate Sink (for sending) and Stream (for receiving)
@@ -29,7 +29,7 @@ pub fn handler(ws: WebSocket) -> impl IntoResponse {
 
 async fn send_log_messages(
     mut ws_send: SplitSink<WebSocketStream, Message>,
-    mut log_receiver: Receiver<LogItem>,
+    mut log_receiver: Receiver<StatusMessage>,
 ) {
     loop {
         let msg = match log_receiver.recv().await {

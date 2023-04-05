@@ -9,7 +9,7 @@ use shared::{
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
 
-use crate::{net_p2p::get_ws_config, packfile_receiver::Receiver, LOGGER};
+use crate::{net_p2p::get_ws_config, packfile_receiver::Receiver, UI};
 
 pub async fn listen(
     port: u16,
@@ -18,22 +18,25 @@ pub async fn listen(
     receiver: Receiver,
 ) -> anyhow::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    LOGGER
+    UI
         .get()
         .unwrap()
-        .send(format!("[p2p] Listening on port {port}"));
+        .log(format!("[p2p] Listening on port {port}"));
 
     let (stream, peer_addr) = listener.accept().await?;
 
-    LOGGER
+    UI
         .get()
         .unwrap()
-        .send(format!("[p2p] Incoming connection from {peer_addr}"));
+        .log(format!("[p2p] Incoming connection from {peer_addr}"));
 
     receive_handle_incoming(stream, session_nonce, source_pubkey, receiver)
-        .await
-        // todo don't panic, just log the error
-        .unwrap();
+        .await.map_err(|e| {
+            UI
+                .get()
+                .unwrap()
+                .log(format!("[p2p] Connection failed: {e}"));
+        }).ok();
 
     Ok(())
 }
@@ -68,15 +71,15 @@ async fn receive_handle_incoming(
                     &msg,
                 )?;
 
-                LOGGER
+                UI
                     .get()
                     .unwrap()
-                    .send(format!("[p2p] received packfile {}", hex::encode(hash)));
+                    .log(format!("[p2p] received packfile {}", hex::encode(hash)));
 
                 receiver.save_packfile(hash, data).await?;
             }
             Some(Ok(Message::Close(_))) | None => {
-                LOGGER.get().unwrap().send("[p2p] transport finished");
+                UI.get().unwrap().log("[p2p] transport finished");
                 break;
             }
             Some(Ok(_)) => return Err(anyhow!("Invalid message type received")),

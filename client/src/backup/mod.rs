@@ -8,7 +8,7 @@ use shared::server_message_ws::{BackupMatched, FinalizeTransportRequest};
 use tokio::sync::{Mutex, OnceCell, oneshot};
 
 use crate::{
-    backup::filesystem::package, CONFIG, LOGGER, net_server::requests, TRANSPORT_REQUESTS,
+    backup::filesystem::package, CONFIG, UI, net_server::requests, TRANSPORT_REQUESTS,
 };
 use crate::net_p2p::transport::BackupTransportManager;
 
@@ -41,7 +41,7 @@ pub struct Orchestrator {
 
 impl Orchestrator {
     pub async fn pause(&self) -> oneshot::Receiver<()> {
-        LOGGER.get().unwrap().send("backup is paused".to_string());
+        UI.get().unwrap().log("backup is paused".to_string());
         self.paused.store(true, Ordering::Release);
 
         self.subscribe().await
@@ -58,8 +58,9 @@ impl Orchestrator {
         rx
     }
 
+    // todo it's never called
     pub async fn resume(&self) {
-        LOGGER.get().unwrap().send("backup is resumed".to_string());
+        UI.get().unwrap().log("backup is resumed".to_string());
         self.paused.store(true, Ordering::Release);
 
         for listener in self.listeners.lock().await.drain(..) {
@@ -159,19 +160,18 @@ pub async fn run() -> anyhow::Result<()> {
 
     match result {
         Ok((hash, _)) => {
-            LOGGER
+            UI
                 .get()
                 .unwrap()
-                .send(format!("Backup completed successfully! Snapshot hash: {}", hex::encode(hash)));
+                .log(format!("Backup completed successfully! Snapshot hash: {}", hex::encode(hash)));
         },
         Err(e) => {
-            LOGGER
+            UI
                 .get()
                 .unwrap()
                 .send_backup_finished(false, format!("Backup failed: {e:?}"));
         }
     };
-
 
     Ok(())
 }

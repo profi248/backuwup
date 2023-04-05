@@ -5,7 +5,7 @@ use futures_util::{stream::SplitStream, StreamExt};
 use poem::web::websocket::{Message, WebSocketStream};
 use serde::{Deserialize, Serialize};
 
-use crate::{backup::run, CONFIG, LOGGER};
+use crate::{backup::run, CONFIG, UI};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -38,10 +38,10 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
         };
 
         if let Err(e) = process_message(&msg).await {
-            LOGGER
+            UI
                 .get()
                 .unwrap()
-                .send(format!("error processing request: {e}"));
+                .log(format!("error processing request: {e}"));
         };
     }
 }
@@ -70,11 +70,11 @@ async fn set_config(conf: &Config) -> anyhow::Result<()> {
 async fn send_config_message() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
 
-    LOGGER.get().unwrap().send_config(Config {
+    UI.get().unwrap().send_config(Config {
         path: config.get_backup_path().await?,
     });
 
-    LOGGER.get().unwrap().progress_resend();
+    UI.get().unwrap().progress_resend();
 
     Ok(())
 }

@@ -24,7 +24,7 @@ use crate::{
         BACKUP_ORCHESTRATOR,
     },
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
-    LOGGER,
+    UI,
 };
 
 type FsNodePtr = Option<Arc<FsNode>>;
@@ -56,7 +56,7 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
     processing_queue.push_back(root_node.clone());
 
     if backup_root.try_exists()? {
-        LOGGER.get().unwrap().send_backup_started();
+        UI.get().unwrap().send_backup_started();
     } else {
         bail!("Backup source {} does not exist, aborting", backup_root.display());
     }
@@ -65,7 +65,7 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
 
     let mut total_file_count: u64 = 0;
     browse_dir_tree(&backup_root, root_node, &mut processing_queue, &mut total_file_count)?;
-    LOGGER.get().unwrap().progress_set_total(total_file_count);
+    UI.get().unwrap().progress_set_total(total_file_count);
 
     // todo implement index rebuilding
     // todo handle sigterm
@@ -82,7 +82,7 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
     packer.flush().await?;
 
     let elapsed = start.elapsed();
-    LOGGER.get().unwrap().send_backup_finished(
+    UI.get().unwrap().send_backup_finished(
         true,
         format!(
             "Backup finished successfully, processed {} files in {:02}:{:02}.",
@@ -196,29 +196,29 @@ async fn pack_files_in_directory(
                     }
                     Ok(_) => {
                         // for now, skip entries that are not regular files or directories (symlinks, block devices, etc)
-                        let logger = LOGGER.get().unwrap();
+                        let logger = UI.get().unwrap();
 
                         logger.progress_increment_failed();
-                        logger.send(format!(
+                        logger.log(format!(
                             "file {} is neither a file or a directory, ignored",
                             entry.path().display()
                         ));
                     }
                     Err(e) => {
-                        let logger = LOGGER.get().unwrap();
+                        let logger = UI.get().unwrap();
 
                         logger.progress_increment_failed();
-                        logger.send(format!(
+                        logger.log(format!(
                             "error when scanning file {}: {e}, continuing",
                             entry.path().display()
                         ));
                     }
                 },
                 Err(e) => {
-                    let logger = LOGGER.get().unwrap();
+                    let logger = UI.get().unwrap();
 
                     logger.progress_increment_failed();
-                    logger.send(format!("error trying to discover files: {e}, continuing",));
+                    logger.log(format!("error trying to discover files: {e}, continuing",));
                 }
             }
         }
@@ -229,9 +229,9 @@ async fn pack_files_in_directory(
             match result {
                 Ok(Ok(hash)) => dir_tree.children.push(hash),
                 Ok(Err(e)) => {
-                    let logger = LOGGER.get().unwrap();
+                    let logger = UI.get().unwrap();
                     logger.progress_increment_failed();
-                    logger.send(format!("error backing up a file: {e}"));
+                    logger.log(format!("error backing up a file: {e}"));
                 }
                 Err(e) => bail!("error processing backups: {e}"),
             }
@@ -300,7 +300,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
     let hash = add_tree_to_blobs(packer, &mut file_tree).await?;
 
-    LOGGER
+    UI
         .get()
         .unwrap()
         .progress_notify_increment(path.to_string_lossy().to_string());

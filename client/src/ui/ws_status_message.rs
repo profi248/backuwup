@@ -9,8 +9,8 @@ use tokio::sync::broadcast::{Receiver, Sender};
 use crate::ui::ws_dispatcher::Config;
 
 #[derive(Debug)]
-pub struct Logger {
-    sender: Sender<LogItem>,
+pub struct Messenger {
+    sender: Sender<StatusMessage>,
     current: AtomicU64,
     failed: AtomicU64,
     total: AtomicU64,
@@ -20,7 +20,7 @@ pub struct Logger {
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "type", content = "data")]
-pub enum LogItem {
+pub enum StatusMessage {
     Message(String),
     Progress(Progress),
     Config(Config),
@@ -36,8 +36,8 @@ pub struct Progress {
     file: String,
 }
 
-impl Logger {
-    pub fn new(sender: Sender<LogItem>) -> Self {
+impl Messenger {
+    pub fn new(sender: Sender<StatusMessage>) -> Self {
         Self {
             sender,
             current: Default::default(),
@@ -48,9 +48,9 @@ impl Logger {
         }
     }
 
-    pub fn send(&self, msg: impl Into<String> + Clone) {
+    pub fn log(&self, msg: impl Into<String> + Clone) {
         // ignore sending errors because they are not very meaningful
-        self.sender.send(LogItem::Message(msg.clone().into())).ok();
+        self.sender.send(StatusMessage::Message(msg.clone().into())).ok();
         println!("[log] {}", msg.into());
     }
 
@@ -68,7 +68,7 @@ impl Logger {
         // debounce progress updates, send at most once every 100ms
         if now - self.last_sent.load(Relaxed) >= 100 {
             self.sender
-                .send(LogItem::Progress(Progress {
+                .send(StatusMessage::Progress(Progress {
                     current: self.current.fetch_add(1, Relaxed),
                     total: self.total.load(Relaxed),
                     failed: self.failed.load(Relaxed),
@@ -88,7 +88,7 @@ impl Logger {
         }
 
         self.sender
-            .send(LogItem::Progress(Progress {
+            .send(StatusMessage::Progress(Progress {
                 current: self.current.load(Relaxed),
                 total: self.total.load(Relaxed),
                 failed: self.failed.load(Relaxed),
@@ -99,12 +99,12 @@ impl Logger {
 
     pub fn send_backup_started(&self) {
         self.running.store(true, Relaxed);
-        self.sender.send(LogItem::BackupStarted).ok();
+        self.sender.send(StatusMessage::BackupStarted).ok();
     }
 
     pub fn send_backup_finished(&self, success: bool, msg: impl Into<String>) {
         self.sender
-            .send(LogItem::BackupFinished((success, msg.into())))
+            .send(StatusMessage::BackupFinished((success, msg.into())))
             .ok();
         self.total.store(0, Relaxed);
         self.current.store(0, Relaxed);
@@ -113,10 +113,17 @@ impl Logger {
     }
 
     pub fn send_config(&self, config: Config) {
-        self.sender.send(LogItem::Config(config)).ok();
+        self.sender.send(StatusMessage::Config(config)).ok();
     }
 
-    pub fn subscribe(&self) -> Receiver<LogItem> {
+    pub fn subscribe(&self) -> Receiver<StatusMessage> {
         self.sender.subscribe()
     }
+}
+
+#[macro_export]
+macro_rules! log {
+    ($msg:expr, $($args:expr),*) => {
+        $crate::UI.get().unwrap().log(format!($msg, $($args),*));
+    };
 }

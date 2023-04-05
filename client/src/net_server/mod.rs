@@ -10,13 +10,13 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{identity, packfile_receiver, CONFIG, LOGGER, TRANSPORT_REQUESTS};
+use crate::{identity, packfile_receiver, CONFIG, UI, TRANSPORT_REQUESTS};
 use crate::backup::send::{handle_finalize_transport_request, handle_storage_request_matched};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
 pub async fn connect_ws() {
-    let logger = LOGGER.get().unwrap();
+    let logger = UI.get().unwrap();
 
     // server reconnection loop
     loop {
@@ -27,16 +27,16 @@ pub async fn connect_ws() {
         loop {
             match stream.next().await {
                 None => {
-                    logger.send("[net] WebSocket connection closed, will try to reconnect...");
+                    logger.log("[net] WebSocket connection closed, will try to reconnect...");
                     break;
                 }
                 Some(Ok(msg)) => {
-                    logger.send(format!("[net] message from server: {msg}"));
+                    logger.log(format!("[net] message from server: {msg}"));
 
                     process_message(msg).await;
                 }
                 Some(Err(e)) => {
-                    logger.send(format!("[net] Error: {e:?}, will try to reconnect..."));
+                    logger.log(format!("[net] Error: {e:?}, will try to reconnect..."));
                     break;
                 }
             }
@@ -53,7 +53,7 @@ async fn process_message(msg: Message) {
                 Err(e) => Err(anyhow!(e))
             },
             Err(e) => Err(anyhow!(e))
-        }.map_err(|e| LOGGER.get().unwrap().send(format!("[net] Received invalid message: {e}"))).ok();
+        }.map_err(|e| UI.get().unwrap().log(format!("[net] Received invalid message: {e}"))).ok();
 
         if msg.is_none() { return }
         let msg = msg.unwrap();
@@ -64,13 +64,13 @@ async fn process_message(msg: Message) {
             ServerMessageWs::IncomingTransportRequest(request) => packfile_receiver::receive_request(request).await,
             ServerMessageWs::FinalizeTransportRequest(request) => handle_finalize_transport_request(request).await,
             ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
-        }.map_err(|e| LOGGER.get().unwrap().send(format!("[net] Error processing incoming message: {e}"))).ok();
+        }.map_err(|e| UI.get().unwrap().log(format!("[net] Error processing incoming message: {e}"))).ok();
 
     });
 }
 
 async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
-    let logger = LOGGER.get().unwrap();
+    let logger = UI.get().unwrap();
     let config = CONFIG.get().unwrap();
 
     // ideally use a smarter backoff strategy
@@ -89,12 +89,12 @@ async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<T
                     .append("Authorization", token.parse().unwrap());
             }
             Ok(None) => {
-                logger.send("[net] No auth token found, trying to log in...");
+                logger.log("[net] No auth token found, trying to log in...");
                 if identity::login().await.is_ok() {
-                    logger.send("Login successful!");
+                    logger.log("Login successful!");
                     continue;
                 } else {
-                    logger.send("[net] Login failed, will retry");
+                    logger.log("[net] Login failed, will retry");
                     time::sleep(RETRY_INTERVAL).await;
                     continue;
                 }
@@ -104,19 +104,19 @@ async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<T
 
         match connect_async(request).await {
             Ok((stream, _)) => {
-                logger.send("[net] Connected to WebSocket server!");
+                logger.log("[net] Connected to WebSocket server!");
                 break stream;
             }
             Err(Error::Http(response)) => {
                 if response.status() == StatusCode::UNAUTHORIZED {
-                    logger.send("[net] WebSocket unauthorized, trying to log in...");
+                    logger.log("[net] WebSocket unauthorized, trying to log in...");
 
                     config
                         .save_auth_token(None)
                         .await
                         .expect("Failed to wipe auth token");
                 } else {
-                    logger.send(format!(
+                    logger.log(format!(
                         "[net] Unexpected response code when connecting to WebSocket server: {}",
                         response.status()
                     ));
@@ -124,7 +124,7 @@ async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<T
                 }
             }
             Err(e) => {
-                logger.send(format!("[net] Error when connecting to WebSocket server: {e}"));
+                logger.log(format!("[net] Error when connecting to WebSocket server: {e}"));
                 time::sleep(RETRY_INTERVAL).await;
             }
         };

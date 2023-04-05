@@ -14,7 +14,7 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{net_p2p::get_ws_config, KEYS, LOGGER};
+use crate::{net_p2p::get_ws_config, KEYS, UI};
 
 #[derive(Debug)]
 pub struct BackupTransportManager {
@@ -31,17 +31,17 @@ impl BackupTransportManager {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         let mut attempts = 3;
-        LOGGER
+        UI
             .get()
             .unwrap()
-            .send(format!("[p2p] trying to connect to peer at {url}"));
+            .log(format!("[p2p] trying to connect to peer at {url}"));
         let socket = loop {
             // retry in case the socket takes a while to open
             match connect_async_with_config(&url, Some(get_ws_config())).await {
                 Ok((socket, _)) => break socket,
                 Err(Error::Io(e)) => {
                     if attempts > 0 {
-                        LOGGER.get().unwrap().send(format!(
+                        UI.get().unwrap().log(format!(
                             "[p2p] failed to connect to peer: {e}, will try {attempts} more times"
                         ));
                         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -55,7 +55,7 @@ impl BackupTransportManager {
             };
         };
 
-        LOGGER.get().unwrap().send("[p2p] connected successfully");
+        UI.get().unwrap().log("[p2p] connected successfully");
         Ok(BackupTransportManager {
             socket,
             msg_counter: 0,
