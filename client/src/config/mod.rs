@@ -87,6 +87,7 @@ impl Config {
                         primary key,
                     bytes_transmitted integer,
                     bytes_received    integer,
+                    bytes_negotiated  integer,
                     first_seen        integer,
                     last_seen         integer
                 );",
