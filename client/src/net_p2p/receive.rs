@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail};
 use ed25519_dalek::{PublicKey, Signature};
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use portpicker::pick_unused_port;
 use shared::{
     p2p_message::{EncapsulatedPackfile, PackfileBody},
@@ -8,9 +8,10 @@ use shared::{
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
+use shared::p2p_message::{AckBody, EncapsulatedPackfileAck, Header};
 use shared::types::PackfileId;
 
-use crate::{net_p2p::get_ws_config, packfile_receiver::Receiver, UI};
+use crate::{KEYS, log, net_p2p::get_ws_config, packfile_receiver::Receiver, UI};
 
 pub async fn listen(
     port: u16,
@@ -19,24 +20,15 @@ pub async fn listen(
     receiver: Receiver,
 ) -> anyhow::Result<()> {
     let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
-    UI
-        .get()
-        .unwrap()
-        .log(format!("[p2p] Listening on port {port}"));
+    log!("[p2p] Listening on port {}", port);
 
     let (stream, peer_addr) = listener.accept().await?;
 
-    UI
-        .get()
-        .unwrap()
-        .log(format!("[p2p] Incoming connection from {peer_addr}"));
+    log!("[p2p] Incoming connection from {}", peer_addr);
 
     receive_handle_incoming(stream, session_nonce, source_pubkey, receiver)
         .await.map_err(|e| {
-            UI
-                .get()
-                .unwrap()
-                .log(format!("[p2p] Connection failed: {e}"));
+            log!("[p2p] Connection failed: {}", e);
         }).ok();
 
     Ok(())
@@ -53,6 +45,23 @@ pub fn get_listener_address() -> anyhow::Result<(String, u16)> {
     Ok((format!("{local_ip_addr}:{port}"), port))
 }
 
+fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> anyhow::Result<Message> {
+    let body = bincode::serialize(&AckBody {
+        header: Header {
+            sequence_number: *seq,
+            session_nonce: nonce
+        },
+        acknowledged_sequence_number: acknowledged
+    })?;
+
+    let signature = KEYS.get().unwrap().sign(&body).to_vec();
+    let msg = EncapsulatedPackfileAck { body, signature };
+
+    *seq += 1;
+
+    Ok(Message::Binary(bincode::serialize(&msg)?))
+}
+
 async fn receive_handle_incoming(
     stream: TcpStream,
     session_nonce: TransportSessionNonce,
@@ -61,23 +70,23 @@ async fn receive_handle_incoming(
 ) -> anyhow::Result<()> {
     let mut stream = accept_async_with_config(stream, Some(get_ws_config())).await?;
 
-    let mut msg_counter: u64 = 0;
+    let mut data_msg_counter: u64 = 0;
+    let mut ack_msg_counter: u64 = 0;
+
     loop {
         match stream.next().await {
             Some(Ok(Message::Binary(msg))) => {
-                let (id, mut data) = validate_incoming_message(
+                let (msg_num, id, mut data) = validate_incoming_message(
                     session_nonce,
                     &source_pubkey,
-                    &mut msg_counter,
+                    &mut data_msg_counter,
                     &msg,
                 )?;
 
-                UI
-                    .get()
-                    .unwrap()
-                    .log(format!("[p2p] received packfile {}", hex::encode(id)));
+                log!("[p2p] received packfile {}", hex::encode(id));
 
                 receiver.save_packfile(id, &mut data).await?;
+                stream.send(ack_msg(session_nonce, &mut ack_msg_counter, msg_num)?).await?;
             }
             Some(Ok(Message::Close(_))) | None => {
                 UI.get().unwrap().log("[p2p] transport finished");
@@ -96,7 +105,7 @@ fn validate_incoming_message(
     source_pubkey: &ClientId,
     msg_counter: &mut u64,
     encapsulated_data: &[u8],
-) -> anyhow::Result<(PackfileId, Vec<u8>)> {
+) -> anyhow::Result<(u64, PackfileId, Vec<u8>)> {
     let encapsulated: EncapsulatedPackfile = bincode::deserialize(encapsulated_data)?;
 
     // verify signature on the bytes of the body
@@ -109,11 +118,11 @@ fn validate_incoming_message(
 
     // check header to enforce replay protection, random nonce has to match in the session,
     // and the sequence number has to be in order
-    if body.session_nonce != session_nonce || body.sequence_number != *msg_counter {
+    if body.header.session_nonce != session_nonce || body.header.sequence_number != *msg_counter {
         bail!("Couldn't verify message authenticity")
     }
 
     *msg_counter += 1;
 
-    Ok((body.id, body.data))
+    Ok((body.header.sequence_number, body.id, body.data))
 }

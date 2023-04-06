@@ -10,7 +10,7 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{identity, packfile_receiver, CONFIG, UI, TRANSPORT_REQUESTS};
+use crate::{identity, packfile_receiver, CONFIG, UI};
 use crate::backup::send::{handle_finalize_transport_request, handle_storage_request_matched};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
@@ -63,6 +63,25 @@ async fn process_message(msg: Message) {
             ServerMessageWs::BackupMatched(request) => handle_storage_request_matched(request).await,
             ServerMessageWs::IncomingTransportRequest(request) => packfile_receiver::receive_request(request).await,
             ServerMessageWs::FinalizeTransportRequest(request) => handle_finalize_transport_request(request).await,
+            // ServerMessageWs::FinalizeTransportRequest(request) => {
+            //     // todo temp test
+            //     let mut mgr = TRANSPORT_REQUESTS
+            //         .get()
+            //         .unwrap()
+            //         .finalize_request(request.destination_client_id, request.destination_ip_address)
+            //         .await
+            //         .unwrap()
+            //         .unwrap();
+            //
+            //     for i in 0..10 {
+            //         mgr.send_data(vec![i], [i; 12]).await.unwrap();
+            //         time::sleep(time::Duration::from_secs(5)).await;
+            //     }
+            //
+            //     mgr.done().await;
+            //
+            //     Ok(())
+            // },
             ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
         }.map_err(|e| UI.get().unwrap().log(format!("[net] Error processing incoming message: {e}"))).ok();
 

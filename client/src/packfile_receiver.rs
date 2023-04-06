@@ -16,8 +16,6 @@ pub struct Receiver {
     peer_id: ClientId,
 }
 
-// todo validate that the peer is allowed to send us packfiles, and increment sizes
-// todo obfuscate data before saving it to disk
 impl Receiver {
     pub async fn new(peer_id: ClientId) -> anyhow::Result<Self> {
         let mut file_path = CONFIG.get().unwrap().get_received_packfiles_folder()?;
@@ -65,8 +63,7 @@ pub async fn receive_request(request: IncomingTransportRequest) -> anyhow::Resul
     let peer = CONFIG.get().unwrap().get_peer_info(request.source_client_id).await?;
 
     match peer {
-        Some(peer) => {
-            if is_peer_allowed_to_send_data(&peer) {
+        Some(peer) if is_peer_allowed_to_send_data(&peer) => {
                 let receiver = Receiver::new(request.source_client_id).await?;
 
                 let (addr, port) = receive::get_listener_address()?;
@@ -74,10 +71,8 @@ pub async fn receive_request(request: IncomingTransportRequest) -> anyhow::Resul
 
                 tokio::spawn(receive::listen(port, request.session_nonce, request.source_client_id, receiver));
                 Ok(())
-            } else {
-                bail!("Peer {} is not allowed to send more packfiles", hex::encode(request.source_client_id));
-            }
         },
+        Some(_) => bail!("Peer {} is not allowed to send more packfiles", hex::encode(request.source_client_id)),
         None => bail!("Received a transport request from an unknown peer {}, ignoring", hex::encode(request.source_client_id)),
     }
 }

@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::bail;
 use shared::types::ClientId;
@@ -97,10 +98,11 @@ impl Transaction<'_> {
     pub async fn add_peer(&mut self, peer_id: ClientId, negotiated: u64) -> anyhow::Result<()> {
         sqlx::query(
             "insert into peers (pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen)
-                values ($1, 0, 0, $2, now(), now())",
+                values ($1, 0, 0, $2, $3, $3)",
         )
         .bind(&peer_id[..])
         .bind(negotiated as i64)
+        .bind(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
         .execute(&mut self.transaction)
         .await?;
 
@@ -155,8 +157,9 @@ impl Transaction<'_> {
         peer_id: ClientId,
         amount: u64,
     ) -> anyhow::Result<()> {
-        sqlx::query("update peers set bytes_received = bytes_received + $1, last_seen = now() where pubkey = $2")
+        sqlx::query("update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3")
             .bind(amount as i64)
+            .bind(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
             .bind(&peer_id[..])
             .execute(&mut self.transaction)
             .await?;

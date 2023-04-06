@@ -76,10 +76,7 @@ async fn main() {
     // vvvvv
     if env::var("DEBUG_TRANSPORT").unwrap_or("0".to_string()) == "1" {
         println!("starting backup request");
-        let cid = [
-            42, 225, 115, 45, 238, 52, 91, 65, 171, 240, 177, 39, 64, 140, 204, 167, 29, 168, 4,
-            116, 4, 14, 137, 22, 88, 223, 193, 253, 191, 39, 118, 118,
-        ];
+        let cid = [50, 84, 68, 172, 255, 104, 247, 131, 137, 207, 210, 193, 128, 205, 245, 225, 194, 255, 92, 228, 115, 173, 104, 149, 82, 139, 151, 45, 213, 103, 112, 3];
         let nonce = TRANSPORT_REQUESTS.get().unwrap().add_request(cid).await.unwrap();
         requests::backup_transport_begin(cid, nonce).await.unwrap();
     }
