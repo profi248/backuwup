@@ -10,15 +10,15 @@ use tokio::{
     io::AsyncWriteExt,
 };
 use zstd::bulk::Compressor;
+use shared::types::{BlobNonce, NONCE_SIZE, PackfileId};
 
 use crate::{
     backup::filesystem::{
-        packfile::{
-            Manager, KEY_DERIVATION_CONSTANT_HEADER, PACKFILE_MAX_BLOBS, PACKFILE_MAX_SIZE,
+        Blob,
+        BlobEncrypted, CompressionKind, packfile::{
+            KEY_DERIVATION_CONSTANT_HEADER, Manager, PACKFILE_MAX_BLOBS, PACKFILE_MAX_SIZE,
             PACKFILE_TARGET_SIZE, ZSTD_COMPRESSION_LEVEL,
-        },
-        Blob, BlobEncrypted, BlobNonce, CompressionKind, PackfileError, PackfileHeaderBlob,
-        PackfileId, NONCE_SIZE,
+        }, PackfileError, PackfileHeaderBlob,
     },
     defaults::BLOB_MAX_UNCOMPRESSED_SIZE,
     KEYS,

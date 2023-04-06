@@ -9,7 +9,7 @@ pub const INDEX_FOLDER: &str = "index";
 
 pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";
 
-pub const PEER_STORAGE_USAGE_SPREAD: usize = 32 * 1024 * 1024; // 32 MiB
+pub const PEER_STORAGE_USAGE_SPREAD: u64 = 32 * 1024 * 1024; // 32 MiB
 
 /// Maximum size of packfiles that are allowed to be temporarily stored on disk,
 /// while waiting for transferring them to a peer.

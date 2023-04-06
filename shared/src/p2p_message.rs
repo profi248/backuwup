@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::{MessageSignature, PackfileHash, TransportSessionNonce};
+use crate::types::{MessageSignature, PackfileId, TransportSessionNonce};
 
 pub const MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE: usize = 8 * 1_048_576; // 8 MiB
 
@@ -16,6 +16,6 @@ pub struct EncapsulatedPackfile {
 pub struct PackfileBody {
     pub sequence_number: u64,
     pub session_nonce: TransportSessionNonce,
-    pub hash: PackfileHash,
+    pub id: PackfileId,
     pub data: Vec<u8>,
 }

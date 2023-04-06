@@ -1,4 +1,5 @@
 use std::{cmp::min, path::PathBuf, sync::atomic::{AtomicBool, AtomicU64, Ordering}, time};
+use std::collections::HashMap;
 use std::time::{Duration, Instant, UNIX_EPOCH, SystemTime};
 
 use anyhow::bail;
@@ -6,6 +7,7 @@ use fs_extra::dir::get_size;
 use futures_util::{FutureExt, try_join};
 use shared::server_message_ws::{BackupMatched, FinalizeTransportRequest};
 use tokio::sync::{Mutex, OnceCell, oneshot};
+use shared::types::ClientId;
 
 use crate::{
     backup::filesystem::package, CONFIG, UI, net_server::requests, TRANSPORT_REQUESTS,
@@ -32,6 +34,7 @@ pub struct Orchestrator {
     /// Indicates whether all the local files have been packed.
     packing_completed: AtomicBool,
     /// Active connections to other peers.
+    // active_transport_sessions: HashMap<ClientId, BackupTransportManager>,
     active_transport_sessions: Mutex<Vec<BackupTransportManager>>,
     /// The last time that backup storage was requested.
     storage_request_last_sent: AtomicU64,

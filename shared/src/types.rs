@@ -11,3 +11,9 @@ pub type MessageSignature = Vec<u8>; // this should be of fixed size 64, but ser
 
 pub const CHALLENGE_RESPONSE_LENGTH: usize = 64;
 pub const MESSAGE_SIGNATURE_LENGTH: usize = 64;
+
+pub const NONCE_SIZE: usize = 12;
+
+pub type BlobHash = [u8; 32];
+pub type PackfileId = [u8; 12];
+pub type BlobNonce = [u8; NONCE_SIZE];

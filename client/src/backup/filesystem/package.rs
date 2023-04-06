@@ -15,13 +15,14 @@ use filetime::FileTime;
 use futures_util::future::join_all;
 use memmap2::Mmap;
 use pathdiff::diff_paths;
+use shared::types::BlobHash;
 
 use crate::{
     backup::{
-        filesystem::{
-            packfile, Blob, BlobHash, BlobKind, PackfileError, Tree, TreeKind, TreeMetadata,
-        },
         BACKUP_ORCHESTRATOR,
+        filesystem::{
+            Blob, BlobKind, packfile, PackfileError, Tree, TreeKind, TreeMetadata,
+        },
     },
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     UI,

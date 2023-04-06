@@ -31,7 +31,6 @@ pub async fn make_backup_request(
             println!("\n[backup request] queue after fulfill vvv");
             queue.debug_print();
 
-            // todo provide more details
             Ok(Json(ServerMessage::Ok))
         }
 

@@ -88,7 +88,7 @@ async fn send_single_packfile(path: &PathBuf) -> anyhow::Result<()> {
 
         // todo currently we don't really know if the packfile was sent successfully, acknowledgment is probably needed
         // we also need to know how much data can we send to that peer
-        if session.send_data(fs::read(path)?).await.is_ok() {
+        if session.send_data(fs::read(path)?, [0; 12]).await.is_ok() {
             fs::remove_file(path)?;
             orchestrator.increment_packfile_bytes_sent(size);
             UI.get().unwrap().log(format!("Packfile {} sent successfully, deleting", path.display()));

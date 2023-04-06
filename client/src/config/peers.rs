@@ -20,6 +20,7 @@ impl Config {
     pub fn get_received_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
         // todo allow the user to change this path (save to config)
         if let Some(mut directory) = dirs::data_local_dir() {
+            directory.push(defaults::APP_FOLDER_NAME);
             directory.push(defaults::RECEIVED_PACKFILES_FOLDER);
             Ok(directory)
         } else {

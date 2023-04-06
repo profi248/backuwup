@@ -5,11 +5,12 @@ use tokio::{
     io::{AsyncReadExt, AsyncSeekExt},
 };
 use zstd::bulk::Decompressor;
+use shared::types::{BlobHash, NONCE_SIZE};
 
 use crate::{
     backup::filesystem::{
-        packfile::{Manager, KEY_DERIVATION_CONSTANT_HEADER, PACKFILE_MAX_SIZE},
-        Blob, BlobHash, PackfileError, PackfileHeaderBlob, NONCE_SIZE,
+        Blob,
+        packfile::{KEY_DERIVATION_CONSTANT_HEADER, Manager, PACKFILE_MAX_SIZE}, PackfileError, PackfileHeaderBlob,
     },
     defaults::BLOB_MAX_UNCOMPRESSED_SIZE,
     KEYS,

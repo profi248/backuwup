@@ -1,11 +1,12 @@
 use std::{collections::VecDeque, path::PathBuf};
 
 use anyhow::bail;
-use filetime::{set_file_mtime, FileTime};
+use filetime::{FileTime, set_file_mtime};
 use futures_util::future::join_all;
 use tokio::{fs, fs::File, io::AsyncWriteExt};
+use shared::types::BlobHash;
 
-use crate::backup::filesystem::{packfile, BlobHash, BlobKind, Tree, TreeKind};
+use crate::backup::filesystem::{BlobKind, packfile, Tree, TreeKind};
 
 pub async fn unpack(
     packfile_dir: impl Into<PathBuf>,

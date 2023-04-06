@@ -6,10 +6,11 @@ use tokio::{
     fs::{self, File},
     io::{AsyncReadExt, AsyncWriteExt},
 };
-use tokio_stream::{wrappers::ReadDirStream, StreamExt};
+use tokio_stream::{StreamExt, wrappers::ReadDirStream};
+use shared::types::{BlobHash, PackfileId};
 
 use crate::{
-    backup::filesystem::{BlobHash, PackfileError, PackfileId},
+    backup::filesystem::PackfileError,
     KEYS,
 };
 

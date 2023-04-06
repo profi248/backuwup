@@ -5,12 +5,7 @@ pub mod unpackage;
 use std::ffi::OsString;
 
 use serde::{Deserialize, Serialize};
-
-pub const NONCE_SIZE: usize = 12;
-
-pub type BlobHash = [u8; 32];
-pub type PackfileId = [u8; 12];
-pub type BlobNonce = [u8; NONCE_SIZE];
+use shared::types::{BlobHash, BlobNonce};
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum BlobKind {

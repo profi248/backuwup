@@ -9,10 +9,11 @@ use shared::{
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
-    connect_async, connect_async_with_config,
-    tungstenite::{handshake::client::Response, protocol::WebSocketConfig, Error, Message},
+    connect_async_with_config,
+    tungstenite::{protocol::WebSocketConfig, Error, Message},
     MaybeTlsStream, WebSocketStream,
 };
+use shared::types::PackfileId;
 
 use crate::{net_p2p::get_ws_config, KEYS, UI};
 
@@ -63,16 +64,11 @@ impl BackupTransportManager {
         })
     }
 
-    pub async fn send_data(&mut self, data: Vec<u8>) -> anyhow::Result<()> {
-        // todo maybe change this to blake3 as well
-        let mut hasher = Sha256::new();
-        hasher.update(&data);
-        let hash = hasher.finalize();
-
+    pub async fn send_data(&mut self, data: Vec<u8>, id: PackfileId) -> anyhow::Result<()> {
         let body = PackfileBody {
             sequence_number: self.msg_counter,
             session_nonce: self.session_nonce,
-            hash: hash.into(),
+            id,
             data,
         };
 

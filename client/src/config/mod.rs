@@ -1,6 +1,6 @@
-mod backup;
-mod identity;
-mod peers;
+pub mod backup;
+pub mod identity;
+pub mod peers;
 
 use std::fs;
 

@@ -8,6 +8,7 @@ use shared::{
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
+use shared::types::PackfileId;
 
 use crate::{net_p2p::get_ws_config, packfile_receiver::Receiver, UI};
 
@@ -64,7 +65,7 @@ async fn receive_handle_incoming(
     loop {
         match stream.next().await {
             Some(Ok(Message::Binary(msg))) => {
-                let (hash, data) = validate_incoming_message(
+                let (id, mut data) = validate_incoming_message(
                     session_nonce,
                     &source_pubkey,
                     &mut msg_counter,
@@ -74,9 +75,9 @@ async fn receive_handle_incoming(
                 UI
                     .get()
                     .unwrap()
-                    .log(format!("[p2p] received packfile {}", hex::encode(hash)));
+                    .log(format!("[p2p] received packfile {}", hex::encode(id)));
 
-                receiver.save_packfile(hash, data).await?;
+                receiver.save_packfile(id, &mut data).await?;
             }
             Some(Ok(Message::Close(_))) | None => {
                 UI.get().unwrap().log("[p2p] transport finished");
@@ -95,7 +96,7 @@ fn validate_incoming_message(
     source_pubkey: &ClientId,
     msg_counter: &mut u64,
     encapsulated_data: &[u8],
-) -> anyhow::Result<(PackfileHash, Vec<u8>)> {
+) -> anyhow::Result<(PackfileId, Vec<u8>)> {
     let encapsulated: EncapsulatedPackfile = bincode::deserialize(encapsulated_data)?;
 
     // verify signature on the bytes of the body
@@ -114,5 +115,5 @@ fn validate_incoming_message(
 
     *msg_counter += 1;
 
-    Ok((body.hash, body.data))
+    Ok((body.id, body.data))
 }
