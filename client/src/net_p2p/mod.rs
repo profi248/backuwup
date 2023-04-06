@@ -58,9 +58,9 @@ impl TransportRequestManager {
     ) -> anyhow::Result<Option<BackupTransportManager>> {
         let mut requests = self.requests.lock().await;
         match requests.remove(&client_id) {
-            Some(request) => {
-                Ok(Some(BackupTransportManager::new(client_addr, request.session_nonce, client_id).await?))
-            }
+            Some(request) => Ok(Some(
+                BackupTransportManager::new(client_addr, request.session_nonce, client_id).await?,
+            )),
             None => Ok(None),
         }
     }

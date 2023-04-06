@@ -10,8 +10,10 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{identity, packfile_receiver, CONFIG, UI};
-use crate::backup::send::{handle_finalize_transport_request, handle_storage_request_matched};
+use crate::{
+    backup::send::{handle_finalize_transport_request, handle_storage_request_matched},
+    identity, packfile_receiver, CONFIG, UI,
+};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -50,19 +52,33 @@ async fn process_message(msg: Message) {
         let msg: Option<ServerMessageWs> = match msg.into_text() {
             Ok(text) => match serde_json::from_str(&text) {
                 Ok(msg) => Ok(msg),
-                Err(e) => Err(anyhow!(e))
+                Err(e) => Err(anyhow!(e)),
             },
-            Err(e) => Err(anyhow!(e))
-        }.map_err(|e| UI.get().unwrap().log(format!("[net] Received invalid message: {e}"))).ok();
+            Err(e) => Err(anyhow!(e)),
+        }
+        .map_err(|e| {
+            UI.get()
+                .unwrap()
+                .log(format!("[net] Received invalid message: {e}"))
+        })
+        .ok();
 
-        if msg.is_none() { return }
+        if msg.is_none() {
+            return;
+        }
         let msg = msg.unwrap();
 
         match msg {
             ServerMessageWs::Ping => Ok(()),
-            ServerMessageWs::BackupMatched(request) => handle_storage_request_matched(request).await,
-            ServerMessageWs::IncomingTransportRequest(request) => packfile_receiver::receive_request(request).await,
-            ServerMessageWs::FinalizeTransportRequest(request) => handle_finalize_transport_request(request).await,
+            ServerMessageWs::BackupMatched(request) => {
+                handle_storage_request_matched(request).await
+            }
+            ServerMessageWs::IncomingTransportRequest(request) => {
+                packfile_receiver::receive_request(request).await
+            }
+            ServerMessageWs::FinalizeTransportRequest(request) => {
+                handle_finalize_transport_request(request).await
+            }
             // ServerMessageWs::FinalizeTransportRequest(request) => {
             //     // todo temp test
             //     let mut mgr = TRANSPORT_REQUESTS
@@ -83,8 +99,13 @@ async fn process_message(msg: Message) {
             //     Ok(())
             // },
             ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
-        }.map_err(|e| UI.get().unwrap().log(format!("[net] Error processing incoming message: {e}"))).ok();
-
+        }
+        .map_err(|e| {
+            UI.get()
+                .unwrap()
+                .log(format!("[net] Error processing incoming message: {e}"))
+        })
+        .ok();
     });
 }
 

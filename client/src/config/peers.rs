@@ -1,5 +1,7 @@
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::bail;
 use shared::types::ClientId;
@@ -77,7 +79,11 @@ impl Config {
         Ok(amount)
     }
 
-    pub async fn peer_set_negotiated_storage(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
+    pub async fn peer_set_negotiated_storage(
+        &self,
+        peer_id: ClientId,
+        amount: u64,
+    ) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_set_negotiated_storage(peer_id, amount).await?;
         transaction.commit().await?;
@@ -176,7 +182,11 @@ impl Transaction<'_> {
             .map(|val: i64| val as u64)?)
     }
 
-    pub async fn peer_set_negotiated_storage(&mut self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
+    pub async fn peer_set_negotiated_storage(
+        &mut self,
+        peer_id: ClientId,
+        amount: u64,
+    ) -> anyhow::Result<()> {
         sqlx::query("update peers set bytes_negotiated = $1 where pubkey = $2")
             .bind(amount as i64)
             .bind(&peer_id[..])
@@ -190,9 +200,10 @@ impl Transaction<'_> {
         let rows = sqlx::query(
             "select pubkey, (bytes_negotiated - bytes_transmitted) as free_storage \
              from peers where free_storage > 0 \
-             order by free_storage desc")
-            .fetch_all(&mut self.transaction)
-            .await?;
+             order by free_storage desc",
+        )
+        .fetch_all(&mut self.transaction)
+        .await?;
 
         let mut peers: Vec<ClientId> = Vec::new();
         for row in rows {

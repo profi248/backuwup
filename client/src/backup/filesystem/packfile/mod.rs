@@ -6,16 +6,18 @@ use std::{
     collections::VecDeque,
     path::PathBuf,
     sync::{
-        Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
     },
 };
 
 use fs_extra::dir::get_size;
 use tokio::sync::Mutex;
 
-use crate::backup::filesystem::{BlobEncrypted, packfile::blob_index::BlobIndex, PackfileError};
-use crate::defaults::{INDEX_FOLDER, PACKFILE_FOLDER};
+use crate::{
+    backup::filesystem::{packfile::blob_index::BlobIndex, BlobEncrypted, PackfileError},
+    defaults::{INDEX_FOLDER, PACKFILE_FOLDER},
+};
 
 /// Total blob size, after which it's attempted to write the packfile to disk.
 pub const PACKFILE_TARGET_SIZE: usize = 3 * 1024 * 1024; // 3 MiB

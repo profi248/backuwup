@@ -1,6 +1,6 @@
-pub mod ws_status_message;
 pub mod ws;
 mod ws_dispatcher;
+pub mod ws_status_message;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;

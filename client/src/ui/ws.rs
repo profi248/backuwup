@@ -1,7 +1,4 @@
-use futures_util::{
-    stream::{SplitSink, SplitStream},
-    SinkExt, StreamExt,
-};
+use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use poem::{
     web::websocket::{Message, WebSocket, WebSocketStream},
     IntoResponse,
@@ -9,7 +6,7 @@ use poem::{
 use tokio::sync::broadcast::{error::RecvError, Receiver};
 
 use crate::{
-    ui::{ws_status_message::StatusMessage, ws_dispatcher},
+    ui::{ws_dispatcher, ws_status_message::StatusMessage},
     UI,
 };
 

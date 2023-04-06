@@ -2,17 +2,14 @@ use std::{collections::HashSet, path::PathBuf};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
+use shared::types::{BlobHash, PackfileId};
 use tokio::{
     fs::{self, File},
     io::{AsyncReadExt, AsyncWriteExt},
 };
-use tokio_stream::{StreamExt, wrappers::ReadDirStream};
-use shared::types::{BlobHash, PackfileId};
+use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 
-use crate::{
-    backup::filesystem::PackfileError,
-    KEYS,
-};
+use crate::{backup::filesystem::PackfileError, KEYS};
 
 const MAX_FILE_ENTRIES: usize = 50_000;
 

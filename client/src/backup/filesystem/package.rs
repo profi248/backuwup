@@ -19,10 +19,8 @@ use shared::types::BlobHash;
 
 use crate::{
     backup::{
+        filesystem::{packfile, Blob, BlobKind, PackfileError, Tree, TreeKind, TreeMetadata},
         BACKUP_ORCHESTRATOR,
-        filesystem::{
-            Blob, BlobKind, packfile, PackfileError, Tree, TreeKind, TreeMetadata,
-        },
     },
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     UI,
@@ -183,7 +181,13 @@ async fn pack_files_in_directory(
         for item in iter {
             if !BACKUP_ORCHESTRATOR.get().unwrap().should_continue() {
                 // block the backup until we can continue
-                BACKUP_ORCHESTRATOR.get().unwrap().subscribe().await.await.unwrap();
+                BACKUP_ORCHESTRATOR
+                    .get()
+                    .unwrap()
+                    .subscribe()
+                    .await
+                    .await
+                    .unwrap();
             }
 
             match item {
@@ -301,8 +305,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
     let hash = add_tree_to_blobs(packer, &mut file_tree).await?;
 
-    UI
-        .get()
+    UI.get()
         .unwrap()
         .progress_notify_increment(path.to_string_lossy().to_string());
 
@@ -322,7 +325,10 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
         Ok(written) => {
             if let Some(bytes) = written {
                 // todo maybe notify the logger too
-                BACKUP_ORCHESTRATOR.get().unwrap().update_packfile_bytes_written(bytes);
+                BACKUP_ORCHESTRATOR
+                    .get()
+                    .unwrap()
+                    .update_packfile_bytes_written(bytes);
             }
 
             Ok(hash)
@@ -402,7 +408,10 @@ async fn add_tree_to_blobs(
             Ok(written) => {
                 if let Some(bytes) = written {
                     // todo maybe notify the logger too
-                    BACKUP_ORCHESTRATOR.get().unwrap().update_packfile_bytes_written(bytes);
+                    BACKUP_ORCHESTRATOR
+                        .get()
+                        .unwrap()
+                        .update_packfile_bytes_written(bytes);
                 }
             }
             Err(PackfileError::ExceededBufferLimit) => {

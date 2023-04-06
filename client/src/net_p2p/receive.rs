@@ -3,15 +3,13 @@ use ed25519_dalek::{PublicKey, Signature};
 use futures_util::{SinkExt, StreamExt};
 use portpicker::pick_unused_port;
 use shared::{
-    p2p_message::{EncapsulatedPackfile, PackfileBody},
-    types::{ClientId, PackfileHash, TransportSessionNonce},
+    p2p_message::{AckBody, EncapsulatedPackfile, EncapsulatedPackfileAck, Header, PackfileBody},
+    types::{ClientId, PackfileId, TransportSessionNonce},
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
-use shared::p2p_message::{AckBody, EncapsulatedPackfileAck, Header};
-use shared::types::PackfileId;
 
-use crate::{KEYS, log, net_p2p::get_ws_config, packfile_receiver::Receiver, UI};
+use crate::{log, net_p2p::get_ws_config, packfile_receiver::Receiver, KEYS, UI};
 
 pub async fn listen(
     port: u16,
@@ -27,9 +25,11 @@ pub async fn listen(
     log!("[p2p] Incoming connection from {}", peer_addr);
 
     receive_handle_incoming(stream, session_nonce, source_pubkey, receiver)
-        .await.map_err(|e| {
+        .await
+        .map_err(|e| {
             log!("[p2p] Connection failed: {}", e);
-        }).ok();
+        })
+        .ok();
 
     Ok(())
 }
@@ -45,13 +45,17 @@ pub fn get_listener_address() -> anyhow::Result<(String, u16)> {
     Ok((format!("{local_ip_addr}:{port}"), port))
 }
 
-fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> anyhow::Result<Message> {
+fn ack_msg(
+    nonce: TransportSessionNonce,
+    seq: &mut u64,
+    acknowledged: u64,
+) -> anyhow::Result<Message> {
     let body = bincode::serialize(&AckBody {
         header: Header {
             sequence_number: *seq,
-            session_nonce: nonce
+            session_nonce: nonce,
         },
-        acknowledged_sequence_number: acknowledged
+        acknowledged_sequence_number: acknowledged,
     })?;
 
     let signature = KEYS.get().unwrap().sign(&body).to_vec();
@@ -86,7 +90,9 @@ async fn receive_handle_incoming(
                 log!("[p2p] received packfile {}", hex::encode(id));
 
                 receiver.save_packfile(id, &mut data).await?;
-                stream.send(ack_msg(session_nonce, &mut ack_msg_counter, msg_num)?).await?;
+                stream
+                    .send(ack_msg(session_nonce, &mut ack_msg_counter, msg_num)?)
+                    .await?;
             }
             Some(Ok(Message::Close(_))) | None => {
                 UI.get().unwrap().log("[p2p] transport finished");

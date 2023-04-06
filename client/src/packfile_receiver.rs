@@ -3,13 +3,13 @@ use std::{fs, path::PathBuf};
 use anyhow::bail;
 use shared::{
     server_message_ws::IncomingTransportRequest,
-    types::{ClientId, PackfileHash},
+    types::{ClientId, PackfileId},
 };
-use shared::types::PackfileId;
 
-use crate::{net_p2p::receive, net_server::requests, CONFIG};
-use crate::config::peers::PeerInfo;
-use crate::defaults::PEER_STORAGE_USAGE_SPREAD;
+use crate::{
+    config::peers::PeerInfo, defaults::PEER_STORAGE_USAGE_SPREAD, net_p2p::receive,
+    net_server::requests, CONFIG,
+};
 
 pub struct Receiver {
     file_path: PathBuf,
@@ -38,10 +38,14 @@ impl Receiver {
             Some(peer) if is_peer_allowed_to_send_data(&peer) => {
                 fs::write(path, obfuscate_data(data))?;
 
-                config.peer_increment_received(self.peer_id, data.len() as u64).await?;
+                config
+                    .peer_increment_received(self.peer_id, data.len() as u64)
+                    .await?;
                 Ok(())
-            },
-            Some(_) => bail!("Peer {} is not allowed to send more packfiles", hex::encode(self.peer_id)),
+            }
+            Some(_) => {
+                bail!("Peer {} is not allowed to send more packfiles", hex::encode(self.peer_id))
+            }
             None => bail!("Peer {} not found when receiving a packfile", hex::encode(self.peer_id)),
         }
     }
@@ -60,20 +64,35 @@ impl Receiver {
 }
 
 pub async fn receive_request(request: IncomingTransportRequest) -> anyhow::Result<()> {
-    let peer = CONFIG.get().unwrap().get_peer_info(request.source_client_id).await?;
+    let peer = CONFIG
+        .get()
+        .unwrap()
+        .get_peer_info(request.source_client_id)
+        .await?;
 
     match peer {
         Some(peer) if is_peer_allowed_to_send_data(&peer) => {
-                let receiver = Receiver::new(request.source_client_id).await?;
+            let receiver = Receiver::new(request.source_client_id).await?;
 
-                let (addr, port) = receive::get_listener_address()?;
-                requests::backup_transport_confirm(request.source_client_id, addr).await?;
+            let (addr, port) = receive::get_listener_address()?;
+            requests::backup_transport_confirm(request.source_client_id, addr).await?;
 
-                tokio::spawn(receive::listen(port, request.session_nonce, request.source_client_id, receiver));
-                Ok(())
-        },
-        Some(_) => bail!("Peer {} is not allowed to send more packfiles", hex::encode(request.source_client_id)),
-        None => bail!("Received a transport request from an unknown peer {}, ignoring", hex::encode(request.source_client_id)),
+            tokio::spawn(receive::listen(
+                port,
+                request.session_nonce,
+                request.source_client_id,
+                receiver,
+            ));
+            Ok(())
+        }
+        Some(_) => bail!(
+            "Peer {} is not allowed to send more packfiles",
+            hex::encode(request.source_client_id)
+        ),
+        None => bail!(
+            "Received a transport request from an unknown peer {}, ignoring",
+            hex::encode(request.source_client_id)
+        ),
     }
 }
 
@@ -84,6 +103,8 @@ pub fn is_peer_allowed_to_send_data(peer: &PeerInfo) -> bool {
 
 // todo take an actual random key instead of a hardcoded one
 pub fn obfuscate_data(data: &mut [u8]) -> &[u8] {
-    for byte in data.iter_mut() { *byte ^= 0x42; }
+    // for byte in data.iter_mut() {
+    //     *byte ^= 0x42;
+    // }
     data
 }

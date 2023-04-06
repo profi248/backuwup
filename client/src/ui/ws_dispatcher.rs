@@ -38,10 +38,7 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
         };
 
         if let Err(e) = process_message(&msg).await {
-            UI
-                .get()
-                .unwrap()
-                .log(format!("error processing request: {e}"));
+            UI.get().unwrap().log(format!("error processing request: {e}"));
         };
     }
 }

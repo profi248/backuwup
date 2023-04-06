@@ -126,4 +126,7 @@ macro_rules! log {
     ($msg:expr, $($args:expr),*) => {
         $crate::UI.get().unwrap().log(format!($msg, $($args),*));
     };
+    ($msg:expr) => {
+        $crate::UI.get().unwrap().log($msg);
+    }
 }

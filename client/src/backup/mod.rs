@@ -1,18 +1,13 @@
-use std::{cmp::min, path::PathBuf, sync::atomic::{AtomicBool, AtomicU64, Ordering}, time};
-use std::collections::HashMap;
-use std::time::{Duration, Instant, UNIX_EPOCH, SystemTime};
+use std::{
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::bail;
-use fs_extra::dir::get_size;
-use futures_util::{FutureExt, try_join};
-use shared::server_message_ws::{BackupMatched, FinalizeTransportRequest};
-use tokio::sync::{Mutex, OnceCell, oneshot};
-use shared::types::ClientId;
+use futures_util::{try_join, FutureExt};
+use tokio::sync::{oneshot, Mutex, OnceCell};
 
-use crate::{
-    backup::filesystem::package, CONFIG, UI, net_server::requests, TRANSPORT_REQUESTS,
-};
-use crate::net_p2p::transport::BackupTransportManager;
+use crate::{backup::filesystem::package, net_p2p::transport::BackupTransportManager, CONFIG, UI};
 
 pub mod filesystem;
 pub mod send;
@@ -103,7 +98,10 @@ impl Orchestrator {
     }
 
     pub fn update_storage_request_last_sent(&self) {
-        self.storage_request_last_sent.store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
+        self.storage_request_last_sent.store(
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            Ordering::Release,
+        );
     }
 
     pub fn get_storage_request_last_matched(&self) -> u64 {
@@ -111,7 +109,10 @@ impl Orchestrator {
     }
 
     pub fn update_storage_request_last_matched(&self) {
-        self.storage_request_last_matched.store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
+        self.storage_request_last_matched.store(
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            Ordering::Release,
+        );
     }
 }
 
@@ -126,12 +127,15 @@ pub async fn run() -> anyhow::Result<()> {
             orchestrator.listeners.lock().await.clear();
             orchestrator.paused.store(false, Ordering::Relaxed);
             orchestrator.packfile_bytes_written.store(0, Ordering::Relaxed);
-            orchestrator.packfile_bytes_sent.store(0, Ordering::Relaxed); }
+            orchestrator.packfile_bytes_sent.store(0, Ordering::Relaxed);
+        }
         None => {
-            BACKUP_ORCHESTRATOR.set(Orchestrator {
-                backup_running: AtomicBool::new(true),
-                ..Default::default()
-            }).unwrap();
+            BACKUP_ORCHESTRATOR
+                .set(Orchestrator {
+                    backup_running: AtomicBool::new(true),
+                    ..Default::default()
+                })
+                .unwrap();
         }
     }
 
@@ -139,9 +143,15 @@ pub async fn run() -> anyhow::Result<()> {
     let backup_path = config.get_backup_path().await?;
     let destination = config.get_packfile_path().await?;
 
-    if backup_path.is_none() { bail!("backup path not set") }
+    if backup_path.is_none() {
+        bail!("backup path not set")
+    }
 
-    BACKUP_ORCHESTRATOR.get().unwrap().backup_running.store(true, Ordering::Relaxed);
+    BACKUP_ORCHESTRATOR
+        .get()
+        .unwrap()
+        .backup_running
+        .store(true, Ordering::Relaxed);
 
     let pack_result = tokio::spawn(package::pack(backup_path.unwrap(), destination.clone()));
     let transport_result = tokio::spawn(send::send(destination));
@@ -152,25 +162,25 @@ pub async fn run() -> anyhow::Result<()> {
     // probably notify the task when we got a request fulfilled
 
     // unpack the inner result so it stops whenever one of the tasks returns an error
-    let result = try_join!(
-        pack_result.map(|r| r.unwrap()),
-        transport_result.map(|r| r.unwrap())
-    );
+    let result = try_join!(pack_result.map(|r| r.unwrap()), transport_result.map(|r| r.unwrap()));
 
     println!("{result:?}");
 
-    BACKUP_ORCHESTRATOR.get().unwrap().backup_running.store(false, Ordering::Relaxed);
+    BACKUP_ORCHESTRATOR
+        .get()
+        .unwrap()
+        .backup_running
+        .store(false, Ordering::Relaxed);
 
     match result {
         Ok((hash, _)) => {
-            UI
-                .get()
-                .unwrap()
-                .log(format!("Backup completed successfully! Snapshot hash: {}", hex::encode(hash)));
-        },
+            UI.get().unwrap().log(format!(
+                "Backup completed successfully! Snapshot hash: {}",
+                hex::encode(hash)
+            ));
+        }
         Err(e) => {
-            UI
-                .get()
+            UI.get()
                 .unwrap()
                 .send_backup_finished(false, format!("Backup failed: {e:?}"));
         }
