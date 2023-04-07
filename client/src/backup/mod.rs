@@ -1,10 +1,13 @@
 use std::{
+    collections::HashMap,
+    path::PathBuf,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::bail;
 use futures_util::{try_join, FutureExt};
+use shared::types::ClientId;
 use tokio::sync::{oneshot, Mutex, OnceCell};
 
 use crate::{backup::filesystem::package, net_p2p::transport::BackupTransportManager, CONFIG, UI};
@@ -29,12 +32,13 @@ pub struct Orchestrator {
     /// Indicates whether all the local files have been packed.
     packing_completed: AtomicBool,
     /// Active connections to other peers.
-    // active_transport_sessions: HashMap<ClientId, BackupTransportManager>,
-    active_transport_sessions: Mutex<Vec<BackupTransportManager>>,
+    active_transport_sessions: Mutex<HashMap<ClientId, BackupTransportManager>>,
     /// The last time that backup storage was requested.
     storage_request_last_sent: AtomicU64,
     /// The last time that backup storage was matched.
     storage_request_last_matched: AtomicU64,
+    /// Path to the backup destination (packfile folder).
+    destination_path: PathBuf,
 }
 
 impl Orchestrator {
@@ -117,6 +121,9 @@ impl Orchestrator {
 }
 
 pub async fn run() -> anyhow::Result<()> {
+    let config = CONFIG.get().unwrap();
+    let destination = config.get_packfile_path().await?;
+
     match BACKUP_ORCHESTRATOR.get() {
         Some(orchestrator) => {
             if orchestrator.backup_running.load(Ordering::Relaxed) {
@@ -133,15 +140,14 @@ pub async fn run() -> anyhow::Result<()> {
             BACKUP_ORCHESTRATOR
                 .set(Orchestrator {
                     backup_running: AtomicBool::new(true),
+                    destination_path: destination.clone(),
                     ..Default::default()
                 })
                 .unwrap();
         }
     }
 
-    let config = CONFIG.get().unwrap();
     let backup_path = config.get_backup_path().await?;
-    let destination = config.get_packfile_path().await?;
 
     if backup_path.is_none() {
         bail!("backup path not set")

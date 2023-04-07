@@ -61,6 +61,7 @@ dirs = "5.0.0"
 async-trait = "0.1.64"
 hex = "0.4.3"
 thiserror = "1.0.39"
+itertools = "0.10.5"
 
 [dev-dependencies]
 rand = "0.8.5"

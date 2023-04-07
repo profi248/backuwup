@@ -88,7 +88,7 @@ pub async fn login_complete(
 pub async fn backup_transport_begin(
     destination_client_id: ClientId,
     session_nonce: TransportSessionNonce,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let client = reqwest::Client::new();
     let config = CONFIG.get().unwrap();
 
@@ -108,11 +108,12 @@ pub async fn backup_transport_begin(
                 .await?;
 
             match response.json().await? {
-                ServerMessage::Ok => return Ok(()),
+                ServerMessage::Ok => return Ok(true),
                 ServerMessage::Error(ErrorType::Unauthorized) => {
                     config.save_auth_token(None).await?;
                     tokio::time::sleep(Duration::from_secs(2)).await;
                 }
+                ServerMessage::Error(ErrorType::DestinationUnreachable) => return Ok(false),
                 ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
                 _ => bail!("Unexpected response"),
             };
