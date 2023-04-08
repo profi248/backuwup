@@ -22,6 +22,9 @@ pub const PACKFILE_SEND_TIMEOUT: u64 = 20;
 /// Maximum amount of seconds to wait until considering packfile ack as failed.
 pub const PACKFILE_ACK_TIMEOUT: u64 = 5;
 
+/// Minimum number of seconds to wait before retrying to send a storage request.
+pub const STORAGE_REQUEST_RETRY_DELAY: u64 = 10;
+
 /// The amount of free space under the packfile maximum local buffer size to trigger a backup resume.
 pub const PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD: u64 = 50 * 1024 * 1024;
 

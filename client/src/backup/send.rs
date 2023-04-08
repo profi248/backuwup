@@ -22,7 +22,7 @@ use crate::{
     net_server::{requests, requests::backup_transport_begin},
     CONFIG, TRANSPORT_REQUESTS, UI,
 };
-use crate::defaults::{MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD};
+use crate::defaults::{MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_RETRY_DELAY};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
@@ -224,7 +224,7 @@ async fn send_storage_request_if_needed() -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
-    if now - orchestrator.get_storage_request_last_sent() > BACKUP_REQUEST_EXPIRY {
+    if now - orchestrator.get_storage_request_last_sent() > STORAGE_REQUEST_RETRY_DELAY {
         let request_size = estimate_storage_request_size(&orchestrator.destination_path)?;
         log!("[send] sending a new storage request of size {} B", request_size);
 
