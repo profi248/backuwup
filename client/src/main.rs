@@ -20,6 +20,7 @@ mod packfile_receiver;
 mod ui;
 
 use std::{env, panic, process};
+use std::time::Duration;
 
 use futures_util::future;
 use reqwest::{Certificate, Client};
@@ -46,7 +47,8 @@ async fn main() {
     let orig_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
         // invoke the default handler and exit the process
-        orig_hook(panic_info);
+        UI.get().unwrap().panic(panic_info.to_string());
+        std::thread::sleep(Duration::from_secs(2));
         process::exit(1);
     }));
 

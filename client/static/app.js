@@ -16,6 +16,7 @@ createApp({
             backup_msg: "",
             last_backup_success: null,
             starting: false,
+            crash_message: "",
             configuration: {
                 path: ""
             }
@@ -82,10 +83,14 @@ createApp({
                     this.starting = false;
                 } else if (message["type"] === "Config") {
                     this.configuration = message["data"];
+                    this.crash_message = ""
 
                     if (this.configuration.path) {
                         this.settings_editable = false;
                     }
+                } else if (message["type"] === "Panic") {
+                    this.crash_message = message["data"];
+                    this.status = false;
                 }
             });
 

@@ -23,9 +23,14 @@
         </div>
     </nav>
     <div class="container">
+        <div class="alert alert-danger" role="alert" v-if="crash_message">
+            Fatal error: {{ crash_message }}
+            <br>
+            Please restart the application.
+        </div>
         <Transition>
-            <div id="main" v-if="status">
-                <div class="card mb-3">
+            <div id="main">
+                <div class="card mb-3" v-if="status">
                     <div class="progress rounded-bottom-0" :class="{ 'bg-light': !backup_running,
                      'bg-success-subtle': (last_backup_success === true) && !backup_running,
                       'bg-danger-subtle': (last_backup_success === false) && !backup_running }"

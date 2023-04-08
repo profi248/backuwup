@@ -26,6 +26,7 @@ pub enum StatusMessage {
     Config(Config),
     BackupStarted,
     BackupFinished((bool, String)),
+    Panic(String)
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -52,6 +53,11 @@ impl Messenger {
         // ignore sending errors because they are not very meaningful
         self.sender.send(StatusMessage::Message(msg.clone().into())).ok();
         println!("[log] {}", msg.into());
+    }
+
+    pub fn panic(&self, msg: impl Into<String> + Clone) {
+        self.sender.send(StatusMessage::Panic(msg.clone().into())).ok();
+        println!("Fatal error: {}", msg.into());
     }
 
     pub fn progress_set_total(&self, total: u64) {
