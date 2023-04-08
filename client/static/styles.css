@@ -1,0 +1,62 @@
+#logs {
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: scroll;
+    display: block;
+    font-size: 1.2em;
+    font-family: 'Fira Code', monospace;
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/Mulish-Regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/Mulish-Italic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/fonts/Mulish-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Mulish';
+    font-style: italic;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/fonts/Mulish-SemiBoldItalic.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
+}
+
+* {
+    font-family: 'Mulish', sans-serif;
+}
+
+.v-enter-active,
+.v-leave-active {
+    transition: opacity 0.15s ease-out;
+}
+
+.v-enter-from,
+.v-leave-to {
+    opacity: 0;
+}

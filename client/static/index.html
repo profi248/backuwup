@@ -3,76 +3,11 @@
 <head>
     <meta charset="utf-8">
     <title>Peer-to-peer backup</title>
-    <style>
-        #app {
-            display: none;
-        }
-
-        #logs {
-            white-space: pre;
-            overflow-wrap: normal;
-            overflow-x: scroll;
-            display: block;
-            font-size: 1.2em;
-            font-family: 'Fira Code', monospace;
-        }
-
-        @font-face {
-            font-family: 'Mulish';
-            font-style: normal;
-            font-weight: 400;
-            font-display: swap;
-            src: url('/fonts/Mulish-Regular.ttf') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Mulish';
-            font-style: italic;
-            font-weight: 400;
-            font-display: swap;
-            src: url('/fonts/Mulish-Italic.ttf') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Mulish';
-            font-style: normal;
-            font-weight: 600;
-            font-display: swap;
-            src: url('/fonts/Mulish-SemiBold.ttf') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Mulish';
-            font-style: italic;
-            font-weight: 600;
-            font-display: swap;
-            src: url('/fonts/Mulish-SemiBoldItalic.ttf') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Fira Code';
-            font-style: normal;
-            font-weight: 400;
-            font-display: swap;
-            src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
-        }
-
-        * {
-            font-family: 'Mulish', sans-serif;
-        }
-
-        .v-enter-active,
-        .v-leave-active {
-            transition: opacity 0.15s ease-out;
-        }
-
-        .v-enter-from,
-        .v-leave-to {
-            opacity: 0;
-        }
-
-    </style>
     <link rel="stylesheet" href="lib/bootstrap.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        #app { display: none; }
+    </style>
 </head>
 <body>
 <div id="app">
@@ -199,143 +134,12 @@
 
                 <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs"
                           disabled>{{ logs }}</textarea>
-                <div class="card text-center mt-4">
-                    <div class="card-header">
-                        <h3 class="my-3">Tools</h3>
-                    </div>
-                    <div class="card-body p-4">
-                        <button class="btn btn-primary" v-on:click="send_ws('request')">Backup request</button>
-                    </div>
-                </div>
             </div>
         </Transition>
     </div>
 </div>
 
 <script src="lib/vue.global.min.js"></script>
-<script>
-    const {createApp} = Vue;
-
-    createApp({
-        data() {
-            return {
-                logs: "",
-                status: false,
-                socket: null,
-                reconnector: null,
-                current: 0,
-                total: 0,
-                failed: 0,
-                curr_file: "",
-                settings_editable: true,
-                backup_running: false,
-                backup_msg: "",
-                last_backup_success: null,
-                starting: false,
-                configuration: {
-                    path: ""
-                }
-            }
-        },
-        computed: {
-            percent() {
-                if (this.total === 0) return 0;
-                return Math.max((this.current / this.total) * 100 - 1, 0);
-            }
-        },
-        methods: {
-            get_config() {
-                if (this.socket) {
-                    this.socket.send(JSON.stringify({
-                        type: "GetConfig"
-                    }));
-                }
-            },
-            send_config() {
-                if (this.socket) {
-                    this.socket.send(JSON.stringify({
-                        type: "Config",
-                        data: this.configuration
-                    }));
-                }
-            },
-            start_backup() {
-                if (this.socket) {
-                    if (this.settings_editable) {
-                        this.send_config();
-                    }
-
-                    this.socket.send(JSON.stringify({
-                        type: "StartBackup"
-                    }));
-                }
-            },
-            connect_ws() {
-                this.socket = new WebSocket(`ws://${window.location.host}/ws`);
-
-                this.socket.addEventListener('message', (event) => {
-                    let message = JSON.parse(event.data);
-
-                    if (message["type"] === "Progress") {
-                        this.current = message["data"].current;
-                        this.total = message["data"].total;
-                        this.curr_file = message["data"].file;
-                        this.failed = message["data"].failed;
-                        this.backup_running = true;
-                    } else if (message["type"] === "Message") {
-                        this.logs += message["data"] + "\n";
-                        let el = document.querySelector("#logs");
-                        el.scrollTo(0, el.scrollHeight);
-                    } else if (message["type"] === "BackupFinished") {
-                        this.last_backup_success = message["data"][0];
-                        this.backup_msg = message["data"][1];
-                        this.total = 0;
-                        this.current = 0;
-                        this.backup_running = false;
-                    } else if (message["type"] === "BackupStarted") {
-                        this.backup_running = true;
-                    } else if (message["type"] === "Config") {
-                        this.configuration = message["data"];
-                        if (this.configuration.path) {
-                            this.settings_editable = false;
-                        }
-                    }
-                });
-
-                this.socket.addEventListener('open', (event) => {
-                    this.status = true;
-                    this.get_config();
-                    clearInterval(this.reconnctor);
-                });
-
-                this.socket.addEventListener('close', () => {
-                    this.closed_ws();
-                });
-
-                this.socket.addEventListener('error', () => {
-                    this.closed_ws();
-                });
-            },
-            closed_ws() {
-                this.socket = null;
-                this.status = false;
-                this.backup_running = false;
-                clearInterval(this.reconnctor);
-                this.reconnctor = setInterval(() => {
-                    this.connect_ws()
-                }, 1000);
-            },
-            send_ws(msg) {
-                if (this.socket) {
-                    this.socket.send(msg);
-                }
-            }
-        },
-        mounted() {
-            document.querySelector("#app").style.display = "block";
-            this.connect_ws();
-        }
-    }).mount('#app');
-</script>
+<script src="app.js"></script>
 </body>
 </html>
