@@ -10,7 +10,7 @@ use futures_util::{try_join, FutureExt};
 use shared::types::ClientId;
 use tokio::sync::{oneshot, Mutex, OnceCell};
 
-use crate::{backup::filesystem::package, net_p2p::transport::BackupTransportManager, CONFIG, UI};
+use crate::{backup::filesystem::dir_packer, net_p2p::transport::BackupTransportManager, CONFIG, UI};
 
 pub mod filesystem;
 pub mod send;
@@ -159,16 +159,16 @@ pub async fn run() -> anyhow::Result<()> {
         .backup_running
         .store(true, Ordering::Relaxed);
 
-    let pack_result = tokio::spawn(package::pack(backup_path.unwrap(), destination.clone()));
+    let pack_result = tokio::spawn(dir_packer::pack(backup_path.unwrap(), destination.clone()));
     let transport_result = tokio::spawn(send::send(destination));
 
     println!("{pack_result:?} {transport_result:?}");
 
-    // wait for having enough data and send them in a loop (spawn it here)
-    // probably notify the task when we got a request fulfilled
-
     // unpack the inner result so it stops whenever one of the tasks returns an error
-    let result = try_join!(pack_result.map(|r| r.unwrap()), transport_result.map(|r| r.unwrap()));
+    let result = try_join!(
+        pack_result.map(|r| r.unwrap()),
+        transport_result.map(|r| r.unwrap())
+    );
 
     println!("{result:?}");
 

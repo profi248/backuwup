@@ -1,6 +1,6 @@
-pub mod package;
 pub mod packfile;
-pub mod unpackage;
+pub mod dir_packer;
+pub mod dir_unpacker;
 
 use std::ffi::OsString;
 
