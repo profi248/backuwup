@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::path::PathBuf;
 
 use anyhow::bail;
 use shared::types::ClientId;
@@ -116,7 +113,7 @@ impl Transaction<'_> {
                 on conflict (pubkey) do update set bytes_negotiated = peers.bytes_negotiated + $2, last_seen = $3")
         .bind(&peer_id[..])
         .bind(negotiated as i64)
-        .bind(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
+        .bind(Config::get_unix_timestamp() as i64)
         .execute(&mut self.transaction)
         .await?;
 
@@ -157,8 +154,9 @@ impl Transaction<'_> {
         peer_id: ClientId,
         amount: u64,
     ) -> anyhow::Result<()> {
-        sqlx::query("update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = now() where pubkey = $2")
+        sqlx::query("update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = $2 where pubkey = $3")
             .bind(amount as i64)
+            .bind(Config::get_unix_timestamp() as i64)
             .bind(&peer_id[..])
             .execute(&mut self.transaction)
             .await?;
@@ -173,7 +171,7 @@ impl Transaction<'_> {
     ) -> anyhow::Result<()> {
         sqlx::query("update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3")
             .bind(amount as i64)
-            .bind(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
+            .bind(Config::get_unix_timestamp() as i64)
             .bind(&peer_id[..])
             .execute(&mut self.transaction)
             .await?;

@@ -2,7 +2,10 @@ pub mod backup;
 pub mod identity;
 pub mod peers;
 
-use std::fs;
+use std::{
+    fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
@@ -100,6 +103,13 @@ impl Config {
         let transaction = self.db_pool.begin().await?;
 
         Ok(Transaction { transaction })
+    }
+
+    fn get_unix_timestamp() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
     }
 }
 
