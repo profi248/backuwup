@@ -103,7 +103,7 @@ impl ClientConnections {
         message: ServerMessageWs,
     ) -> Result<(), handlers::Error> {
         let mut connections = self.connections.lock().await;
-        let mut connection = connections
+        let connection = connections
             .get_mut(&client_id)
             .ok_or(handlers::Error::ClientNotConnected(client_id))?;
 

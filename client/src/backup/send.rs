@@ -1,10 +1,9 @@
 use std::{
     cmp::min,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use std::path::Path;
 
 use anyhow::{anyhow, bail};
 use fs_extra::dir::get_size;
@@ -47,7 +46,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         if connection.is_none() {
             match get_peer_connection().await {
                 Ok((peer_id, transport)) => {
-                    log!("[send] connection successfully established with {}", hex::encode(peer_id));
+                    log!("[send] connection established with {}", hex::encode(peer_id));
                     connection = Some(Connection { peer_id, transport });
                 }
                 Err(e) => {
@@ -145,11 +144,7 @@ async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManag
     // if no connections are active, try establishing them,
     // starting with an existing peer with most storage
     for peer in peers_with_storage {
-        let nonce = TRANSPORT_REQUESTS
-            .get()
-            .unwrap()
-            .add_request(*peer)
-            .await?;
+        let nonce = TRANSPORT_REQUESTS.get().unwrap().add_request(*peer).await?;
 
         log!("[send] trying to establish connection with {}", hex::encode(peer));
         // the client we tried to notify might not be connected to the server at all, then we skip it
@@ -196,7 +191,10 @@ async fn send_single_packfile(
 
     // parse packfile id from its name
     let packfile_id: PackfileId = hex::decode(
-        path.file_name().ok_or(anyhow!("can't get packfile filename"))?.to_string_lossy().to_string(),
+        path.file_name()
+            .ok_or(anyhow!("can't get packfile filename"))?
+            .to_string_lossy()
+            .to_string(),
     )?
     .try_into()
     .map_err(|_| anyhow!("invalid packfile filename"))?;
@@ -222,7 +220,7 @@ async fn send_storage_request_if_needed() -> anyhow::Result<()> {
 
     if now - orchestrator.get_storage_request_last_sent() > BACKUP_REQUEST_EXPIRY {
         let request_size = estimate_storage_request_size(&orchestrator.destination_path)?;
-        log!("Sending a new storage request of size {} B", request_size);
+        log!("[send] sending a new storage request of size {} B", request_size);
 
         requests::backup_storage_request(request_size).await?;
         orchestrator.update_storage_request_last_sent();
@@ -245,7 +243,12 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
         .ok_or(anyhow!("Backup orchestrator not initialized"))?
         .update_storage_request_last_matched();
 
-    CONFIG.get().unwrap().add_peer(matched.destination_id, matched.storage_available).await?;
+    CONFIG
+        .get()
+        .unwrap()
+        .add_or_increment_peer_storage(matched.destination_id, matched.storage_available)
+        .await?;
+
     requests::backup_transport_begin(matched.destination_id, nonce).await?;
 
     Ok(())

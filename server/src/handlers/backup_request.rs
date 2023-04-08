@@ -1,9 +1,7 @@
 use poem::{handler, web::Json};
 use shared::{client_message::BackupRequest, server_message::ServerMessage};
 
-use crate::{AUTH_MANAGER, BACKUP_REQUESTS};
-use crate::backup_request::Request;
-use crate::handlers::Error;
+use crate::{backup_request::Request, handlers::Error, AUTH_MANAGER, BACKUP_REQUESTS};
 
 #[handler]
 pub async fn make_backup_request(
@@ -17,7 +15,7 @@ pub async fn make_backup_request(
 
     let request = Request {
         storage_required: request.storage_required,
-        client_id
+        client_id,
     };
 
     let queue = BACKUP_REQUESTS.get().unwrap();

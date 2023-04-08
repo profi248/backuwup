@@ -31,9 +31,13 @@ impl Config {
         }
     }
 
-    pub async fn add_peer(&self, peer_id: ClientId, negotiated: u64) -> anyhow::Result<()> {
+    pub async fn add_or_increment_peer_storage(
+        &self,
+        peer_id: ClientId,
+        negotiated: u64,
+    ) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
-        transaction.add_peer(peer_id, negotiated).await?;
+        transaction.add_or_increment_peer(peer_id, negotiated).await?;
         transaction.commit().await?;
 
         Ok(())
@@ -101,11 +105,15 @@ impl Config {
 }
 
 impl Transaction<'_> {
-    pub async fn add_peer(&mut self, peer_id: ClientId, negotiated: u64) -> anyhow::Result<()> {
+    pub async fn add_or_increment_peer(
+        &mut self,
+        peer_id: ClientId,
+        negotiated: u64,
+    ) -> anyhow::Result<()> {
         sqlx::query(
             "insert into peers (pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen)
-                values ($1, 0, 0, $2, $3, $3)",
-        )
+                values ($1, 0, 0, $2, $3, $3)
+                on conflict (pubkey) do update set bytes_negotiated = peers.bytes_negotiated + $2, last_seen = $3")
         .bind(&peer_id[..])
         .bind(negotiated as i64)
         .bind(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64)
