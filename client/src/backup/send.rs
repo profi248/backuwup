@@ -1,5 +1,4 @@
 use std::{
-    cmp::min,
     fs,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -8,7 +7,6 @@ use std::{
 use anyhow::{anyhow, bail};
 use fs_extra::dir::get_size;
 use shared::{
-    constants::BACKUP_REQUEST_EXPIRY,
     server_message_ws::{BackupMatched, FinalizeTransportRequest},
     types::{ClientId, PackfileId},
 };
@@ -16,13 +14,15 @@ use tokio::time;
 
 use crate::{
     backup::BACKUP_ORCHESTRATOR,
-    defaults::PACKFILE_FOLDER,
+    defaults::{
+        MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD,
+        STORAGE_REQUEST_RETRY_DELAY,
+    },
     log,
     net_p2p::transport::BackupTransportManager,
     net_server::{requests, requests::backup_transport_begin},
-    CONFIG, TRANSPORT_REQUESTS, UI,
+    CONFIG, TRANSPORT_REQUESTS,
 };
-use crate::defaults::{MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_RETRY_DELAY};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
@@ -34,21 +34,22 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let mut last_matched = orchestrator.get_storage_request_last_matched();
     let mut connection = None;
 
-    // todo better retries and a lot more
     loop {
+        // todo flushing the packer here would be useful
+        // temporarily stop the backup if the local buffer got too large
+        if orchestrator.available_packfile_bytes() > MAX_PACKFILE_LOCAL_BUFFER_SIZE {
+            orchestrator.pause().await;
+        }
+
         let current_written = orchestrator.packfile_bytes_written();
         let current_matched = orchestrator.get_storage_request_last_matched();
 
-        struct Connection {
-            peer_id: ClientId,
-            transport: BackupTransportManager,
-        }
-
+        // try establishing a peer connection if we just started or connection got terminated
         if connection.is_none() {
             match get_peer_connection().await {
                 Ok((peer_id, transport)) => {
                     log!("[send] connection established with {}", hex::encode(peer_id));
-                    connection = Some(Connection { peer_id, transport });
+                    connection = Some((peer_id, transport));
                 }
                 Err(e) => {
                     log!("[send] unable to get a peer connection: {}", e);
@@ -69,12 +70,10 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
 
         if let Some(conn) = &mut connection {
             if (current_written > last_written || current_matched > last_matched)
-                || orchestrator.is_packing_completed() {
-                let send_result = send_packfiles_from_folder(
-                    &pack_folder,
-                    conn.peer_id,
-                    &mut conn.transport,
-                ).await;
+                || orchestrator.is_packing_completed()
+            {
+                let send_result =
+                    send_packfiles_from_folder(&pack_folder, conn.0, &mut conn.1).await;
 
                 match send_result {
                     Ok(_) => {
@@ -87,16 +86,22 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                     }
                 }
 
-                if MAX_PACKFILE_LOCAL_BUFFER_SIZE - orchestrator.available_packfile_bytes() > PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD {
-                    if !orchestrator.should_continue() { orchestrator.resume().await; }
+                // resume the backup if we get enough packfiles (over constant threshold) to send
+                if (MAX_PACKFILE_LOCAL_BUFFER_SIZE - orchestrator.available_packfile_bytes())
+                    > PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD
+                    && !orchestrator.should_continue()
+                {
+                    orchestrator.resume().await;
                 }
 
+                // if packing is completed and all packfiles have been sent, we are done
                 if orchestrator.is_packing_completed() && get_size(&pack_folder)? == 0 {
                     break;
                 }
             }
         }
 
+        // wait for an arbitrary amount of time until the next check
         time::sleep(Duration::from_secs(1)).await;
     }
 
@@ -225,7 +230,7 @@ async fn send_storage_request_if_needed() -> anyhow::Result<()> {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
     if now - orchestrator.get_storage_request_last_sent() > STORAGE_REQUEST_RETRY_DELAY {
-        let request_size = estimate_storage_request_size(&orchestrator.destination_path)?;
+        let request_size = estimate_storage_request_size();
         log!("[send] sending a new storage request of size {} B", request_size);
 
         requests::backup_storage_request(request_size).await?;
@@ -235,7 +240,6 @@ async fn send_storage_request_if_needed() -> anyhow::Result<()> {
     Ok(())
 }
 
-// todo store the storage granted to other peers in config
 // todo maybe store to which peers we have sent a packfile
 pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::Result<()> {
     let nonce = TRANSPORT_REQUESTS
@@ -255,7 +259,7 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
         .add_or_increment_peer_storage(matched.destination_id, matched.storage_available)
         .await?;
 
-    requests::backup_transport_begin(matched.destination_id, nonce).await?;
+    backup_transport_begin(matched.destination_id, nonce).await?;
 
     Ok(())
 }
@@ -286,14 +290,7 @@ pub async fn handle_finalize_transport_request(
     Ok(())
 }
 
-pub async fn make_backup_storage_request(storage_required: u64) -> anyhow::Result<()> {
-    requests::backup_storage_request(storage_required).await?;
-
-    Ok(())
-}
-
-fn estimate_storage_request_size(path: &PathBuf) -> anyhow::Result<u64> {
-    // todo try estimating based on source backup folder if needed
-    // Ok(min(get_size(path)?, crate::defaults::MAX_PACKFILE_LOCAL_BUFFER_SIZE as u64))
-    Ok(200_000_000)
+// todo do a better estimation, for example if we are just running a backup that has little changes
+fn estimate_storage_request_size() -> u64 {
+    BACKUP_ORCHESTRATOR.get().unwrap().get_size_estimate()
 }

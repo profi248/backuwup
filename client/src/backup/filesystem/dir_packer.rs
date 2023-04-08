@@ -6,7 +6,6 @@ use std::{
     fs::File,
     path::PathBuf,
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use anyhow::{anyhow, bail};
@@ -22,6 +21,7 @@ use crate::{
         filesystem::{packfile, Blob, BlobKind, PackfileError, Tree, TreeKind, TreeMetadata},
         BACKUP_ORCHESTRATOR,
     },
+    block_if_paused,
     defaults::{BLOB_DESIRED_TARGET_SIZE, BLOB_MAX_UNCOMPRESSED_SIZE, BLOB_MINIMUM_TARGET_SIZE},
     UI,
 };
@@ -164,17 +164,7 @@ async fn pack_files_in_directory(
         };
 
         for item in iter {
-            if !BACKUP_ORCHESTRATOR.get().unwrap().should_continue() {
-                // block the backup until we can continue
-                BACKUP_ORCHESTRATOR
-                    .get()
-                    .unwrap()
-                    .subscribe()
-                    .await
-                    .await
-                    .unwrap();
-            }
-
+            block_if_paused!();
             match item {
                 Ok(entry) => match entry.file_type() {
                     Ok(ftype) if ftype.is_file() => {
@@ -319,10 +309,7 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
             Ok(hash)
         }
         Err(PackfileError::ExceededBufferLimit) => {
-            packer.flush().await?;
-
-            // block here, wait until we are allowed to backup again
-            BACKUP_ORCHESTRATOR.get().unwrap().pause().await.await.unwrap();
+            block_if_paused!();
             Ok(hash)
         }
         Err(e) => Err(anyhow!(e)),
@@ -400,10 +387,7 @@ async fn add_tree_to_blobs(
                 }
             }
             Err(PackfileError::ExceededBufferLimit) => {
-                packer.flush().await?;
-
-                // block here, wait until we are allowed to backup again
-                BACKUP_ORCHESTRATOR.get().unwrap().pause().await.await.unwrap();
+                block_if_paused!();
             }
             Err(e) => return Err(anyhow!(e)),
         };

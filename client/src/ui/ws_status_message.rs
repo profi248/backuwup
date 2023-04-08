@@ -26,7 +26,7 @@ pub enum StatusMessage {
     Config(Config),
     BackupStarted,
     BackupFinished((bool, String)),
-    Panic(String)
+    Panic(String),
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
