@@ -174,6 +174,11 @@ pub async fn run() -> anyhow::Result<()> {
 
     match result {
         Ok((hash, _)) => {
+            UI.get().unwrap().send_backup_finished(
+                true,
+                "Backup completed successfully!"
+            );
+
             UI.get().unwrap().log(format!(
                 "Backup completed successfully! Snapshot hash: {}",
                 hex::encode(hash)

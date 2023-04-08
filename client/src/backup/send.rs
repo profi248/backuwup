@@ -67,34 +67,33 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         println!("is_packing_completed: {}", orchestrator.is_packing_completed());
         println!("available_packfile_bytes: {} B", orchestrator.available_packfile_bytes());
 
-        if connection.is_some()
-            && (current_written > last_written || current_matched > last_matched)
-            || orchestrator.is_packing_completed()
-        {
-            let send_result = send_packfiles_from_folder(
-                &pack_folder,
-                connection.as_ref().unwrap().peer_id,
-                &mut connection.as_mut().unwrap().transport,
-            )
-            .await;
+        if let Some(conn) = &mut connection {
+            if (current_written > last_written || current_matched > last_matched)
+                || orchestrator.is_packing_completed() {
+                let send_result = send_packfiles_from_folder(
+                    &pack_folder,
+                    conn.peer_id,
+                    &mut conn.transport,
+                ).await;
 
-            match send_result {
-                Ok(_) => {
-                    last_matched = current_matched;
-                    last_written = current_written;
+                match send_result {
+                    Ok(_) => {
+                        last_matched = current_matched;
+                        last_written = current_written;
+                    }
+                    Err(e) => {
+                        log!("[send] error sending packfiles: {}", e);
+                        connection = None;
+                    }
                 }
-                Err(e) => {
-                    log!("[send] error sending packfiles: {}", e);
-                    connection = None;
+
+                if MAX_PACKFILE_LOCAL_BUFFER_SIZE - orchestrator.available_packfile_bytes() > PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD {
+                    if !orchestrator.should_continue() { orchestrator.resume().await; }
                 }
-            }
 
-            if MAX_PACKFILE_LOCAL_BUFFER_SIZE - orchestrator.available_packfile_bytes() > PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD {
-                if !orchestrator.should_continue() { orchestrator.resume().await; }
-            }
-
-            if orchestrator.is_packing_completed() && get_size(&pack_folder)? == 0 {
-                break;
+                if orchestrator.is_packing_completed() && get_size(&pack_folder)? == 0 {
+                    break;
+                }
             }
         }
 

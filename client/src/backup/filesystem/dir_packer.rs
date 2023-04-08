@@ -60,8 +60,6 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
         bail!("Backup source {} does not exist, aborting", backup_root.display());
     }
 
-    let start = Instant::now();
-
     let mut total_file_count: u64 = 0;
     browse_dir_tree(&backup_root, root_node, &mut processing_queue, &mut total_file_count)?;
     UI.get().unwrap().progress_set_total(total_file_count);
@@ -79,17 +77,6 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
         };
 
     packer.flush().await?;
-
-    let elapsed = start.elapsed();
-    UI.get().unwrap().send_backup_finished(
-        true,
-        format!(
-            "Backup finished successfully, processed {} files in {:02}:{:02}.",
-            total_file_count,
-            elapsed.as_secs() / 60,
-            elapsed.as_secs() % 60,
-        ),
-    );
 
     BACKUP_ORCHESTRATOR.get().unwrap().set_packing_completed();
 
@@ -120,8 +107,6 @@ fn browse_dir_tree(
                             name: entry.path().file_name().unwrap_or("".as_ref()).to_owned(),
                             children: Mutex::new(vec![]),
                         }));
-
-                        println!("found folder {rel_path:?}");
 
                         processing_queue.push_front(node.clone());
                         browsing_queue.push_front((node, rel_path));
