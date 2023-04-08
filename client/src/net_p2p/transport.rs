@@ -11,6 +11,7 @@ use shared::{
     types::{ClientId, PackfileId, TransportSessionNonce},
 };
 use tokio::{net::TcpStream, sync::broadcast};
+use tokio::time::timeout;
 use tokio_tungstenite::{
     connect_async_with_config,
     tungstenite::{Error, Message},
@@ -18,6 +19,7 @@ use tokio_tungstenite::{
 };
 
 use crate::{log, net_p2p::get_ws_config, KEYS};
+use crate::defaults::{PACKFILE_ACK_TIMEOUT, PACKFILE_SEND_TIMEOUT};
 
 #[derive(Debug)]
 pub struct BackupTransportManager {
@@ -152,9 +154,9 @@ impl BackupTransportManager {
         let encapsulated = EncapsulatedPackfile { body, signature };
 
         let msg = bincode::serialize(&encapsulated)?;
-        self.tx.send(Message::Binary(msg)).await?;
 
-        self.wait_for_ack(self.msg_counter).await?;
+        timeout(Duration::from_secs(PACKFILE_SEND_TIMEOUT), self.tx.send(Message::Binary(msg))).await??;
+        timeout(Duration::from_secs(PACKFILE_ACK_TIMEOUT), self.wait_for_ack(self.msg_counter)).await??;
 
         self.msg_counter += 1;
         Ok(())

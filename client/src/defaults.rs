@@ -14,7 +14,16 @@ pub const PEER_STORAGE_USAGE_SPREAD: u64 = 32 * 1024 * 1024; // 32 MiB
 /// Maximum size of packfiles that are allowed to be temporarily stored on disk,
 /// while waiting for transferring them to a peer.
 //pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: usize = 4 * 1024 * 1024 * 1024; // 4 GiB
-pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: usize = 100 * 1024 * 1024;
+pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: u64 = 100 * 1024 * 1024;
+
+/// Maximum amount of seconds to wait until considering packfile transfer as failed.
+pub const PACKFILE_SEND_TIMEOUT: u64 = 20;
+
+/// Maximum amount of seconds to wait until considering packfile ack as failed.
+pub const PACKFILE_ACK_TIMEOUT: u64 = 5;
+
+/// The amount of free space under the packfile maximum local buffer size to trigger a backup resume.
+pub const PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD: u64 = 50 * 1024 * 1024;
 
 /// Maximum size of blob data that's allowed in a packfile.
 pub const BLOB_MAX_UNCOMPRESSED_SIZE: usize = 3 * 1024 * 1024; // 3 MiB

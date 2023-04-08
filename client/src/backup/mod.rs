@@ -4,13 +4,14 @@ use std::{
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
+use std::cmp::max;
 
 use anyhow::bail;
 use futures_util::{try_join, FutureExt};
 use shared::types::ClientId;
 use tokio::sync::{oneshot, Mutex, OnceCell};
 
-use crate::{backup::filesystem::dir_packer, net_p2p::transport::BackupTransportManager, CONFIG, UI};
+use crate::{backup::filesystem::dir_packer, net_p2p::transport::BackupTransportManager, CONFIG, UI, log};
 
 pub mod filesystem;
 pub mod send;
@@ -43,7 +44,7 @@ pub struct Orchestrator {
 
 impl Orchestrator {
     pub async fn pause(&self) -> oneshot::Receiver<()> {
-        UI.get().unwrap().log("backup is paused".to_string());
+        log!("[orchestrator] backup is paused");
         self.paused.store(true, Ordering::Release);
 
         self.subscribe().await
@@ -60,10 +61,9 @@ impl Orchestrator {
         rx
     }
 
-    // todo it's never called
     pub async fn resume(&self) {
-        UI.get().unwrap().log("backup is resumed".to_string());
-        self.paused.store(true, Ordering::Release);
+        log!("[orchestrator] backup is resumed");
+        self.paused.store(false, Ordering::Release);
 
         for listener in self.listeners.lock().await.drain(..) {
             listener.send(()).unwrap();
@@ -77,8 +77,8 @@ impl Orchestrator {
     pub fn available_packfile_bytes(&self) -> u64 {
         // this might not be entirely accurate, but it's available in real time,
         // we just need an estimate if enough data is available, and how much storage to request
-        self.packfile_bytes_written.load(Ordering::Relaxed)
-            - self.packfile_bytes_sent.load(Ordering::Relaxed)
+        max(self.packfile_bytes_written.load(Ordering::Relaxed) as i64
+            - self.packfile_bytes_sent.load(Ordering::Relaxed) as i64, 0) as u64
     }
 
     pub fn increment_packfile_bytes_sent(&self, bytes: u64) {
@@ -162,16 +162,10 @@ pub async fn run() -> anyhow::Result<()> {
     let pack_result = tokio::spawn(dir_packer::pack(backup_path.unwrap(), destination.clone()));
     let transport_result = tokio::spawn(send::send(destination));
 
-    println!("{pack_result:?} {transport_result:?}");
-
     // unpack the inner result so it stops whenever one of the tasks returns an error
-    let result = try_join!(
-        pack_result.map(|r| r.unwrap()),
-        transport_result.map(|r| r.unwrap())
-    );
+    let result = try_join!(pack_result.map(|r| r.unwrap()), transport_result.map(|r| r.unwrap()));
 
-    println!("{result:?}");
-
+    // todo if packer fails, send might keep running
     BACKUP_ORCHESTRATOR
         .get()
         .unwrap()

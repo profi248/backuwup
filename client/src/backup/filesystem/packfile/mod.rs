@@ -105,7 +105,7 @@ impl Manager {
                 index: Mutex::new(BlobIndex::new(index_path).await?),
                 dirty: AtomicBool::new(false),
                 packfiles_size: AtomicU64::new(packfiles_size),
-                packfiles_size_max: crate::defaults::MAX_PACKFILE_LOCAL_BUFFER_SIZE as u64,
+                packfiles_size_max: crate::defaults::MAX_PACKFILE_LOCAL_BUFFER_SIZE,
             }),
         })
     }

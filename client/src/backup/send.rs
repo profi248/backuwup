@@ -22,6 +22,7 @@ use crate::{
     net_server::{requests, requests::backup_transport_begin},
     CONFIG, TRANSPORT_REQUESTS, UI,
 };
+use crate::defaults::{MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
@@ -64,6 +65,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         );
 
         println!("is_packing_completed: {}", orchestrator.is_packing_completed());
+        println!("available_packfile_bytes: {} B", orchestrator.available_packfile_bytes());
 
         if connection.is_some()
             && (current_written > last_written || current_matched > last_matched)
@@ -87,6 +89,10 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                 }
             }
 
+            if MAX_PACKFILE_LOCAL_BUFFER_SIZE - orchestrator.available_packfile_bytes() > PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD {
+                if !orchestrator.should_continue() { orchestrator.resume().await; }
+            }
+
             if orchestrator.is_packing_completed() && get_size(&pack_folder)? == 0 {
                 break;
             }
@@ -97,6 +103,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
 
     // todo: send index
 
+    log!("[send] sending done!");
     Ok(())
 }
 

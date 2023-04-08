@@ -6,7 +6,8 @@
     clippy::wrong_self_convention,
     clippy::manual_let_else
 )]
-#![allow(dead_code)]
+
+//#![allow(dead_code)]
 
 mod backup;
 mod cli;
