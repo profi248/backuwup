@@ -9,11 +9,11 @@ use crate::defaults;
 
 pub struct PeerInfo {
     pub pubkey: ClientId,
-    pub bytes_transmitted: u64,
-    pub bytes_received: u64,
-    pub bytes_negotiated: u64,
-    pub first_seen: u64,
-    pub last_seen: u64,
+    pub bytes_transmitted: i64,
+    pub bytes_received: i64,
+    pub bytes_negotiated: i64,
+    pub first_seen: i64,
+    pub last_seen: i64,
 }
 
 impl Config {
@@ -99,6 +99,22 @@ impl Config {
 
         Ok(peers)
     }
+
+    pub async fn get_peers(&self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
+        let mut transaction = self.transaction().await?;
+        let peers = transaction.get_peers(last_seen_limit_seconds).await?;
+        transaction.commit().await?;
+
+        Ok(peers)
+    }
+
+    pub async fn peer_update_last_seen(&self, peer_id: ClientId) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        transaction.peer_update_last_seen(peer_id).await?;
+        transaction.commit().await?;
+
+        Ok(())
+    }
 }
 
 impl Transaction<'_> {
@@ -130,19 +146,13 @@ impl Transaction<'_> {
 
         match peer {
             Some(row) => {
-                let bytes_transmitted: i64 = row.try_get(0)?;
-                let bytes_received: i64 = row.try_get(1)?;
-                let bytes_negotiated: i64 = row.try_get(2)?;
-                let first_seen: i64 = row.try_get(3)?;
-                let last_seen: i64 = row.try_get(4)?;
-
                 Ok(Some(PeerInfo {
                     pubkey: peer_id,
-                    bytes_transmitted: bytes_transmitted as u64,
-                    bytes_received: bytes_received as u64,
-                    bytes_negotiated: bytes_negotiated as u64,
-                    first_seen: first_seen as u64,
-                    last_seen: last_seen as u64,
+                    bytes_transmitted: row.try_get(0)?,
+                    bytes_received: row.try_get(1)?,
+                    bytes_negotiated: row.try_get(2)?,
+                    first_seen: row.try_get(3)?,
+                    last_seen: row.try_get(4)?,
                 }))
             }
             None => Ok(None),
@@ -218,5 +228,47 @@ impl Transaction<'_> {
         }
 
         Ok(peers)
+    }
+
+    pub async fn get_peers(&mut self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
+        let oldest_timestamp = match last_seen_limit_seconds {
+            Some(seconds) => (Config::get_unix_timestamp() - seconds) as i64,
+            None => 0,
+        };
+
+        let rows = sqlx::query(
+            "select pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen \
+             from peers where last_seen > $1 \
+             order by last_seen desc"
+        )
+            .bind(oldest_timestamp)
+            .fetch_all(&mut self.transaction)
+            .await?;
+
+        let mut peers: Vec<PeerInfo> = Vec::new();
+        for row in rows {
+            let pubkey: &[u8] = row.try_get(0)?;
+
+            peers.push(PeerInfo {
+                pubkey: pubkey.try_into()?,
+                bytes_transmitted: row.try_get(1)?,
+                bytes_received: row.try_get(2)?,
+                bytes_negotiated: row.try_get(3)?,
+                first_seen: row.try_get(4)?,
+                last_seen: row.try_get(5)?,
+            });
+        }
+
+        Ok(peers)
+    }
+
+    pub async fn peer_update_last_seen(&mut self, peer_id: ClientId) -> anyhow::Result<()> {
+        sqlx::query("update peers set last_seen = $1 where pubkey = $2")
+            .bind(Config::get_unix_timestamp() as i64)
+            .bind(&peer_id[..])
+            .execute(&mut self.transaction)
+            .await?;
+
+        Ok(())
     }
 }

@@ -97,7 +97,7 @@ pub async fn receive_request(request: IncomingTransportRequest) -> anyhow::Resul
 }
 
 pub fn is_peer_allowed_to_send_data(peer: &PeerInfo) -> bool {
-    (peer.bytes_negotiated as i64 - peer.bytes_received as i64) > 0
+    peer.bytes_negotiated - peer.bytes_received > 0
         || peer.bytes_negotiated.abs_diff(peer.bytes_received) < PEER_STORAGE_USAGE_SPREAD
 }
 

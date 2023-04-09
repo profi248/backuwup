@@ -87,7 +87,7 @@ async fn receive_handle_incoming(
                     &msg,
                 )?;
 
-                log!("[p2p] received packfile {}", hex::encode(id));
+                println!("[p2p] received packfile {}", hex::encode(id));
 
                 receiver.save_packfile(id, &mut data).await?;
                 stream

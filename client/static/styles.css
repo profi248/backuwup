@@ -7,6 +7,12 @@
     font-family: 'Fira Code', monospace;
 }
 
+.peer_id {
+    overflow-wrap: break-word;
+    font-size: 0.8em;
+    font-family: 'Fira Code', monospace;
+}
+
 @font-face {
     font-family: 'Mulish';
     font-style: normal;

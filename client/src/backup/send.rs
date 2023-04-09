@@ -12,17 +12,10 @@ use shared::{
 };
 use tokio::time;
 
-use crate::{
-    backup::BACKUP_ORCHESTRATOR,
-    defaults::{
-        MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD,
-        STORAGE_REQUEST_RETRY_DELAY,
-    },
-    log,
-    net_p2p::transport::BackupTransportManager,
-    net_server::{requests, requests::backup_transport_begin},
-    CONFIG, TRANSPORT_REQUESTS,
-};
+use crate::{backup::BACKUP_ORCHESTRATOR, defaults::{
+    MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD,
+    STORAGE_REQUEST_RETRY_DELAY,
+}, log, net_p2p::transport::BackupTransportManager, net_server::{requests, requests::backup_transport_begin}, CONFIG, TRANSPORT_REQUESTS, UI};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
@@ -48,6 +41,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         if connection.is_none() {
             match get_peer_connection().await {
                 Ok((peer_id, transport)) => {
+                    UI.get().unwrap().progress_add_peer(peer_id).await;
                     log!("[send] connection established with {}", hex::encode(peer_id));
                     connection = Some((peer_id, transport));
                 }
@@ -198,7 +192,7 @@ async fn send_single_packfile(
     let config = CONFIG.get().unwrap();
 
     let size = fs::metadata(path)?.len();
-    log!("[send] sending packfile {}", path.display());
+    println!("[send] sending packfile {}", path.display());
 
     // parse packfile id from its name
     let packfile_id: PackfileId = hex::decode(
@@ -218,7 +212,7 @@ async fn send_single_packfile(
 
         fs::remove_file(path)?;
 
-        log!("[send] packfile {} sent successfully, deleted", path.display());
+        println!("[send] packfile {} sent successfully, deleted", path.display());
         return Ok(());
     }
 
@@ -282,6 +276,8 @@ pub async fn handle_finalize_transport_request(
                 .lock()
                 .await
                 .insert(request.destination_client_id, mgr);
+
+            CONFIG.get().unwrap().peer_update_last_seen(request.destination_client_id).await?;
         }
         Err(e) => bail!(e),
         Ok(None) => {}

@@ -282,7 +282,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
     UI.get()
         .unwrap()
-        .progress_notify_increment(path.to_string_lossy().to_string());
+        .progress_notify_increment(path.to_string_lossy().to_string()).await;
 
     Ok(hash)
 }

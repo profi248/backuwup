@@ -63,9 +63,8 @@ async fn process_message(msg: Message) {
         })
         .ok();
 
-        if msg.is_none() {
-            return;
-        }
+        if msg.is_none() { return; }
+
         let msg = msg.unwrap();
 
         match msg {
@@ -79,25 +78,6 @@ async fn process_message(msg: Message) {
             ServerMessageWs::FinalizeTransportRequest(request) => {
                 handle_finalize_transport_request(request).await
             }
-            // ServerMessageWs::FinalizeTransportRequest(request) => {
-            //     // todo temp test
-            //     let mut mgr = TRANSPORT_REQUESTS
-            //         .get()
-            //         .unwrap()
-            //         .finalize_request(request.destination_client_id, request.destination_ip_address)
-            //         .await
-            //         .unwrap()
-            //         .unwrap();
-            //
-            //     for i in 0..10 {
-            //         mgr.send_data(vec![i], [i; 12]).await.unwrap();
-            //         time::sleep(time::Duration::from_secs(5)).await;
-            //     }
-            //
-            //     mgr.done().await;
-            //
-            //     Ok(())
-            // },
             ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
         }
         .map_err(|e| {
