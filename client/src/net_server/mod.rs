@@ -1,5 +1,6 @@
 pub mod requests;
 
+use std::env;
 use anyhow::anyhow;
 use futures_util::StreamExt;
 use shared::server_message_ws::ServerMessageWs;
@@ -22,7 +23,8 @@ pub async fn connect_ws() {
 
     // server reconnection loop
     loop {
-        let endpoint = format!("ws://{}/ws", crate::defaults::SERVER_URL);
+        let server_url = env::var("SERVER_URL").unwrap_or(crate::defaults::SERVER_URL.to_string());
+        let endpoint = format!("ws://{}/ws", server_url);
         let mut stream = websocket_connect(endpoint).await;
 
         // message processing loop

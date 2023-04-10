@@ -1,4 +1,7 @@
-pub const SERVER_URL: &str = "localhost:8080";
+//pub const SERVER_URL: &str = "localhost:8080";
+
+pub const SERVER_URL: &str = "192.168.0.216:9999";
+
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";
 pub const APP_FOLDER_NAME: &str = "p2p-backup";
 pub const BACKUP_BUFFER_FOLDER_NAME: &str = "local_packfiles";

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use shared::types::ClientId;
-use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool};
+use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Postgres, Error, Pool};
 
 use crate::handlers;
 
@@ -15,13 +15,23 @@ impl Database {
         let db_url =
             dotenvy::var("DB_URL").expect("DB_URL environment variable not set or invalid");
 
-        let db = Self {
-            conn_pool: PgPoolOptions::new()
+        let mut attempts = 5;
+        let db = loop {
+            let pool = PgPoolOptions::new()
                 .max_connections(10)
-                .acquire_timeout(Duration::from_secs(5))
+                .acquire_timeout(Duration::from_secs(10))
                 .connect(&db_url)
-                .await
-                .expect(&format!("Failed to connect to database at {db_url}")),
+                .await;
+
+            match pool {
+                Ok(p) => break Self { conn_pool: p },
+                Err(e) => {
+                    attempts -= 1;
+                    if attempts == 0 { panic!("unable to connect to database after 5 attempts"); }
+                    println!("connecting to database failed: {e}, will try {attempts} more times");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+            }
         };
 
         println!("[db] connected to database");
