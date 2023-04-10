@@ -55,7 +55,8 @@ async fn main() {
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
 
-    let listener = TcpListener::bind(bind_ip); //.rustls(config);
+    let listener = TcpListener::bind(&bind_ip); //.rustls(config);
     let server = Server::new(listener);
+    println!("server listening on {bind_ip}");
     server.run(app).await.unwrap();
 }
