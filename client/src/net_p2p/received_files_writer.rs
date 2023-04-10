@@ -7,8 +7,11 @@ use shared::{
 };
 
 use crate::{
-    config::peers::PeerInfo, defaults::PEER_STORAGE_USAGE_SPREAD, net_p2p::receive,
-    net_server::requests, CONFIG,
+    config::peers::PeerInfo,
+    defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
+    net_p2p::receive,
+    net_server::requests,
+    CONFIG,
 };
 
 pub struct Receiver {
@@ -22,15 +25,15 @@ impl Receiver {
         file_path.push(hex::encode(peer_id));
 
         fs::create_dir_all(&file_path)?;
+        fs::create_dir_all(file_path.join(INDEX_FOLDER))?;
+        fs::create_dir_all(file_path.join(PACKFILE_FOLDER))?;
 
         Ok(Self { file_path, peer_id })
     }
 
-    pub async fn save_packfile(&self, hash: PackfileId, data: &mut [u8]) -> anyhow::Result<()> {
-        let path = self.get_packfile_path(hash)?;
-
+    pub async fn save_file(&self, path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
         if path.try_exists()? {
-            bail!("Packfile ID collision");
+            bail!("file name collision at path {path:?}")
         }
 
         let config = CONFIG.get().unwrap();
@@ -44,14 +47,26 @@ impl Receiver {
                 Ok(())
             }
             Some(_) => {
-                bail!("Peer {} is not allowed to send more packfiles", hex::encode(self.peer_id))
+                bail!("peer {} is not allowed to send more files", hex::encode(self.peer_id))
             }
-            None => bail!("Peer {} not found when receiving a packfile", hex::encode(self.peer_id)),
+            None => bail!("peer {} not found when receiving a file", hex::encode(self.peer_id)),
         }
     }
 
+    pub async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()> {
+        let path = self.file_path.join(INDEX_FOLDER).join(format!("{:0>10}", id));
+
+        self.save_file(path, data).await
+    }
+
+    pub async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()> {
+        let path = self.get_packfile_path(id)?;
+
+        self.save_file(path, data).await
+    }
+
     pub fn get_packfile_path(&self, id: PackfileId) -> anyhow::Result<PathBuf> {
-        let mut path = self.file_path.clone();
+        let mut path = self.file_path.clone().join(PACKFILE_FOLDER);
         let hex = hex::encode(id);
 
         // save the packfile in a folder named after the first two bytes of the hash

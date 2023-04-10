@@ -1,18 +1,19 @@
 use std::{
+    collections::HashSet,
+    str::from_utf8,
     sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::collections::HashSet;
-use std::str::from_utf8;
+
 use itertools::Itertools;
-
 use serde::Serialize;
-use tokio::sync::broadcast::{Receiver, Sender};
-use tokio::sync::Mutex;
 use shared::types::ClientId;
-use crate::backup::BACKUP_ORCHESTRATOR;
-use crate::ui::ws_dispatcher::Config;
+use tokio::sync::{
+    broadcast::{Receiver, Sender},
+    Mutex,
+};
 
+use crate::{backup::BACKUP_ORCHESTRATOR, ui::ws_dispatcher::Config};
 
 #[derive(Debug)]
 pub struct Messenger {
@@ -46,7 +47,7 @@ pub struct Progress {
     size_estimate: u64,
     bytes_written: u64,
     bytes_sent: u64,
-    peers: Option<Vec<String>>
+    peers: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -54,7 +55,7 @@ pub struct Peer {
     id: String,
     transmitted: i64,
     negotiated: i64,
-    connected: bool
+    connected: bool,
 }
 
 impl Messenger {
@@ -103,7 +104,12 @@ impl Messenger {
         // this is a slightly more expensive operation, get updates from orchestrator at most every 250 ms
         if now - self.last_sent_peers.load(Relaxed) >= 250 {
             peers = Some(
-                self.peers.lock().await.iter().map(Self::peer_id_display).collect()
+                self.peers
+                    .lock()
+                    .await
+                    .iter()
+                    .map(Self::peer_id_display)
+                    .collect(),
             );
 
             self.last_sent_peers.store(now, Relaxed);
@@ -122,7 +128,8 @@ impl Messenger {
                     bytes_written: orchestrator.get_packfile_bytes_written(),
                     bytes_sent: orchestrator.get_packfile_bytes_sent(),
                     peers,
-                })).ok();
+                }))
+                .ok();
 
             self.last_sent.store(now, Relaxed);
         } else {
@@ -133,7 +140,10 @@ impl Messenger {
     /// Format peer id as a easily readable hex string (like an IPv6 address).
     fn peer_id_display(id: &ClientId) -> String {
         // we can convert from and to utf8 because it's all ascii
-        hex::encode(id).as_bytes()[..].chunks(2).map(|c| from_utf8(c).unwrap()).join(":")
+        hex::encode(id).as_bytes()[..]
+            .chunks(2)
+            .map(|c| from_utf8(c).unwrap())
+            .join(":")
     }
 
     pub fn progress_resend(&self) {
@@ -152,7 +162,7 @@ impl Messenger {
                 size_estimate: orchestrator.get_size_estimate(),
                 bytes_written: orchestrator.get_packfile_bytes_written(),
                 bytes_sent: orchestrator.get_packfile_bytes_sent(),
-                peers: None
+                peers: None,
             }))
             .ok();
     }

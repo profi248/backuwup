@@ -31,11 +31,27 @@ impl Config {
 
         Ok(dir)
     }
+
+    pub async fn save_highest_sent_index_number(&self, index: u32) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.save_highest_sent_index_number(index).await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn get_highest_sent_index_number(&self) -> anyhow::Result<Option<u32>> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.get_highest_sent_index_number().await;
+        transaction.commit().await?;
+
+        result
+    }
 }
 
 impl Transaction<'_> {
     pub async fn set_backup_path(&mut self, path: PathBuf) -> anyhow::Result<()> {
-        sqlx::query("insert or replace into config (key, value) values ('backup_path', ?)")
+        sqlx::query("insert or replace into config (key, value) values ('backup_path', $1)")
             .bind(path.to_string_lossy())
             .execute(&mut self.transaction)
             .await?;
@@ -50,5 +66,23 @@ impl Transaction<'_> {
             .map(|row| row.get(0));
 
         Ok(path.map(|path: String| PathBuf::from(path)))
+    }
+
+    pub async fn save_highest_sent_index_number(&mut self, index: u32) -> anyhow::Result<()> {
+        sqlx::query("insert or replace into config (key, value) values ('highest_sent_index', $1)")
+            .bind(index as i64)
+            .execute(&mut self.transaction)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_highest_sent_index_number(&mut self) -> anyhow::Result<Option<u32>> {
+        let index = sqlx::query("select value from config where key = 'highest_sent_index'")
+            .fetch_optional(&mut self.transaction)
+            .await?
+            .map(|row| row.get(0));
+
+        Ok(index)
     }
 }

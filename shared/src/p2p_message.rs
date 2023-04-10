@@ -12,7 +12,7 @@ pub struct Header {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct EncapsulatedPackfile {
+pub struct EncapsulatedFile {
     // bincode-encoded BackupChunkBody
     pub body: Vec<u8>,
     // Ed25519 signature of bytes of body
@@ -20,10 +20,16 @@ pub struct EncapsulatedPackfile {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct PackfileBody {
+pub struct EncapsulatedFileBody {
     pub header: Header,
-    pub id: PackfileId,
+    pub file_info: FileInfo,
     pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum FileInfo {
+    Packfile(PackfileId),
+    Index(u32),
 }
 
 #[derive(Serialize, Deserialize)]

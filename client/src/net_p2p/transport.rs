@@ -7,8 +7,10 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use shared::{
-    p2p_message::{AckBody, EncapsulatedPackfile, EncapsulatedPackfileAck, Header, PackfileBody},
-    types::{ClientId, PackfileId, TransportSessionNonce},
+    p2p_message::{
+        AckBody, EncapsulatedFile, EncapsulatedFileBody, EncapsulatedPackfileAck, FileInfo, Header,
+    },
+    types::{ClientId, TransportSessionNonce},
 };
 use tokio::{net::TcpStream, sync::broadcast, time::timeout};
 use tokio_tungstenite::{
@@ -142,19 +144,19 @@ impl BackupTransportManager {
         }
     }
 
-    pub async fn send_data(&mut self, data: Vec<u8>, id: PackfileId) -> anyhow::Result<()> {
-        let body = PackfileBody {
+    pub async fn send_data(&mut self, data: Vec<u8>, file_info: FileInfo) -> anyhow::Result<()> {
+        let body = EncapsulatedFileBody {
             header: Header {
                 sequence_number: self.msg_counter,
                 session_nonce: self.session_nonce,
             },
-            id,
+            file_info,
             data,
         };
 
         let body = bincode::serialize(&body)?;
         let signature = KEYS.get().unwrap().sign(&body).to_vec();
-        let encapsulated = EncapsulatedPackfile { body, signature };
+        let encapsulated = EncapsulatedFile { body, signature };
 
         let msg = bincode::serialize(&encapsulated)?;
 

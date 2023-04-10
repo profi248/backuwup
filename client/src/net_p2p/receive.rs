@@ -3,13 +3,19 @@ use ed25519_dalek::{PublicKey, Signature};
 use futures_util::{SinkExt, StreamExt};
 use portpicker::pick_unused_port;
 use shared::{
-    p2p_message::{AckBody, EncapsulatedPackfile, EncapsulatedPackfileAck, Header, PackfileBody},
-    types::{ClientId, PackfileId, TransportSessionNonce},
+    p2p_message::{
+        AckBody, EncapsulatedFile, EncapsulatedFileBody, EncapsulatedPackfileAck, FileInfo, Header,
+    },
+    types::{ClientId, TransportSessionNonce},
 };
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::{accept_async_with_config, tungstenite::Message};
 
-use crate::{log, net_p2p::get_ws_config, packfile_receiver::Receiver, KEYS, UI};
+use crate::{
+    log,
+    net_p2p::{get_ws_config, received_files_writer::Receiver},
+    KEYS, UI,
+};
 
 pub async fn listen(
     port: u16,
@@ -80,16 +86,20 @@ async fn receive_handle_incoming(
     loop {
         match stream.next().await {
             Some(Ok(Message::Binary(msg))) => {
-                let (msg_num, id, mut data) = validate_incoming_message(
+                let (msg_num, file_info, mut data) = validate_incoming_message(
                     session_nonce,
                     &source_pubkey,
                     &mut data_msg_counter,
                     &msg,
                 )?;
 
-                println!("[p2p] received packfile {}", hex::encode(id));
+                println!("[p2p] received file {:?}", file_info);
 
-                receiver.save_packfile(id, &mut data).await?;
+                match file_info {
+                    FileInfo::Packfile(id) => receiver.save_packfile(id, &mut data).await?,
+                    FileInfo::Index(id) => receiver.save_index(id, &mut data).await?,
+                }
+
                 stream
                     .send(ack_msg(session_nonce, &mut ack_msg_counter, msg_num)?)
                     .await?;
@@ -111,8 +121,8 @@ fn validate_incoming_message(
     source_pubkey: &ClientId,
     msg_counter: &mut u64,
     encapsulated_data: &[u8],
-) -> anyhow::Result<(u64, PackfileId, Vec<u8>)> {
-    let encapsulated: EncapsulatedPackfile = bincode::deserialize(encapsulated_data)?;
+) -> anyhow::Result<(u64, FileInfo, Vec<u8>)> {
+    let encapsulated: EncapsulatedFile = bincode::deserialize(encapsulated_data)?;
 
     // verify signature on the bytes of the body
     let source_pubkey = PublicKey::from_bytes(source_pubkey)?;
@@ -120,7 +130,7 @@ fn validate_incoming_message(
     source_pubkey.verify_strict(&encapsulated.body, &signature)?;
 
     // decode the actual body
-    let body: PackfileBody = bincode::deserialize(&encapsulated.body)?;
+    let body: EncapsulatedFileBody = bincode::deserialize(&encapsulated.body)?;
 
     // check header to enforce replay protection, random nonce has to match in the session,
     // and the sequence number has to be in order
@@ -130,5 +140,5 @@ fn validate_incoming_message(
 
     *msg_counter += 1;
 
-    Ok((body.header.sequence_number, body.id, body.data))
+    Ok((body.header.sequence_number, body.file_info, body.data))
 }

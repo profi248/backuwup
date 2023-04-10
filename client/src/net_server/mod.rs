@@ -1,6 +1,7 @@
 pub mod requests;
 
 use std::env;
+
 use anyhow::anyhow;
 use futures_util::StreamExt;
 use shared::server_message_ws::ServerMessageWs;
@@ -13,7 +14,9 @@ use tokio_tungstenite::{
 
 use crate::{
     backup::send::{handle_finalize_transport_request, handle_storage_request_matched},
-    identity, packfile_receiver, CONFIG, UI,
+    identity, net_p2p,
+    net_p2p::received_files_writer,
+    CONFIG, UI,
 };
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
@@ -65,7 +68,9 @@ async fn process_message(msg: Message) {
         })
         .ok();
 
-        if msg.is_none() { return; }
+        if msg.is_none() {
+            return;
+        }
 
         let msg = msg.unwrap();
 
@@ -75,7 +80,7 @@ async fn process_message(msg: Message) {
                 handle_storage_request_matched(request).await
             }
             ServerMessageWs::IncomingTransportRequest(request) => {
-                packfile_receiver::receive_request(request).await
+                received_files_writer::receive_request(request).await
             }
             ServerMessageWs::FinalizeTransportRequest(request) => {
                 handle_finalize_transport_request(request).await

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use shared::types::ClientId;
-use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Postgres, Error, Pool};
+use sqlx::{postgres::PgPoolOptions, query, Error, Executor, PgPool, Pool, Postgres};
 
 use crate::handlers;
 
@@ -27,7 +27,9 @@ impl Database {
                 Ok(p) => break Self { conn_pool: p },
                 Err(e) => {
                     attempts -= 1;
-                    if attempts == 0 { panic!("unable to connect to database after 5 attempts"); }
+                    if attempts == 0 {
+                        panic!("unable to connect to database after 5 attempts");
+                    }
                     println!("connecting to database failed: {e}, will try {attempts} more times");
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }

@@ -98,11 +98,11 @@ impl Orchestrator {
     pub fn update_packfile_bytes_written(&self, bytes: u64) {
         self.packfile_bytes_written.store(bytes, Ordering::Relaxed);
     }
-    
+
     pub fn get_packfile_bytes_written(&self) -> u64 {
         self.packfile_bytes_written.load(Ordering::Relaxed)
     }
-    
+
     pub fn get_packfile_bytes_sent(&self) -> u64 {
         self.packfile_bytes_sent.load(Ordering::Relaxed)
     }
@@ -172,10 +172,18 @@ impl Orchestrator {
     }
 
     pub async fn is_peer_connected(&self, client_id: &ClientId) -> bool {
-        self.active_transport_sessions.lock().await.contains_key(client_id)
+        self.active_transport_sessions
+            .lock()
+            .await
+            .contains_key(client_id)
     }
-    
+
     pub async fn get_active_peers(&self) -> Vec<ClientId> {
-        self.active_transport_sessions.lock().await.keys().copied().collect()
+        self.active_transport_sessions
+            .lock()
+            .await
+            .keys()
+            .copied()
+            .collect()
     }
 }

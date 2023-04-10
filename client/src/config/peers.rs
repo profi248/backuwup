@@ -100,7 +100,10 @@ impl Config {
         Ok(peers)
     }
 
-    pub async fn get_peers(&self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
+    pub async fn get_peers(
+        &self,
+        last_seen_limit_seconds: Option<u64>,
+    ) -> anyhow::Result<Vec<PeerInfo>> {
         let mut transaction = self.transaction().await?;
         let peers = transaction.get_peers(last_seen_limit_seconds).await?;
         transaction.commit().await?;
@@ -145,16 +148,14 @@ impl Transaction<'_> {
         .await?;
 
         match peer {
-            Some(row) => {
-                Ok(Some(PeerInfo {
-                    pubkey: peer_id,
-                    bytes_transmitted: row.try_get(0)?,
-                    bytes_received: row.try_get(1)?,
-                    bytes_negotiated: row.try_get(2)?,
-                    first_seen: row.try_get(3)?,
-                    last_seen: row.try_get(4)?,
-                }))
-            }
+            Some(row) => Ok(Some(PeerInfo {
+                pubkey: peer_id,
+                bytes_transmitted: row.try_get(0)?,
+                bytes_received: row.try_get(1)?,
+                bytes_negotiated: row.try_get(2)?,
+                first_seen: row.try_get(3)?,
+                last_seen: row.try_get(4)?,
+            })),
             None => Ok(None),
         }
     }
@@ -230,7 +231,10 @@ impl Transaction<'_> {
         Ok(peers)
     }
 
-    pub async fn get_peers(&mut self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
+    pub async fn get_peers(
+        &mut self,
+        last_seen_limit_seconds: Option<u64>,
+    ) -> anyhow::Result<Vec<PeerInfo>> {
         let oldest_timestamp = match last_seen_limit_seconds {
             Some(seconds) => (Config::get_unix_timestamp() - seconds) as i64,
             None => 0,

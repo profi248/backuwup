@@ -7,26 +7,37 @@ use std::{
 use anyhow::{anyhow, bail};
 use fs_extra::dir::get_size;
 use shared::{
+    p2p_message::FileInfo,
     server_message_ws::{BackupMatched, FinalizeTransportRequest},
     types::{ClientId, PackfileId},
 };
 use tokio::time;
 
-use crate::{backup::BACKUP_ORCHESTRATOR, defaults::{
-    MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER, PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD,
-    STORAGE_REQUEST_RETRY_DELAY,
-}, log, net_p2p::transport::BackupTransportManager, net_server::{requests, requests::backup_transport_begin}, CONFIG, TRANSPORT_REQUESTS, UI};
+use crate::{
+    backup::BACKUP_ORCHESTRATOR,
+    defaults::{
+        INDEX_FOLDER, MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER,
+        PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_RETRY_DELAY,
+    },
+    log,
+    net_p2p::transport::BackupTransportManager,
+    net_server::{requests, requests::backup_transport_begin},
+    CONFIG, TRANSPORT_REQUESTS, UI,
+};
 
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
 
-    // take only the packfile folder, index will be sent separately
     let pack_folder = output_folder.join(PACKFILE_FOLDER);
+    let index_folder = output_folder.join(INDEX_FOLDER);
 
     let mut last_written = orchestrator.packfile_bytes_written();
     let mut last_matched = orchestrator.get_storage_request_last_matched();
     let mut connection = None;
+    let mut packfiles_done = false;
+    let mut index_done = false;
 
+    // sending loop that takes care of reestablishing the connection and transporting all files
     loop {
         // todo flushing the packer here would be useful
         // temporarily stop the backup if the local buffer got too large
@@ -63,12 +74,14 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         println!("available_packfile_bytes: {} B", orchestrator.available_packfile_bytes());
 
         if let Some(conn) = &mut connection {
-            if (current_written > last_written || current_matched > last_matched)
-                || orchestrator.is_packing_completed()
+            if ((current_written > last_written || current_matched > last_matched)
+                || orchestrator.is_packing_completed())
+                && !packfiles_done
             {
                 let send_result =
                     send_packfiles_from_folder(&pack_folder, conn.0, &mut conn.1).await;
 
+                // todo distinguish between send errors and filesystem errors
                 match send_result {
                     Ok(_) => {
                         last_matched = current_matched;
@@ -77,6 +90,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                     Err(e) => {
                         log!("[send] error sending packfiles: {}", e);
                         connection = None;
+                        continue;
                     }
                 }
 
@@ -90,8 +104,25 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
 
                 // if packing is completed and all packfiles have been sent, we are done
                 if orchestrator.is_packing_completed() && get_size(&pack_folder)? == 0 {
-                    break;
+                    log!("[send] packfile sending done, will send index files");
+                    packfiles_done = true;
                 }
+            }
+
+            if packfiles_done && !index_done {
+                let send_result = send_index(&index_folder, conn.0, &mut conn.1).await;
+                match send_result {
+                    Ok(_) => index_done = true,
+                    Err(e) => {
+                        log!("[send] error sending index files: {}", e);
+                        connection = None;
+                        continue;
+                    }
+                }
+            }
+
+            if packfiles_done && index_done {
+                break;
             }
         }
 
@@ -99,9 +130,55 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
         time::sleep(Duration::from_secs(1)).await;
     }
 
-    // todo: send index
-
     log!("[send] sending done!");
+    Ok(())
+}
+
+async fn send_index(
+    folder: &Path,
+    peer_id: ClientId,
+    transport: &mut BackupTransportManager,
+) -> anyhow::Result<()> {
+    let config = CONFIG.get().unwrap();
+    for file in folder.read_dir()? {
+        match file {
+            Ok(file) if file.file_type()?.is_file() => {
+                let path = file.path();
+                let index_num = path
+                    .file_name()
+                    .ok_or(anyhow!("cannot get index filename"))?
+                    .to_string_lossy()
+                    .to_string()
+                    .parse()?;
+
+                // skip the index files that have been already sent
+                let highest_sent_index = config.get_highest_sent_index_number().await?;
+                if highest_sent_index.is_some() && index_num <= highest_sent_index.unwrap() {
+                    continue;
+                }
+
+                println!("[send] sending index file {}", path.display());
+
+                // send the index file, and don't delete it, we will need it for deduplication
+                if transport
+                    .send_data(fs::read(&path)?, FileInfo::Index(index_num))
+                    .await
+                    .is_ok()
+                {
+                    config
+                        .peer_increment_transmitted(peer_id, fs::metadata(&path)?.len())
+                        .await?;
+                    config.save_highest_sent_index_number(index_num).await?;
+                    println!("[send] index file {} sent successfully", path.display());
+                } else {
+                    bail!("[send] sending index file {} failed", path.display());
+                }
+            }
+            Ok(_) => {} // ignore anything else
+            Err(e) => bail!("cannot read when sending index files: {e}"),
+        }
+    }
+
     Ok(())
 }
 
@@ -206,7 +283,11 @@ async fn send_single_packfile(
 
     // this function will wait for an acknowledgement from the other party and only return after
     // the transport is confirmed, so we should be able to safely delete the packfile
-    if transport.send_data(fs::read(path)?, packfile_id).await.is_ok() {
+    if transport
+        .send_data(fs::read(path)?, FileInfo::Packfile(packfile_id))
+        .await
+        .is_ok()
+    {
         orchestrator.increment_packfile_bytes_sent(size);
         config.peer_increment_transmitted(peer_id, size).await?;
 
@@ -277,7 +358,11 @@ pub async fn handle_finalize_transport_request(
                 .await
                 .insert(request.destination_client_id, mgr);
 
-            CONFIG.get().unwrap().peer_update_last_seen(request.destination_client_id).await?;
+            CONFIG
+                .get()
+                .unwrap()
+                .peer_update_last_seen(request.destination_client_id)
+                .await?;
         }
         Err(e) => bail!(e),
         Ok(None) => {}

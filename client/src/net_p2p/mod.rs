@@ -18,6 +18,7 @@ use crate::net_p2p::transport::BackupTransportManager;
 const TRANSPORT_REQUEST_EXPIRY: Duration = Duration::from_secs(60);
 
 pub mod receive;
+pub mod received_files_writer;
 pub mod transport;
 
 pub struct TransportRequest {
