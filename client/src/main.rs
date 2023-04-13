@@ -5,7 +5,6 @@
 //#![allow(dead_code)]
 
 mod backup;
-mod cli;
 mod config;
 mod defaults;
 mod identity;
@@ -15,6 +14,7 @@ mod net_server;
 mod ui;
 
 use std::{env, panic, process, time::Duration};
+use enable_ansi_support::enable_ansi_support;
 
 use futures_util::future;
 use reqwest::{Certificate, Client};
@@ -35,7 +35,8 @@ async fn main() {
     let config = Config::init().await;
     CONFIG.set(config.clone()).unwrap();
 
-    TRANSPORT_REQUESTS.set(TransportRequestManager::new()).unwrap();
+    // Windows needs explicit enabling of terminal color escapes support
+    enable_ansi_support().ok();
 
     // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
     let orig_hook = panic::take_hook();
@@ -51,12 +52,14 @@ async fn main() {
         identity::load_secret().await.expect("Unable to load secret");
     } else {
         // first time setup is currently CLI and blocking
-        cli::first_run_guide().await;
+        ui::cli::first_run_guide().await;
     }
 
     // create a queue for sending all log messages to web clients
     let (log_sender, _) = channel(100);
     UI.set(Messenger::new(log_sender.clone())).unwrap();
+
+    TRANSPORT_REQUESTS.set(TransportRequestManager::new()).unwrap();
 
     let client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())

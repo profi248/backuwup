@@ -89,14 +89,6 @@ async fn restore_file(
     Ok(())
 }
 
-fn get_path(stack: &[Box<Tree>], mut root_path: PathBuf) -> PathBuf {
-    for tree in stack {
-        root_path.push(&tree.name);
-    }
-
-    root_path
-}
-
 fn set_path_mtime(path: &PathBuf, tree: &Tree) -> anyhow::Result<()> {
     if let Some(time) = tree
         .metadata

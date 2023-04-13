@@ -61,7 +61,7 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
     loop {
         let msg = ws_recv.next().await;
 
-        // remove the sink if the connection is closed gracefully or if there is anerror
+        // remove the sink if the connection is closed gracefully or if there is an error
         match msg {
             None | Some(Err(_) | Ok(Message::Close(_))) => {
                 CONNECTIONS.get().unwrap().remove_connection(client_id).await;

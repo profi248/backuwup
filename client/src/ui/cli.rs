@@ -9,7 +9,6 @@ use crate::{
 };
 
 pub async fn first_run_guide() {
-    // todo windows shell color escapes
     println!("{}", "Welcome!".yellow().bold());
     let items = vec!["Start fresh", "Restore"];
     match Select::with_theme(&ColorfulTheme::default())

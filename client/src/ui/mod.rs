@@ -1,11 +1,10 @@
 pub mod ws;
 mod ws_dispatcher;
 pub mod ws_status_message;
+pub mod cli;
 
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;
-
-use crate::cli;
 
 pub async fn run(bind_addr: String) {
     #[derive(RustEmbed)]
