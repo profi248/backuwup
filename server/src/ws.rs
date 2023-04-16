@@ -42,19 +42,11 @@ pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
         // if the same client connects again, the old connection is removed from the map
         // automatically, but the old connection is still listening for incoming
         // messages todo maybe send a message to the old connection to close it?
-        CONNECTIONS
-            .get()
-            .unwrap()
-            .new_connection(client_id, ws_send)
-            .await;
+        CONNECTIONS.get().unwrap().new_connection(client_id, ws_send).await;
 
         println!("[ws] new connection: {client_id:?}");
     })
-    .with_status(if authorized {
-        StatusCode::SWITCHING_PROTOCOLS
-    } else {
-        StatusCode::UNAUTHORIZED
-    })
+    .with_status(if authorized { StatusCode::SWITCHING_PROTOCOLS } else { StatusCode::UNAUTHORIZED })
 }
 
 pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client_id: ClientId) {
@@ -80,16 +72,10 @@ pub struct ClientConnections {
 
 impl ClientConnections {
     pub fn new() -> Self {
-        Self {
-            connections: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self { connections: Arc::new(Mutex::new(HashMap::new())) }
     }
 
-    pub async fn new_connection(
-        &self,
-        client_id: ClientId,
-        connection: SplitSink<WebSocketStream, Message>,
-    ) {
+    pub async fn new_connection(&self, client_id: ClientId, connection: SplitSink<WebSocketStream, Message>) {
         self.connections.lock().await.insert(client_id, connection);
     }
 

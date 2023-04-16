@@ -138,10 +138,8 @@ impl Orchestrator {
     }
 
     pub fn update_storage_request_last_sent(&self) {
-        self.storage_request_last_sent.store(
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-            Ordering::Release,
-        );
+        self.storage_request_last_sent
+            .store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
     }
 
     pub fn set_backup_started(&self) {
@@ -165,25 +163,15 @@ impl Orchestrator {
     }
 
     pub fn update_storage_request_last_matched(&self) {
-        self.storage_request_last_matched.store(
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-            Ordering::Release,
-        );
+        self.storage_request_last_matched
+            .store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
     }
 
     pub async fn is_peer_connected(&self, client_id: &ClientId) -> bool {
-        self.active_transport_sessions
-            .lock()
-            .await
-            .contains_key(client_id)
+        self.active_transport_sessions.lock().await.contains_key(client_id)
     }
 
     pub async fn get_active_peers(&self) -> Vec<ClientId> {
-        self.active_transport_sessions
-            .lock()
-            .await
-            .keys()
-            .copied()
-            .collect()
+        self.active_transport_sessions.lock().await.keys().copied().collect()
     }
 }

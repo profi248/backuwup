@@ -13,9 +13,9 @@ use tokio_tungstenite::{
 };
 
 use crate::{
-    backup::send::{handle_finalize_transport_request, handle_storage_request_matched},
-    identity, net_p2p,
-    net_p2p::received_files_writer,
+    backup::send,
+    identity, log,
+    net_p2p::{handle_connections, received_files_writer},
     CONFIG, UI,
 };
 
@@ -61,38 +61,28 @@ async fn process_message(msg: Message) {
             },
             Err(e) => Err(anyhow!(e)),
         }
-        .map_err(|e| {
-            UI.get()
-                .unwrap()
-                .log(format!("[net] Received invalid message: {e}"))
-        })
+        .map_err(|e| log!("[net] Received invalid message: {}", e))
         .ok();
 
-        if msg.is_none() {
-            return;
+        if let Some(msg) = msg {
+            match msg {
+                ServerMessageWs::Ping => Ok(()),
+                ServerMessageWs::BackupMatched(request) => {
+                    send::handle_storage_request_matched(request).await
+                }
+                // a peer wants to connect to us, listen on port
+                ServerMessageWs::IncomingP2PConnection(request) => {
+                    handle_connections::accept_and_listen(request).await
+                }
+                // we are are trying to connect to a peer and it just accepted, open a connection
+                ServerMessageWs::FinalizeP2PConnection(request) => {
+                    handle_connections::accept_and_connect(request).await
+                }
+                ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
+            }
+            .map_err(|e| log!("[net] Error processing incoming message: {}", e))
+            .ok();
         }
-
-        let msg = msg.unwrap();
-
-        match msg {
-            ServerMessageWs::Ping => Ok(()),
-            ServerMessageWs::BackupMatched(request) => {
-                handle_storage_request_matched(request).await
-            }
-            ServerMessageWs::IncomingTransportRequest(request) => {
-                received_files_writer::receive_request(request).await
-            }
-            ServerMessageWs::FinalizeTransportRequest(request) => {
-                handle_finalize_transport_request(request).await
-            }
-            ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
-        }
-        .map_err(|e| {
-            UI.get()
-                .unwrap()
-                .log(format!("[net] Error processing incoming message: {e}"))
-        })
-        .ok();
     });
 }
 
@@ -111,9 +101,7 @@ async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<T
             Ok(Some(token)) => {
                 let token = hex::encode(token);
 
-                request
-                    .headers_mut()
-                    .append("Authorization", token.parse().unwrap());
+                request.headers_mut().append("Authorization", token.parse().unwrap());
             }
             Ok(None) => {
                 logger.log("[net] No auth token found, trying to log in...");
@@ -138,10 +126,7 @@ async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<T
                 if response.status() == StatusCode::UNAUTHORIZED {
                     logger.log("[net] WebSocket unauthorized, trying to log in...");
 
-                    config
-                        .save_auth_token(None)
-                        .await
-                        .expect("Failed to wipe auth token");
+                    config.save_auth_token(None).await.expect("Failed to wipe auth token");
                 } else {
                     logger.log(format!(
                         "[net] Unexpected response code when connecting to WebSocket server: {}",

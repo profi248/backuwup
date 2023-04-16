@@ -3,9 +3,9 @@ use poem::{
     web::{Data, Json},
 };
 use shared::{
-    client_message::{BeginTransportRequest, ConfirmTransportRequest},
+    client_message::{BeginP2PConnectionRequest, ConfirmP2PConnectionRequest},
     server_message::ServerMessage,
-    server_message_ws::{FinalizeTransportRequest, IncomingTransportRequest, ServerMessageWs},
+    server_message_ws::{FinalizeP2PConnection, IncomingP2PConnection, ServerMessageWs},
 };
 
 use crate::{
@@ -18,8 +18,8 @@ use crate::{
 };
 
 #[handler]
-pub async fn transport_begin(
-    Json(request): Json<BeginTransportRequest>,
+pub async fn p2p_connection_begin(
+    Json(request): Json<BeginP2PConnectionRequest>,
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     let source_client_id = AUTH_MANAGER
@@ -31,7 +31,7 @@ pub async fn transport_begin(
     let destination_client_id = request.destination_client_id;
     let session_nonce = request.session_nonce;
 
-    println!("backup transport begin request received to {destination_client_id:?}");
+    println!("p2p connection begin request received to {destination_client_id:?}");
 
     if !db.client_exists(destination_client_id).await? {
         println!("{destination_client_id:?} doesn't exist");
@@ -43,10 +43,7 @@ pub async fn transport_begin(
         .unwrap()
         .notify_client(
             destination_client_id,
-            ServerMessageWs::IncomingTransportRequest(IncomingTransportRequest {
-                source_client_id,
-                session_nonce,
-            }),
+            ServerMessageWs::IncomingP2PConnection(IncomingP2PConnection { source_client_id, session_nonce }),
         )
         .await?;
 
@@ -54,8 +51,8 @@ pub async fn transport_begin(
 }
 
 #[handler]
-pub async fn transport_confirm(
-    Json(request): Json<ConfirmTransportRequest>,
+pub async fn p2p_connection_confirm(
+    Json(request): Json<ConfirmP2PConnectionRequest>,
     Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     let destination_client_id = AUTH_MANAGER
@@ -71,6 +68,8 @@ pub async fn transport_confirm(
         return Err(BadRequest.into());
     }
 
+    println!("p2p connection confirm request received to {destination_client_id:?}");
+
     if !db.client_exists(source_client_id).await? {
         return Err(ClientNotFound(source_client_id).into());
     }
@@ -80,7 +79,7 @@ pub async fn transport_confirm(
         .unwrap()
         .notify_client(
             source_client_id,
-            ServerMessageWs::FinalizeTransportRequest(FinalizeTransportRequest {
+            ServerMessageWs::FinalizeP2PConnection(FinalizeP2PConnection {
                 destination_client_id,
                 destination_ip_address,
             }),

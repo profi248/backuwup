@@ -66,15 +66,14 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
 
     // todo implement index rebuilding
     // todo handle sigterm
-    let root_hash =
-        match pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await {
-            Ok(h) => h,
-            Err(e) => {
-                // manually flush packer on errors
-                packer.flush().await?;
-                bail!(e);
-            }
-        };
+    let root_hash = match pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await {
+        Ok(h) => h,
+        Err(e) => {
+            // manually flush packer on errors
+            packer.flush().await?;
+            bail!(e);
+        }
+    };
 
     packer.flush().await?;
 
@@ -115,16 +114,10 @@ fn browse_dir_tree(
                         *total_file_count += 1;
                     }
                     Ok(_) => {
-                        println!(
-                            "file {} is neither a file or a directory, ignored",
-                            entry.path().display()
-                        );
+                        println!("file {} is neither a file or a directory, ignored", entry.path().display());
                     }
                     Err(e) => {
-                        println!(
-                            "error when scanning file {}: {e}, continuing",
-                            entry.path().display()
-                        );
+                        println!("error when scanning file {}: {e}, continuing", entry.path().display());
                     }
                 },
                 Err(e) => {
@@ -369,10 +362,7 @@ fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
     }
 }
 
-async fn add_tree_to_blobs(
-    packer: packfile::Manager,
-    dir_tree: &mut Tree,
-) -> anyhow::Result<BlobHash> {
+async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> anyhow::Result<BlobHash> {
     let tree_blobs = split_serialize_tree(dir_tree)?;
     let first_blob_hash = tree_blobs[0].hash;
 

@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::path::PathBuf;
 
 use anyhow::bail;
 use fs_extra::dir::get_size;
@@ -49,10 +46,9 @@ pub async fn run() -> anyhow::Result<()> {
                 .unwrap()
                 .send_backup_finished(true, "Backup completed successfully!");
 
-            UI.get().unwrap().log(format!(
-                "Backup completed successfully! Snapshot hash: {}",
-                hex::encode(hash)
-            ));
+            UI.get()
+                .unwrap()
+                .log(format!("Backup completed successfully! Snapshot hash: {}", hex::encode(hash)));
         }
         Err(e) => {
             UI.get()

@@ -1,10 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::bail;
-use shared::{
-    server_message_ws::IncomingTransportRequest,
-    types::{ClientId, PackfileId},
-};
+use shared::types::{ClientId, PackfileId, TransportSessionNonce};
+use tokio::net::TcpStream;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
     config::peers::PeerInfo,
@@ -78,36 +77,21 @@ impl Receiver {
     }
 }
 
-pub async fn receive_request(request: IncomingTransportRequest) -> anyhow::Result<()> {
-    let peer = CONFIG
-        .get()
-        .unwrap()
-        .get_peer_info(request.source_client_id)
-        .await?;
+pub async fn handle_receiving(
+    client_id: ClientId,
+    nonce: TransportSessionNonce,
+    stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+) -> anyhow::Result<()> {
+    let peer = CONFIG.get().unwrap().get_peer_info(client_id).await?;
 
     match peer {
         Some(peer) if is_peer_allowed_to_send_data(&peer) => {
-            let receiver = Receiver::new(request.source_client_id).await?;
-
-            let (addr, port) = receive::get_listener_address()?;
-            requests::backup_transport_confirm(request.source_client_id, addr).await?;
-
-            tokio::spawn(receive::listen(
-                port,
-                request.session_nonce,
-                request.source_client_id,
-                receiver,
-            ));
+            let receiver = Receiver::new(client_id).await?;
+            receive::receive_handle_stream(stream, nonce, client_id, receiver).await?;
             Ok(())
         }
-        Some(_) => bail!(
-            "Peer {} is not allowed to send more packfiles",
-            hex::encode(request.source_client_id)
-        ),
-        None => bail!(
-            "Received a transport request from an unknown peer {}, ignoring",
-            hex::encode(request.source_client_id)
-        ),
+        Some(_) => bail!("peer {} is not allowed to send more packfiles", hex::encode(client_id)),
+        None => bail!("ignoring a request from an unknown peer {}", hex::encode(client_id)),
     }
 }
 

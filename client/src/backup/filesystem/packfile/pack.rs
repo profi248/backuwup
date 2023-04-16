@@ -154,8 +154,7 @@ impl Manager {
                 continue;
             }
 
-            let (packfile_id, buffer) =
-                Self::serialize_packfile(&mut data, &mut header, bytes_written)?;
+            let (packfile_id, buffer) = Self::serialize_packfile(&mut data, &mut header, bytes_written)?;
 
             assert!(
                 buffer.len() <= PACKFILE_MAX_SIZE,
@@ -206,10 +205,7 @@ impl Manager {
         getrandom::getrandom(&mut packfile_id)?;
 
         // derive a key for headers based on a constant
-        let key = KEYS
-            .get()
-            .unwrap()
-            .derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
+        let key = KEYS.get().unwrap().derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
         let cipher = Aes256Gcm::new(&key.into());
 
         // serialize and encrypt the header
@@ -272,10 +268,7 @@ mod tests {
         // worst case scenario with maximum amount of blobs, target size reached and
         // a maximum size blob added over the target size
         assert!(
-            PACKFILE_TARGET_SIZE
-                + BLOB_MAX_UNCOMPRESSED_SIZE
-                + (entry_len * PACKFILE_MAX_BLOBS)
-                + NONCE_SIZE
+            PACKFILE_TARGET_SIZE + BLOB_MAX_UNCOMPRESSED_SIZE + (entry_len * PACKFILE_MAX_BLOBS) + NONCE_SIZE
                 <= PACKFILE_MAX_SIZE
         );
     }

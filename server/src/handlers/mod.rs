@@ -1,7 +1,7 @@
 pub mod backup_request;
 pub mod login;
+pub mod p2p_connection_request;
 pub mod register;
-pub mod transport_request;
 
 use anyhow::anyhow;
 use poem::{error::ResponseError, http::StatusCode, Body, Request, Response};
@@ -71,8 +71,7 @@ impl ResponseError for Error {
         };
 
         println!("[err] sending error response to client: {msg:?}");
-        let body =
-            Body::from_json(ServerMessage::Error(msg)).expect("Failed to serialize response");
+        let body = Body::from_json(ServerMessage::Error(msg)).expect("Failed to serialize response");
         Response::builder().status(self.status()).body(body)
     }
 }

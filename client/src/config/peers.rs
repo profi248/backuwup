@@ -48,11 +48,7 @@ impl Config {
         Ok(peer)
     }
 
-    pub async fn peer_increment_transmitted(
-        &self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
+    pub async fn peer_increment_transmitted(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_increment_transmitted(peer_id, amount).await?;
         transaction.commit().await?;
@@ -60,11 +56,7 @@ impl Config {
         Ok(())
     }
 
-    pub async fn peer_increment_received(
-        &self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
+    pub async fn peer_increment_received(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_increment_received(peer_id, amount).await?;
         transaction.commit().await?;
@@ -80,11 +72,7 @@ impl Config {
         Ok(amount)
     }
 
-    pub async fn peer_set_negotiated_storage(
-        &self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
+    pub async fn peer_set_negotiated_storage(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_set_negotiated_storage(peer_id, amount).await?;
         transaction.commit().await?;
@@ -100,10 +88,7 @@ impl Config {
         Ok(peers)
     }
 
-    pub async fn get_peers(
-        &self,
-        last_seen_limit_seconds: Option<u64>,
-    ) -> anyhow::Result<Vec<PeerInfo>> {
+    pub async fn get_peers(&self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
         let mut transaction = self.transaction().await?;
         let peers = transaction.get_peers(last_seen_limit_seconds).await?;
         transaction.commit().await?;
@@ -121,15 +106,12 @@ impl Config {
 }
 
 impl Transaction<'_> {
-    pub async fn add_or_increment_peer(
-        &mut self,
-        peer_id: ClientId,
-        negotiated: u64,
-    ) -> anyhow::Result<()> {
+    pub async fn add_or_increment_peer(&mut self, peer_id: ClientId, negotiated: u64) -> anyhow::Result<()> {
         sqlx::query(
             "insert into peers (pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen)
                 values ($1, 0, 0, $2, $3, $3)
-                on conflict (pubkey) do update set bytes_negotiated = peers.bytes_negotiated + $2, last_seen = $3")
+                on conflict (pubkey) do update set bytes_negotiated = peers.bytes_negotiated + $2, last_seen = $3",
+        )
         .bind(&peer_id[..])
         .bind(negotiated as i64)
         .bind(Config::get_unix_timestamp() as i64)
@@ -160,32 +142,28 @@ impl Transaction<'_> {
         }
     }
 
-    pub async fn peer_increment_transmitted(
-        &mut self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
-        sqlx::query("update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = $2 where pubkey = $3")
-            .bind(amount as i64)
-            .bind(Config::get_unix_timestamp() as i64)
-            .bind(&peer_id[..])
-            .execute(&mut self.transaction)
-            .await?;
+    pub async fn peer_increment_transmitted(&mut self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
+        sqlx::query(
+            "update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = $2 where pubkey = $3",
+        )
+        .bind(amount as i64)
+        .bind(Config::get_unix_timestamp() as i64)
+        .bind(&peer_id[..])
+        .execute(&mut self.transaction)
+        .await?;
 
         Ok(())
     }
 
-    pub async fn peer_increment_received(
-        &mut self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
-        sqlx::query("update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3")
-            .bind(amount as i64)
-            .bind(Config::get_unix_timestamp() as i64)
-            .bind(&peer_id[..])
-            .execute(&mut self.transaction)
-            .await?;
+    pub async fn peer_increment_received(&mut self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
+        sqlx::query(
+            "update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3",
+        )
+        .bind(amount as i64)
+        .bind(Config::get_unix_timestamp() as i64)
+        .bind(&peer_id[..])
+        .execute(&mut self.transaction)
+        .await?;
 
         Ok(())
     }
@@ -231,10 +209,7 @@ impl Transaction<'_> {
         Ok(peers)
     }
 
-    pub async fn get_peers(
-        &mut self,
-        last_seen_limit_seconds: Option<u64>,
-    ) -> anyhow::Result<Vec<PeerInfo>> {
+    pub async fn get_peers(&mut self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
         let oldest_timestamp = match last_seen_limit_seconds {
             Some(seconds) => (Config::get_unix_timestamp() - seconds) as i64,
             None => 0,
@@ -243,11 +218,11 @@ impl Transaction<'_> {
         let rows = sqlx::query(
             "select pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen \
              from peers where last_seen > $1 \
-             order by last_seen desc"
+             order by last_seen desc",
         )
-            .bind(oldest_timestamp)
-            .fetch_all(&mut self.transaction)
-            .await?;
+        .bind(oldest_timestamp)
+        .fetch_all(&mut self.transaction)
+        .await?;
 
         let mut peers: Vec<PeerInfo> = Vec::new();
         for row in rows {

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use shared::types::ClientId;
-use sqlx::{postgres::PgPoolOptions, query, Error, Executor, PgPool, Pool, Postgres};
+use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Postgres};
 
 use crate::handlers;
 
@@ -12,8 +12,7 @@ pub struct Database {
 
 impl Database {
     pub async fn init() -> Self {
-        let db_url =
-            dotenvy::var("DB_URL").expect("DB_URL environment variable not set or invalid");
+        let db_url = dotenvy::var("DB_URL").expect("DB_URL environment variable not set or invalid");
 
         let mut attempts = 5;
         let db = loop {

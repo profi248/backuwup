@@ -105,8 +105,7 @@ impl Queue {
                         Ordering::Less => {
                             self.push(Request {
                                 client_id: destination.client_id,
-                                storage_required: destination.storage_required
-                                    - request.storage_required,
+                                storage_required: destination.storage_required - request.storage_required,
                             });
 
                             break;
@@ -148,12 +147,7 @@ impl Queue {
     }
 
     pub fn debug_print(&self) {
-        for request in self
-            .queue
-            .lock()
-            .expect("Failed to lock backup request queue")
-            .iter()
-        {
+        for request in self.queue.lock().expect("Failed to lock backup request queue").iter() {
             println!("[backup queue] {request:?}");
         }
     }
@@ -166,9 +160,6 @@ impl Queue {
     }
 
     fn pop(&self) -> Option<Request> {
-        self.queue
-            .lock()
-            .expect("Failed to lock backup request queue")
-            .pop()
+        self.queue.lock().expect("Failed to lock backup request queue").pop()
     }
 }

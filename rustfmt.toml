@@ -1,6 +1,7 @@
 use_small_heuristics = "Max"
-struct_lit_width = 30
-chain_width = 65
+struct_lit_width = 50
+chain_width = 70
+max_width = 110
 
 # currently requires nightly
 overflow_delimited_expr = true

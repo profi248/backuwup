@@ -7,11 +7,12 @@ use std::{
 use anyhow::{anyhow, bail};
 use fs_extra::dir::get_size;
 use shared::{
-    p2p_message::FileInfo,
-    server_message_ws::{BackupMatched, FinalizeTransportRequest},
-    types::{ClientId, PackfileId},
+    p2p_message::{FileInfo, RequestType},
+    server_message_ws::BackupMatched,
+    types::{ClientId, PackfileId, TransportSessionNonce},
 };
-use tokio::time;
+use tokio::{net::TcpStream, time};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
     backup::BACKUP_ORCHESTRATOR,
@@ -21,7 +22,7 @@ use crate::{
     },
     log,
     net_p2p::transport::BackupTransportManager,
-    net_server::{requests, requests::backup_transport_begin},
+    net_server::{requests, requests::p2p_connection_begin},
     CONFIG, TRANSPORT_REQUESTS, UI,
 };
 
@@ -78,8 +79,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                 || orchestrator.is_packing_completed())
                 && !packfiles_done
             {
-                let send_result =
-                    send_packfiles_from_folder(&pack_folder, conn.0, &mut conn.1).await;
+                let send_result = send_packfiles_from_folder(&pack_folder, conn.0, &mut conn.1).await;
 
                 // todo distinguish between send errors and filesystem errors
                 match send_result {
@@ -114,7 +114,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
                 match send_result {
                     Ok(_) => index_done = true,
                     Err(e) => {
-                        log!("[send] error sending index files: {}", e);
+                        log!("[send] error sending index files: {e}");
                         connection = None;
                         continue;
                     }
@@ -226,11 +226,15 @@ async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManag
     // if no connections are active, try establishing them,
     // starting with an existing peer with most storage
     for peer in peers_with_storage {
-        let nonce = TRANSPORT_REQUESTS.get().unwrap().add_request(*peer).await?;
+        let nonce = TRANSPORT_REQUESTS
+            .get()
+            .unwrap()
+            .add_request(*peer, RequestType::Transport)
+            .await?;
 
         log!("[send] trying to establish connection with {}", hex::encode(peer));
         // the client we tried to notify might not be connected to the server at all, then we skip it
-        if !backup_transport_begin(*peer, nonce).await? {
+        if !p2p_connection_begin(*peer, nonce).await? {
             continue;
         }
 
@@ -320,7 +324,7 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
     let nonce = TRANSPORT_REQUESTS
         .get()
         .unwrap()
-        .add_request(matched.destination_id)
+        .add_request(matched.destination_id, RequestType::Transport)
         .await?;
 
     BACKUP_ORCHESTRATOR
@@ -334,39 +338,27 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
         .add_or_increment_peer_storage(matched.destination_id, matched.storage_available)
         .await?;
 
-    backup_transport_begin(matched.destination_id, nonce).await?;
+    p2p_connection_begin(matched.destination_id, nonce).await?;
 
     Ok(())
 }
 
-pub async fn handle_finalize_transport_request(
-    request: FinalizeTransportRequest,
+pub async fn connection_established(
+    client_id: ClientId,
+    nonce: TransportSessionNonce,
+    socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) -> anyhow::Result<()> {
-    let transport = TRANSPORT_REQUESTS
+    let transport = BackupTransportManager::new(socket, nonce, client_id);
+
+    BACKUP_ORCHESTRATOR
         .get()
-        .unwrap()
-        .finalize_request(request.destination_client_id, request.destination_ip_address)
-        .await;
+        .ok_or(anyhow!("Backup orchestrator not initialized"))?
+        .active_transport_sessions
+        .lock()
+        .await
+        .insert(client_id, transport);
 
-    match transport {
-        Ok(Some(mgr)) => {
-            BACKUP_ORCHESTRATOR
-                .get()
-                .ok_or(anyhow!("Backup orchestrator not initialized"))?
-                .active_transport_sessions
-                .lock()
-                .await
-                .insert(request.destination_client_id, mgr);
-
-            CONFIG
-                .get()
-                .unwrap()
-                .peer_update_last_seen(request.destination_client_id)
-                .await?;
-        }
-        Err(e) => bail!(e),
-        Ok(None) => {}
-    }
+    CONFIG.get().unwrap().peer_update_last_seen(client_id).await?;
 
     Ok(())
 }

@@ -22,9 +22,7 @@ pub async fn register_begin(
     let auth_manager = AUTH_MANAGER.get().unwrap();
     let server_challenge = auth_manager.challenge_begin(request.client_id)?;
 
-    Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge {
-        server_challenge,
-    })))
+    Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge { server_challenge })))
 }
 
 #[handler]

@@ -67,9 +67,9 @@ async fn set_config(conf: &Config) -> anyhow::Result<()> {
 async fn send_config_message() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
 
-    UI.get().unwrap().send_config(Config {
-        path: config.get_backup_path().await?,
-    });
+    UI.get()
+        .unwrap()
+        .send_config(Config { path: config.get_backup_path().await? });
 
     UI.get().unwrap().progress_resend();
 

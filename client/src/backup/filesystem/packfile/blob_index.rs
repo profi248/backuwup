@@ -187,8 +187,7 @@ impl BlobIndex {
                 // todo: associated data, read flush function for details
                 cipher.decrypt_in_place(nonce, b"", &mut buf)?;
 
-                let mut items: Entry =
-                    bincode::options().with_varint_encoding().deserialize(&buf)?;
+                let mut items: Entry = bincode::options().with_varint_encoding().deserialize(&buf)?;
                 self.items.append(&mut items);
             }
         }
@@ -200,9 +199,7 @@ impl BlobIndex {
     }
 
     pub async fn flush(&mut self) -> Result<(), PackfileError> {
-        let mut buf = bincode::options()
-            .with_varint_encoding()
-            .serialize(&self.items_buf)?;
+        let mut buf = bincode::options().with_varint_encoding().serialize(&self.items_buf)?;
         let new_file_num = self
             .last_file_num
             .checked_add(1)

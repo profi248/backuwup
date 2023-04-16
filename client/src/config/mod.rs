@@ -28,27 +28,23 @@ impl Config {
         let mut config_file = dirs::config_dir().expect("Cannot find the system config directory");
         config_file.push(crate::defaults::APP_FOLDER_NAME);
 
-        fs::create_dir_all(config_file.clone()).unwrap_or_else(|_| {
-            panic!("Unable write to the config folder {}", config_file.display())
-        });
+        fs::create_dir_all(config_file.clone())
+            .unwrap_or_else(|_| panic!("Unable write to the config folder {}", config_file.display()));
 
         config_file.push(crate::defaults::CONFIG_DB_FILE);
 
-        if !config_file.try_exists().unwrap_or_else(|_| {
-            panic!("Cannot access the config file at {}", config_file.display())
-        }) {
-            fs::File::create(config_file.clone()).unwrap_or_else(|_| {
-                panic!("Unable to write the config file at {}", config_file.display())
-            });
+        if !config_file
+            .try_exists()
+            .unwrap_or_else(|_| panic!("Cannot access the config file at {}", config_file.display()))
+        {
+            fs::File::create(config_file.clone())
+                .unwrap_or_else(|_| panic!("Unable to write the config file at {}", config_file.display()));
             structure_initialized = false;
         }
 
         let db_url = String::from("sqlite://")
             + config_file.to_str().unwrap_or_else(|| {
-                panic!(
-                    "The path to config file at {} contains invalid UTF-8 data",
-                    config_file.display()
-                )
+                panic!("The path to config file at {} contains invalid UTF-8 data", config_file.display())
             });
 
         let config = Self {
@@ -56,9 +52,7 @@ impl Config {
                 .max_connections(5)
                 .connect(&db_url)
                 .await
-                .unwrap_or_else(|_| {
-                    panic!("Unable to open a config file at {}", config_file.display())
-                }),
+                .unwrap_or_else(|_| panic!("Unable to open a config file at {}", config_file.display())),
         };
 
         if !structure_initialized {

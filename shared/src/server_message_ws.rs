@@ -6,8 +6,8 @@ use crate::types::{ClientId, TransportSessionNonce};
 pub enum ServerMessageWs {
     Ping,
     BackupMatched(BackupMatched),
-    IncomingTransportRequest(IncomingTransportRequest),
-    FinalizeTransportRequest(FinalizeTransportRequest),
+    IncomingP2PConnection(IncomingP2PConnection),
+    FinalizeP2PConnection(FinalizeP2PConnection),
     StorageChallengeRequest(StorageChallengeRequest),
 }
 
@@ -18,13 +18,13 @@ pub struct BackupMatched {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct IncomingTransportRequest {
+pub struct IncomingP2PConnection {
     pub source_client_id: ClientId,
     pub session_nonce: TransportSessionNonce,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct FinalizeTransportRequest {
+pub struct FinalizeP2PConnection {
     pub destination_client_id: ClientId,
     pub destination_ip_address: String,
 }

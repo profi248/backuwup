@@ -103,14 +103,7 @@ impl Messenger {
 
         // this is a slightly more expensive operation, get updates from orchestrator at most every 250 ms
         if now - self.last_sent_peers.load(Relaxed) >= 250 {
-            peers = Some(
-                self.peers
-                    .lock()
-                    .await
-                    .iter()
-                    .map(Self::peer_id_display)
-                    .collect(),
-            );
+            peers = Some(self.peers.lock().await.iter().map(Self::peer_id_display).collect());
 
             self.last_sent_peers.store(now, Relaxed);
         }
@@ -193,10 +186,7 @@ impl Messenger {
 
 #[macro_export]
 macro_rules! log {
-    ($msg:expr, $($args:expr),*) => {
-        $crate::UI.get().unwrap().log(format!($msg, $($args),*));
+    ($msg:literal $(, $args:expr)*) => {
+        { $crate::UI.get().unwrap().log(format!($msg, $($args),*)); }
     };
-    ($msg:expr) => {
-        $crate::UI.get().unwrap().log($msg);
-    }
 }

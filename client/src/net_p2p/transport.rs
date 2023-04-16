@@ -7,23 +7,15 @@ use futures_util::{
     SinkExt, StreamExt,
 };
 use shared::{
-    p2p_message::{
-        AckBody, EncapsulatedFile, EncapsulatedFileBody, EncapsulatedPackfileAck, FileInfo, Header,
-    },
+    p2p_message::{AckBody, EncapsulatedFileBody, EncapsulatedMsg, FileInfo, Header},
     types::{ClientId, TransportSessionNonce},
 };
 use tokio::{net::TcpStream, sync::broadcast, time::timeout};
-use tokio_tungstenite::{
-    connect_async_with_config,
-    tungstenite::{Error, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 use crate::{
     defaults::{PACKFILE_ACK_TIMEOUT, PACKFILE_SEND_TIMEOUT},
-    log,
-    net_p2p::get_ws_config,
-    KEYS,
+    log, KEYS,
 };
 
 #[derive(Debug)]
@@ -36,58 +28,22 @@ pub struct BackupTransportManager {
 }
 
 impl BackupTransportManager {
-    pub async fn new(
-        addr: String,
+    pub fn new(
+        socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
         session_nonce: TransportSessionNonce,
         client_id: ClientId,
-    ) -> anyhow::Result<Self> {
-        let url = format!("ws://{addr}");
-
-        // wait for the other party
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        log!("[p2p] trying to connect to peer at {}", url);
-        let socket = Self::sock_conn(&url).await?;
-        log!("[p2p] connected successfully");
-
+    ) -> Self {
         let (tx, rx) = socket.split();
         let (ack_sender, _) = broadcast::channel(100);
 
-        let mgr = BackupTransportManager {
+        BackupTransportManager {
             tx,
-            msg_counter: 0,
+            // start the counter at 1, since 0 is reserved for the init message
+            msg_counter: 1,
             session_nonce,
             ack_notifier: ack_sender.clone(),
             ack_handle: tokio::spawn(Self::process_acks(rx, ack_sender, session_nonce, client_id)),
-        };
-
-        Ok(mgr)
-    }
-
-    async fn sock_conn(url: &String) -> anyhow::Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
-        let mut attempts = 3;
-
-        Ok(loop {
-            // retry in case the socket takes a while to open
-            match connect_async_with_config(url, Some(get_ws_config())).await {
-                Ok((socket, _)) => break socket,
-                Err(Error::Io(e)) => {
-                    if attempts > 0 {
-                        log!(
-                            "[p2p] failed to connect to peer: {}, will try {} more times",
-                            e,
-                            attempts
-                        );
-                        tokio::time::sleep(Duration::from_secs(3)).await;
-                        attempts -= 1;
-                        continue;
-                    } else {
-                        bail!("Unable to connect to peer after 3 retries: {e}")
-                    }
-                }
-                Err(e) => bail!(e),
-            };
-        })
+        }
     }
 
     pub fn parse_incoming_ack(
@@ -96,7 +52,7 @@ impl BackupTransportManager {
         sender_pubkey: ClientId,
         messages_received: &mut u64,
     ) -> anyhow::Result<u64> {
-        let encapsulated: EncapsulatedPackfileAck = bincode::deserialize(&data)?;
+        let encapsulated: EncapsulatedMsg = bincode::deserialize(data)?;
 
         // verify the signature
         let source_pubkey = PublicKey::from_bytes(&sender_pubkey)?;
@@ -124,19 +80,16 @@ impl BackupTransportManager {
         let mut messages_received: u64 = 0;
         while let Some(msg) = stream.next().await {
             match msg {
-                Ok(Message::Binary(data)) => match Self::parse_incoming_ack(
-                    &data,
-                    nonce,
-                    sender_pubkey,
-                    &mut messages_received,
-                ) {
-                    Ok(message_id) => {
-                        notifier.send(message_id).ok();
+                Ok(Message::Binary(data)) => {
+                    match Self::parse_incoming_ack(&data, nonce, sender_pubkey, &mut messages_received) {
+                        Ok(message_id) => {
+                            notifier.send(message_id).ok();
+                        }
+                        Err(e) => {
+                            log!("[p2p] error while processing ack: {}", e);
+                        }
                     }
-                    Err(e) => {
-                        log!("[p2p] error while processing ack: {}", e);
-                    }
-                },
+                }
                 Ok(Message::Close(_)) => break,
                 Ok(_) => break,
                 Err(_) => break,
@@ -156,14 +109,12 @@ impl BackupTransportManager {
 
         let body = bincode::serialize(&body)?;
         let signature = KEYS.get().unwrap().sign(&body).to_vec();
-        let encapsulated = EncapsulatedFile { body, signature };
+        let encapsulated = EncapsulatedMsg { body, signature };
 
         let msg = bincode::serialize(&encapsulated)?;
 
-        timeout(Duration::from_secs(PACKFILE_SEND_TIMEOUT), self.tx.send(Message::Binary(msg)))
-            .await??;
-        timeout(Duration::from_secs(PACKFILE_ACK_TIMEOUT), self.wait_for_ack(self.msg_counter))
-            .await??;
+        timeout(Duration::from_secs(PACKFILE_SEND_TIMEOUT), self.tx.send(Message::Binary(msg))).await??;
+        timeout(Duration::from_secs(PACKFILE_ACK_TIMEOUT), self.wait_for_ack(self.msg_counter)).await??;
 
         self.msg_counter += 1;
         Ok(())

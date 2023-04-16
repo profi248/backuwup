@@ -41,11 +41,7 @@ async fn restore_setup_guide() {
         .interact()
         .expect("Failed to enter secret");
 
-    let secret: MasterSecret = Mnemonic::parse(&secret)
-        .unwrap()
-        .to_entropy()
-        .try_into()
-        .unwrap();
+    let secret: MasterSecret = Mnemonic::parse(&secret).unwrap().to_entropy().try_into().unwrap();
     identity::existing_secret_setup(secret)
         .await
         .expect("Failed to setup!");

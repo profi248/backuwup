@@ -48,10 +48,7 @@ impl KeyManager {
         // of the rand crate between dalek and chacha don't match so it doesn't compile.
         // This is the same method of generating the key used by the original library.
         let privkey = SecretKey::from_bytes(&privkey)?;
-        let signature_keypair = Keypair {
-            public: (&privkey).into(),
-            secret: privkey,
-        };
+        let signature_keypair = Keypair { public: (&privkey).into(), secret: privkey };
 
         // take another 32 bytes of CSPRNG's output for the symmetric secret
         let mut backup_secret_key: SymmetricKey = Default::default();

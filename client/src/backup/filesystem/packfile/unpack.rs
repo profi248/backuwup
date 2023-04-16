@@ -37,16 +37,12 @@ impl Manager {
             let mut header_buf = vec![0; header_size as usize];
             packfile.read_exact(&mut header_buf).await?;
 
-            let key = KEYS
-                .get()
-                .unwrap()
-                .derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
+            let key = KEYS.get().unwrap().derive_backup_key(KEY_DERIVATION_CONSTANT_HEADER);
             let cipher = Aes256Gcm::new(&key.into());
             cipher.decrypt_in_place(Nonce::from_slice(&packfile_id), b"", &mut header_buf)?;
 
-            let header: Vec<PackfileHeaderBlob> = bincode::options()
-                .with_varint_encoding()
-                .deserialize(&header_buf)?;
+            let header: Vec<PackfileHeaderBlob> =
+                bincode::options().with_varint_encoding().deserialize(&header_buf)?;
 
             for blob_metadata in header {
                 if blob_metadata.hash == *blob_hash {
@@ -65,8 +61,7 @@ impl Manager {
 
                     let mut decompressor = Decompressor::new()?;
                     decompressor.include_magicbytes(false)?;
-                    let blob_data =
-                        decompressor.decompress(&blob_buf, BLOB_MAX_UNCOMPRESSED_SIZE)?;
+                    let blob_data = decompressor.decompress(&blob_buf, BLOB_MAX_UNCOMPRESSED_SIZE)?;
 
                     return Ok(Some(Blob {
                         hash: blob_metadata.hash,

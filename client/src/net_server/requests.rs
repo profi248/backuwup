@@ -3,8 +3,8 @@ use std::time::Duration;
 use anyhow::bail;
 use shared::{
     client_message::{
-        BackupRequest, BeginTransportRequest, ClientLoginAuth, ClientLoginRequest,
-        ClientRegistrationAuth, ClientRegistrationRequest, ConfirmTransportRequest,
+        BackupRequest, BeginP2PConnectionRequest, ClientLoginAuth, ClientLoginRequest,
+        ClientRegistrationAuth, ClientRegistrationRequest, ConfirmP2PConnectionRequest,
     },
     server_message::{ClientLoginToken, ErrorType, ServerMessage},
     types::{ChallengeNonce, ClientId, TransportSessionNonce},
@@ -63,10 +63,7 @@ pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
     }
 }
 
-pub async fn login_complete(
-    pubkey: ClientId,
-    response: Signature,
-) -> anyhow::Result<ClientLoginToken> {
+pub async fn login_complete(pubkey: ClientId, response: Signature) -> anyhow::Result<ClientLoginToken> {
     let client = reqwest::Client::new();
 
     let response = client
@@ -85,7 +82,7 @@ pub async fn login_complete(
     }
 }
 
-pub async fn backup_transport_begin(
+pub async fn p2p_connection_begin(
     destination_client_id: ClientId,
     session_nonce: TransportSessionNonce,
 ) -> anyhow::Result<bool> {
@@ -98,8 +95,8 @@ pub async fn backup_transport_begin(
         let token = config.load_auth_token().await?;
         if token.is_some() {
             let response = client
-                .post(url("backups/transport/begin"))
-                .json(&BeginTransportRequest {
+                .post(url("p2p/connection/begin"))
+                .json(&BeginP2PConnectionRequest {
                     session_token: token.unwrap(),
                     destination_client_id,
                     session_nonce,
@@ -125,7 +122,7 @@ pub async fn backup_transport_begin(
     bail!("Unrecoverable auth error");
 }
 
-pub async fn backup_transport_confirm(
+pub async fn p2p_connection_confirm(
     source_client_id: ClientId,
     destination_ip_address: String,
 ) -> anyhow::Result<()> {
@@ -138,8 +135,8 @@ pub async fn backup_transport_confirm(
         let token = config.load_auth_token().await?;
         if token.is_some() {
             let response = client
-                .post(url("backups/transport/confirm"))
-                .json(&ConfirmTransportRequest {
+                .post(url("p2p/connection/confirm"))
+                .json(&ConfirmP2PConnectionRequest {
                     session_token: token.unwrap(),
                     source_client_id,
                     destination_ip_address: destination_ip_address.clone(),

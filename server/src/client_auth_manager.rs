@@ -36,9 +36,7 @@ impl ClientAuthManager {
             sessions: HashMapDelay::new(SESSION_EXPIRATION),
         };
 
-        Self {
-            data: Arc::new(Mutex::new(inner)),
-        }
+        Self { data: Arc::new(Mutex::new(inner)) }
     }
 
     pub fn challenge_begin(&self, client_id: ClientId) -> Result<ChallengeNonce, handlers::Error> {

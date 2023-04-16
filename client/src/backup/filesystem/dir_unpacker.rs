@@ -90,11 +90,7 @@ async fn restore_file(
 }
 
 fn set_path_mtime(path: &PathBuf, tree: &Tree) -> anyhow::Result<()> {
-    if let Some(time) = tree
-        .metadata
-        .mtime
-        .map(|t| FileTime::from_unix_time(t as i64, 0))
-    {
+    if let Some(time) = tree.metadata.mtime.map(|t| FileTime::from_unix_time(t as i64, 0)) {
         set_file_mtime(path, time)?;
     }
 
