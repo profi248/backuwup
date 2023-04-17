@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ChallengeNonce, SessionToken};
+use crate::types::{BlobHash, ChallengeNonce, ClientId, SessionToken};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
@@ -9,6 +9,7 @@ pub enum ServerMessage {
     ClientRegistrationChallenge(ClientRegistrationChallenge),
     ClientLoginChallenge(ClientLoginChallenge),
     ClientLoginToken(ClientLoginToken),
+    BackupRestoreInfo(BackupRestoreInfo),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,10 +28,17 @@ pub struct ClientLoginToken {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct BackupRestoreInfo {
+    pub snapshot_hash: BlobHash,
+    pub peers: Vec<ClientId>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorType {
     Unauthorized,
     ClientNotFound,
     DestinationUnreachable,
+    NoBackups,
     Retry,
     BadRequest(String),
     ServerError(String),

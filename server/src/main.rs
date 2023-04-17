@@ -19,6 +19,7 @@ use crate::{
     client_auth_manager::ClientAuthManager,
     db::Database,
     handlers::{
+        backup::{backup_done, backup_restore},
         backup_request::make_backup_request,
         login::{login_begin, login_complete},
         p2p_connection_request::{p2p_connection_begin, p2p_connection_confirm},
@@ -27,6 +28,7 @@ use crate::{
     ws::ClientConnections,
 };
 
+static DB: OnceCell<Database> = OnceCell::const_new();
 static CONNECTIONS: OnceCell<ClientConnections> = OnceCell::const_new();
 static BACKUP_REQUESTS: OnceCell<Queue> = OnceCell::const_new();
 static AUTH_MANAGER: OnceCell<ClientAuthManager> = OnceCell::const_new();
@@ -44,14 +46,16 @@ async fn main() {
     AUTH_MANAGER.set(ClientAuthManager::new()).unwrap();
 
     let app = Route::new()
-        .at("/register/begin", register_begin.data(db.clone()))
-        .at("/register/complete", register_complete.data(db.clone()))
-        .at("/login/begin", login_begin.data(db.clone()))
-        .at("/login/complete", login_complete.data(db.clone()))
+        .at("/register/begin", register_begin)
+        .at("/register/complete", register_complete)
+        .at("/login/begin", login_begin)
+        .at("/login/complete", login_complete)
         .at("/backups/request", make_backup_request)
-        .at("/p2p/connection/begin", p2p_connection_begin.data(db.clone()))
-        .at("/p2p/connection/confirm", p2p_connection_confirm.data(db.clone()))
-        .at("/ws", ws::handler.data(db));
+        .at("/backups/done", backup_done)
+        .at("/backups/restore", backup_restore)
+        .at("/p2p/connection/begin", p2p_connection_begin)
+        .at("/p2p/connection/confirm", p2p_connection_confirm)
+        .at("/ws", ws::handler);
 
     let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
 

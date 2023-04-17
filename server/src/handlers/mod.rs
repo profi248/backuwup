@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod backup_request;
 pub mod login;
 pub mod p2p_connection_request;
@@ -22,6 +23,10 @@ pub enum Error {
     ChallengeNotFound,
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
+    #[error("Invalid data found in database")]
+    DatabaseTypeMismatch,
+    #[error("No backups available")]
+    NoBackupsAvailable,
     #[error("Crypto error: {0}")]
     Crypto(#[from] ed25519_dalek::SignatureError),
     #[error("Randomness error: {0}")]
@@ -49,8 +54,10 @@ impl ResponseError for Error {
             Error::ClientNotConnected(_) => StatusCode::NOT_FOUND,
             Error::ClientNotFound(_) => StatusCode::NOT_FOUND,
             Error::Io(_) => StatusCode::NOT_FOUND,
+            Error::NoBackupsAvailable => StatusCode::NOT_FOUND,
             Error::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Rng(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::DatabaseTypeMismatch => StatusCode::INTERNAL_SERVER_ERROR,
             Error::ClientExists(_) => StatusCode::CONFLICT,
         }
     }
@@ -61,6 +68,7 @@ impl ResponseError for Error {
             Error::ChallengeNotFound => ErrorType::Retry,
             Error::Database(_) => ErrorType::ServerError("Database error".to_string()),
             Error::Rng(_) => ErrorType::ServerError("Server error".to_string()),
+            Error::DatabaseTypeMismatch => ErrorType::ServerError("Encountered invalid data".to_string()),
             Error::BadRequest => ErrorType::BadRequest("Bad request".to_string()),
             Error::Crypto(_) => ErrorType::BadRequest("Crypto error".to_string()),
             Error::Serialization(_) => ErrorType::BadRequest("Serialization error".to_string()),
@@ -68,6 +76,7 @@ impl ResponseError for Error {
             Error::ClientNotConnected(_) => ErrorType::DestinationUnreachable,
             Error::Io(_) => ErrorType::DestinationUnreachable,
             Error::ClientNotFound(_) => ErrorType::DestinationUnreachable,
+            Error::NoBackupsAvailable => ErrorType::NoBackups,
         };
 
         println!("[err] sending error response to client: {msg:?}");

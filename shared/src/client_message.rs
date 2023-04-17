@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ChallengeResponse, ClientId, SessionToken, TransportSessionNonce};
+use crate::types::{BlobHash, ChallengeResponse, ClientId, SessionToken, TransportSessionNonce};
 
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
@@ -51,4 +51,15 @@ pub struct ConfirmP2PConnectionRequest {
     pub session_token: SessionToken,
     pub source_client_id: ClientId,
     pub destination_ip_address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BackupRestoreRequest {
+    pub session_token: SessionToken,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BackupDone {
+    pub session_token: SessionToken,
+    pub snapshot_hash: BlobHash,
 }

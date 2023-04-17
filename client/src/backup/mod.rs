@@ -62,6 +62,10 @@ pub async fn run() -> anyhow::Result<()> {
 }
 
 pub async fn request_restore() -> anyhow::Result<()> {
+    // retrieve the snapshot id and contacted peers from the server
+    // request all files from all peers
+    // restore files to backup path
+
     Ok(())
 }
 

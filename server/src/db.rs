@@ -1,7 +1,10 @@
 use std::time::Duration;
 
-use shared::types::ClientId;
-use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Postgres};
+use shared::types::{BlobHash, ClientId};
+use sqlx::{
+    postgres::{PgPoolOptions, PgRow},
+    query, Executor, PgPool, Postgres, Row,
+};
 
 use crate::handlers;
 
@@ -83,6 +86,92 @@ impl Database {
             .fetch_optional(&self.conn_pool)
             .await
             .map(|result| result.is_some())?;
+
+        Ok(result)
+    }
+
+    pub async fn client_update_logged_in(&self, client_id: ClientId) -> Result<(), handlers::Error> {
+        query("update clients set last_login = now() where pubkey = $1")
+            .bind(client_id)
+            .execute(&self.conn_pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn save_storage_negotiated(
+        &self,
+        source: ClientId,
+        destination: ClientId,
+        storage_negotiated: i64,
+    ) -> Result<(), handlers::Error> {
+        query(
+            "insert into peer_backups (source, destination, size_negotiated, timestamp)
+               values ($1, $2, $3, now())",
+        )
+        .bind(source)
+        .bind(destination)
+        .bind(storage_negotiated)
+        .execute(&self.conn_pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_latest_client_snapshot(
+        &self,
+        client_id: ClientId,
+    ) -> Result<Option<BlobHash>, handlers::Error> {
+        let result = query(
+            "select snapshot_hash from snapshots where client_pubkey = $1 \
+                                          order by timestamp desc limit 1",
+        )
+        .bind(client_id)
+        .fetch_optional(&self.conn_pool)
+        .await?;
+
+        match result {
+            Some(val) => Ok(Some(
+                val.get::<Vec<u8>, usize>(0)
+                    .try_into()
+                    .map_err(|_| handlers::Error::DatabaseTypeMismatch)?,
+            )),
+            None => Ok(None),
+        }
+    }
+
+    pub async fn save_snapshot(
+        &self,
+        client_id: ClientId,
+        snapshot_hash: BlobHash,
+    ) -> Result<(), handlers::Error> {
+        query("insert into snapshots (client_pubkey, snapshot_hash, timestamp) values ($1, $2, now())")
+            .bind(client_id)
+            .bind(snapshot_hash)
+            .execute(&self.conn_pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_client_negotiated_peers(
+        &self,
+        client_id: ClientId,
+    ) -> Result<Vec<ClientId>, handlers::Error> {
+        let mut result: Vec<ClientId> = Vec::new();
+        let rows = query("select destination from peer_backups where source = $1")
+            .bind(client_id)
+            .fetch_all(&self.conn_pool)
+            .await?;
+
+        for row in rows {
+            let client_id: Vec<u8> = row.get(0);
+            result.push(
+                client_id
+                    .try_into()
+                    .map_err(|_| handlers::Error::DatabaseTypeMismatch)?,
+            );
+        }
 
         Ok(result)
     }

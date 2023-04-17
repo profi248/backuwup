@@ -14,13 +14,12 @@ use crate::{
         Error,
         Error::{BadRequest, ClientNotFound},
     },
-    AUTH_MANAGER, CONNECTIONS,
+    AUTH_MANAGER, CONNECTIONS, DB,
 };
 
 #[handler]
 pub async fn p2p_connection_begin(
     Json(request): Json<BeginP2PConnectionRequest>,
-    Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     let source_client_id = AUTH_MANAGER
         .get()
@@ -33,7 +32,7 @@ pub async fn p2p_connection_begin(
 
     println!("p2p connection begin request received to {destination_client_id:?}");
 
-    if !db.client_exists(destination_client_id).await? {
+    if !DB.get().unwrap().client_exists(destination_client_id).await? {
         println!("{destination_client_id:?} doesn't exist");
         Err(ClientNotFound(destination_client_id))?;
     }
@@ -53,7 +52,6 @@ pub async fn p2p_connection_begin(
 #[handler]
 pub async fn p2p_connection_confirm(
     Json(request): Json<ConfirmP2PConnectionRequest>,
-    Data(db): Data<&Database>,
 ) -> poem::Result<Json<ServerMessage>> {
     let destination_client_id = AUTH_MANAGER
         .get()
@@ -70,7 +68,7 @@ pub async fn p2p_connection_confirm(
 
     println!("p2p connection confirm request received to {destination_client_id:?}");
 
-    if !db.client_exists(source_client_id).await? {
+    if !DB.get().unwrap().client_exists(source_client_id).await? {
         return Err(ClientNotFound(source_client_id).into());
     }
 

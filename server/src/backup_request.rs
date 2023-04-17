@@ -13,7 +13,7 @@ use shared::{
 };
 use sum_queue::SumQueue;
 
-use crate::{handlers, CONNECTIONS};
+use crate::{handlers, CONNECTIONS, DB};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
@@ -95,6 +95,24 @@ impl Queue {
                                 storage_available: destination.storage_required,
                                 destination_id: destination.client_id,
                             }),
+                        )
+                        .await?;
+
+                    // save the fulfilled request in the database
+                    DB.get()
+                        .unwrap()
+                        .save_storage_negotiated(
+                            request.client_id,
+                            destination.client_id,
+                            request.storage_required as i64,
+                        )
+                        .await?;
+                    DB.get()
+                        .unwrap()
+                        .save_storage_negotiated(
+                            destination.client_id,
+                            request.client_id,
+                            request.storage_required as i64,
                         )
                         .await?;
 
