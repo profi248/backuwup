@@ -1,26 +1,42 @@
 use std::path::PathBuf;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
+use backup_orchestrator::BackupOrchestrator;
 use fs_extra::dir::get_size;
 use futures_util::{try_join, FutureExt};
-use orchestrator::Orchestrator;
-use tokio::sync::OnceCell;
+use shared::{p2p_message::RequestType, server_message::BackupRestoreInfo, types::ClientId};
+use tokio::{sync::OnceCell, time::sleep};
 
-use crate::{backup::filesystem::dir_packer, CONFIG, UI};
-use crate::net_server::requests;
+use crate::{
+    backup::{
+        filesystem::{dir_packer, dir_unpacker},
+        restore_orchestrator::RestoreOrchestrator,
+    },
+    log,
+    net_server::requests,
+    CONFIG, TRANSPORT_REQUESTS, UI,
+};
 
+pub mod backup_orchestrator;
 pub mod filesystem;
-pub mod orchestrator;
+pub mod restore_orchestrator;
 pub mod restore_send;
 pub mod send;
 
-pub static BACKUP_ORCHESTRATOR: OnceCell<Orchestrator> = OnceCell::const_new();
+pub static BACKUP_ORCHESTRATOR: OnceCell<BackupOrchestrator> = OnceCell::const_new();
+pub static RESTORE_ORCHESTRATOR: OnceCell<RestoreOrchestrator> = OnceCell::const_new();
 
 pub async fn run() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
     let destination = config.get_packfile_path().await?;
 
-    Orchestrator::initialize_static(&destination).await?;
+    BackupOrchestrator::initialize_static(&destination).await?;
+
+    if let Some(restore_orchestrator) = RESTORE_ORCHESTRATOR.get() {
+        if restore_orchestrator.is_running() {
+            bail!("cannot backup, restore already in progress");
+        }
+    }
 
     let backup_path = config.get_backup_path().await?;
     if backup_path.is_none() {
@@ -66,9 +82,74 @@ pub async fn run() -> anyhow::Result<()> {
 }
 
 pub async fn request_restore() -> anyhow::Result<()> {
+    RestoreOrchestrator::initialize_static().await?;
+    RESTORE_ORCHESTRATOR.get().unwrap().set_started()?;
+    return match run_restore().await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            RESTORE_ORCHESTRATOR.get().unwrap().set_finished();
+            Err(anyhow!("restore failed: {e}"))
+        }
+    };
+}
+
+pub async fn run_restore() -> anyhow::Result<()> {
+    let config = CONFIG.get().unwrap();
+
+    let orchestrator = RESTORE_ORCHESTRATOR.get().unwrap();
+    orchestrator.set_started()?;
+
     // retrieve the snapshot id and contacted peers from the server
+    let BackupRestoreInfo { snapshot_hash, peers } = requests::backup_restore().await?;
+
+    log!("[restore] restoring from snapshot {}", hex::encode(snapshot_hash));
     // request all files from all peers
+    for peer in peers {
+        log!("[restore] requesting files from peer {}", hex::encode(peer));
+        orchestrator.add_peer(peer).await;
+        request_restore_from_peer(peer).await?;
+    }
+
+    // we will now wait for the requests to complete in the background
+    loop {
+        // if something fails, restore is no longer running
+        if !orchestrator.is_running() {
+            bail!("restore from some peers failed");
+        }
+
+        // if all peers have completed, we can stop waiting
+        if orchestrator.all_peers_completed().await {
+            break;
+        }
+
+        // waiting is fine for now
+        sleep(std::time::Duration::from_secs(1)).await;
+    }
+
+    log!("[restore] now restoring files to the backup path...");
     // restore files to backup path
+    dir_unpacker::unpack(
+        config.get_restored_packfiles_folder()?,
+        config
+            .get_backup_path()
+            .await?
+            .ok_or(anyhow!("backup path not set"))?,
+        snapshot_hash,
+    )
+    .await?;
+
+    orchestrator.set_finished();
+    log!("[restore] restore completed successfully!");
+    Ok(())
+}
+
+async fn request_restore_from_peer(peer_id: ClientId) -> anyhow::Result<()> {
+    let nonce = TRANSPORT_REQUESTS
+        .get()
+        .unwrap()
+        .add_request(peer_id, RequestType::RestoreAll)
+        .await?;
+    requests::p2p_connection_begin(peer_id, nonce).await?;
 
     Ok(())
 }

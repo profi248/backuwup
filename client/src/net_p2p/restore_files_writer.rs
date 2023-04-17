@@ -5,7 +5,10 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
-    backup::filesystem::file_utils::{get_index_path, get_packfile_path},
+    backup::{
+        filesystem::file_utils::{get_index_path, get_packfile_path},
+        RESTORE_ORCHESTRATOR,
+    },
     config::peers::PeerInfo,
     defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
     net_p2p::{receive, receive::Receiver},
@@ -55,9 +58,17 @@ pub async fn handle_receiving(
     stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) -> anyhow::Result<()> {
     let receiver = RestoreReceiver::new(client_id).await?;
-    receive::receive_handle_stream(stream, nonce, client_id, receiver).await?;
 
-    Ok(())
+    match receive::receive_handle_stream(stream, nonce, client_id, receiver).await {
+        Ok(_) => {
+            RESTORE_ORCHESTRATOR.get().unwrap().complete_peer(client_id).await;
+            Ok(())
+        }
+        Err(e) => {
+            RESTORE_ORCHESTRATOR.get().unwrap().set_finished();
+            Err(e)
+        }
+    }
 }
 
 // todo take an actual random key instead of a hardcoded one

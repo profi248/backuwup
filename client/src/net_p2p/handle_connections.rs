@@ -126,7 +126,7 @@ pub async fn accept_and_connect(finalize_req: FinalizeP2PConnection) -> anyhow::
                 request.session_nonce,
                 stream,
             )
-            .await?
+            .await?;
         }
         _ => bail!("request type not implemented"),
     }

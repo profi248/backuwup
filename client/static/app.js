@@ -24,6 +24,7 @@ createApp({
             last_backup_success: null,
             starting: false,
             crash_message: "",
+            restoring: false,
             configuration: {
                 path: ""
             }
@@ -78,6 +79,19 @@ createApp({
                 this.socket.send(JSON.stringify({
                     type: "GetConfig"
                 }));
+            }
+        },
+        start_restore() {
+            if (this.socket) {
+                if (this.settings_editable) {
+                    this.send_config();
+                }
+
+                this.socket.send(JSON.stringify({
+                    type: "StartRestore"
+                }));
+
+                this.settings_editable = false;
             }
         },
         send_config() {
@@ -160,7 +174,13 @@ createApp({
                 } else if (message["type"] === "Panic") {
                     this.crash_message = message["data"];
                     this.status = false;
+                } else if (message["type"] === "RestoreStarted") {
+                    this.restoring = true;
+                    this.starting = false;
+                } else if (message["type"] === "RestoreFinished") {
+                    this.restoring = false;
                 }
+
             });
 
             this.socket.addEventListener('open', () => {
@@ -188,6 +208,7 @@ createApp({
             this.bytes_written = 0;
             this.bytes_sent = 0;
             this.curr_file = "Starting...";
+            this.restoring = false;
 
             clearInterval(this.reconnctor);
             this.reconnctor = setInterval(() => {

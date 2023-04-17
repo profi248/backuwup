@@ -23,7 +23,7 @@ pub async fn restore_all_data_to_peer(
     let mut file_path = CONFIG.get().unwrap().get_received_packfiles_folder()?;
     file_path.push(hex::encode(peer_id));
 
-    log!("[restore] restoring packfiles to peer");
+    log!("[rsend] restoring packfiles to peer");
     for entry in file_path.join(PACKFILE_FOLDER).read_dir()? {
         match entry {
             Ok(entry) if entry.file_type()?.is_dir() => {
@@ -46,7 +46,7 @@ pub async fn restore_all_data_to_peer(
         }
     }
 
-    log!("[restore] restoring index to peer");
+    log!("[rsend] restoring index to peer");
     for entry in file_path.join(INDEX_FOLDER).read_dir()? {
         match entry {
             Ok(entry) if entry.file_type()?.is_file() => {
@@ -61,6 +61,7 @@ pub async fn restore_all_data_to_peer(
         }
     }
 
-    log!("[restore] restoring done!");
+    transport.done().await;
+    log!("[rsend] restore sending done!");
     Ok(())
 }

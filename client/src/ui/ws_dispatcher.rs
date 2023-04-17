@@ -5,7 +5,10 @@ use futures_util::{stream::SplitStream, StreamExt};
 use poem::web::websocket::{Message, WebSocketStream};
 use serde::{Deserialize, Serialize};
 
-use crate::{backup::run, CONFIG, UI};
+use crate::{
+    backup::{request_restore, run},
+    CONFIG, UI,
+};
 
 #[derive(Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -13,6 +16,7 @@ pub enum ClientMessage {
     Config(Config),
     StartBackup,
     GetConfig,
+    StartRestore,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -48,6 +52,7 @@ async fn process_message(msg: &serde_json::Result<ClientMessage>) -> anyhow::Res
         Ok(ClientMessage::Config(conf)) => set_config(conf).await?,
         Ok(ClientMessage::StartBackup) => run().await?,
         Ok(ClientMessage::GetConfig) => send_config_message().await?,
+        Ok(ClientMessage::StartRestore) => request_restore().await?,
         Err(e) => bail!("invalid message from client: {e:?}"),
     }
 

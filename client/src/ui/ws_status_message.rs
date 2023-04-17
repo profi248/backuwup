@@ -27,6 +27,7 @@ pub struct Messenger {
     peers: Mutex<HashSet<ClientId>>,
 }
 
+// todo better support for restore and peer info
 #[derive(Clone, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum StatusMessage {
@@ -35,6 +36,8 @@ pub enum StatusMessage {
     Config(Config),
     BackupStarted,
     BackupFinished((bool, String)),
+    RestoreStarted,
+    RestoreFinished,
     Panic(String),
 }
 
@@ -180,6 +183,14 @@ impl Messenger {
 
     pub fn subscribe(&self) -> Receiver<StatusMessage> {
         self.sender.subscribe()
+    }
+
+    pub fn set_restore_started(&self) {
+        self.sender.send(StatusMessage::RestoreStarted).ok();
+    }
+
+    pub fn set_restore_finished(&self) {
+        self.sender.send(StatusMessage::RestoreFinished).ok();
     }
 }
 

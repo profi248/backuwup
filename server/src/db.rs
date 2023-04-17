@@ -159,7 +159,7 @@ impl Database {
         client_id: ClientId,
     ) -> Result<Vec<ClientId>, handlers::Error> {
         let mut result: Vec<ClientId> = Vec::new();
-        let rows = query("select destination from peer_backups where source = $1")
+        let rows = query("select distinct destination from peer_backups where source = $1")
             .bind(client_id)
             .fetch_all(&self.conn_pool)
             .await?;

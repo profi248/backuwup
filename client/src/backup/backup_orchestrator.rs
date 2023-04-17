@@ -13,7 +13,7 @@ use tokio::sync::{oneshot, Mutex};
 use crate::{backup::BACKUP_ORCHESTRATOR, log, net_p2p::transport::BackupTransportManager};
 
 #[derive(Default, Debug)]
-pub struct Orchestrator {
+pub struct BackupOrchestrator {
     /// Active connections to other peers.
     pub(super) active_transport_sessions: Mutex<HashMap<ClientId, BackupTransportManager>>,
     /// Channels to notify when the backup is resumed.
@@ -38,7 +38,7 @@ pub struct Orchestrator {
     size_estimate: AtomicU64,
 }
 
-impl Orchestrator {
+impl BackupOrchestrator {
     pub async fn initialize_static(destination: &PathBuf) -> anyhow::Result<()> {
         match BACKUP_ORCHESTRATOR.get() {
             Some(orchestrator) => {
@@ -56,8 +56,7 @@ impl Orchestrator {
             }
             None => {
                 BACKUP_ORCHESTRATOR
-                    .set(Orchestrator {
-                        backup_running: AtomicBool::new(true),
+                    .set(BackupOrchestrator {
                         destination_path: destination.clone(),
                         ..Default::default()
                     })
@@ -148,6 +147,10 @@ impl Orchestrator {
 
     pub fn set_backup_finished(&self) {
         self.backup_running.store(false, Ordering::Release);
+    }
+
+    pub fn is_backup_running(&self) -> bool {
+        self.backup_running.load(Ordering::Acquire)
     }
 
     pub fn get_storage_request_last_matched(&self) -> u64 {

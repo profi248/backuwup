@@ -105,7 +105,8 @@ pub async fn p2p_connection_begin(
             ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
             _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }).await
+    })
+    .await
 }
 
 pub async fn p2p_connection_confirm(
@@ -131,7 +132,8 @@ pub async fn p2p_connection_confirm(
             ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
             _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }).await
+    })
+    .await
 }
 
 pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
@@ -139,10 +141,7 @@ pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
         let client = reqwest::Client::new();
         let response = client
             .post(url("backups/request"))
-            .json(&BackupRequest {
-                session_token: token,
-                storage_required: amount,
-            })
+            .json(&BackupRequest { session_token: token, storage_required: amount })
             .send()
             .await?;
 
@@ -152,7 +151,8 @@ pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
             ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
             _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }).await
+    })
+    .await
 }
 
 pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
@@ -176,7 +176,7 @@ pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn backup_restore_request() -> anyhow::Result<BackupRestoreInfo> {
+pub async fn backup_restore() -> anyhow::Result<BackupRestoreInfo> {
     let info = retry_with_login(|token| async move {
         let client = reqwest::Client::new();
         let response = client
