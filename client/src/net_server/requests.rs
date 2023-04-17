@@ -86,115 +86,73 @@ pub async fn p2p_connection_begin(
     destination_client_id: ClientId,
     session_nonce: TransportSessionNonce,
 ) -> anyhow::Result<bool> {
-    let client = reqwest::Client::new();
-    let config = CONFIG.get().unwrap();
+    retry_with_login(|token| async move {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(url("p2p/connection/begin"))
+            .json(&BeginP2PConnectionRequest {
+                session_token: token,
+                destination_client_id,
+                session_nonce,
+            })
+            .send()
+            .await?;
 
-    // login reattempt was supposed to be in a separate function, but I was not able to convince
-    // the compiler to take an async closure as a parameter and gave up for now
-    for _ in 0..2 {
-        let token = config.load_auth_token().await?;
-        if token.is_some() {
-            let response = client
-                .post(url("p2p/connection/begin"))
-                .json(&BeginP2PConnectionRequest {
-                    session_token: token.unwrap(),
-                    destination_client_id,
-                    session_nonce,
-                })
-                .send()
-                .await?;
-
-            match response.json().await? {
-                ServerMessage::Ok => return Ok(true),
-                ServerMessage::Error(ErrorType::Unauthorized) => {
-                    config.save_auth_token(None).await?;
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
-                ServerMessage::Error(ErrorType::DestinationUnreachable) => return Ok(false),
-                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
-                _ => bail!("Unexpected response"),
-            };
-        } else {
-            identity::login().await?;
+        match response.json().await? {
+            ServerMessage::Ok => Ok(true),
+            ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
+            ServerMessage::Error(ErrorType::DestinationUnreachable) => Ok(false),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }
-
-    bail!("Unrecoverable auth error");
+    }).await
 }
 
 pub async fn p2p_connection_confirm(
     source_client_id: ClientId,
     destination_ip_address: String,
 ) -> anyhow::Result<()> {
-    let client = reqwest::Client::new();
-    let config = CONFIG.get().unwrap();
+    let ip = &destination_ip_address.clone();
+    retry_with_login(|token| async move {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(url("p2p/connection/confirm"))
+            .json(&ConfirmP2PConnectionRequest {
+                session_token: token,
+                source_client_id,
+                destination_ip_address: ip.to_string(),
+            })
+            .send()
+            .await?;
 
-    // login reattempt was supposed to be in a separate function, but I was not able to convince
-    // the compiler to take an async closure as a parameter and gave up for now
-    for _ in 0..2 {
-        let token = config.load_auth_token().await?;
-        if token.is_some() {
-            let response = client
-                .post(url("p2p/connection/confirm"))
-                .json(&ConfirmP2PConnectionRequest {
-                    session_token: token.unwrap(),
-                    source_client_id,
-                    destination_ip_address: destination_ip_address.clone(),
-                })
-                .send()
-                .await?;
-
-            match response.json().await? {
-                ServerMessage::Ok => return Ok(()),
-                ServerMessage::Error(ErrorType::Unauthorized) => {
-                    config.save_auth_token(None).await?;
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
-                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
-                _ => bail!("Unexpected response"),
-            };
-        } else {
-            identity::login().await?;
+        match response.json().await? {
+            ServerMessage::Ok => Ok(()),
+            ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }
-
-    bail!("Unrecoverable auth error");
+    }).await
 }
 
 pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
-    let client = reqwest::Client::new();
-    let config = CONFIG.get().unwrap();
+    retry_with_login(|token| async move {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(url("backups/request"))
+            .json(&BackupRequest {
+                session_token: token,
+                storage_required: amount,
+            })
+            .send()
+            .await?;
 
-    // todo fix these
-    // login reattempt was supposed to be in a separate function, but I was not able to convince
-    // the compiler to take an async closure as a parameter and gave up for now
-    for _ in 0..2 {
-        let token = config.load_auth_token().await?;
-        if token.is_some() {
-            let response = client
-                .post(url("backups/request"))
-                .json(&BackupRequest {
-                    session_token: token.unwrap(),
-                    storage_required: amount,
-                })
-                .send()
-                .await?;
-
-            match response.json().await? {
-                ServerMessage::Ok => return Ok(()),
-                ServerMessage::Error(ErrorType::Unauthorized) => {
-                    config.save_auth_token(None).await?;
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                }
-                ServerMessage::Error(e) => bail!(format!("Request failed: {e:?}")),
-                _ => bail!("Unexpected response"),
-            };
-        } else {
-            identity::login().await?;
+        match response.json().await? {
+            ServerMessage::Ok => Ok(()),
+            ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
-    }
-
-    bail!("Unrecoverable auth error");
+    }).await
 }
 
 pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
@@ -209,8 +167,8 @@ pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
         match response.json().await? {
             ServerMessage::Ok => Ok(()),
             ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
-            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("Request failed: {e:?}"))),
-            _ => Err(ResponseError::Other(anyhow!("Unexpected response:"))),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
     })
     .await?;
@@ -230,8 +188,8 @@ pub async fn backup_restore_request() -> anyhow::Result<BackupRestoreInfo> {
         match response.json().await? {
             ServerMessage::BackupRestoreInfo(info) => Ok(info),
             ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
-            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("Request failed: {e:?}"))),
-            _ => Err(ResponseError::Other(anyhow!("Unexpected response:"))),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("unexpected response"))),
         }
     })
     .await?;
@@ -261,7 +219,7 @@ where
         }
     }
 
-    bail!("Unrecoverable auth error");
+    bail!("unrecoverable auth error");
 }
 
 #[derive(thiserror::Error, Debug)]
