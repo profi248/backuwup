@@ -6,19 +6,32 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
+    backup::filesystem::file_utils::{get_index_path, get_packfile_path},
     config::peers::PeerInfo,
     defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
-    net_p2p::receive,
-    net_server::requests,
+    net_p2p::{receive, receive::Receiver},
     CONFIG,
 };
 
-pub struct Receiver {
+pub struct PeerDataReceiver {
     file_path: PathBuf,
     peer_id: ClientId,
 }
 
-impl Receiver {
+#[async_trait::async_trait]
+impl Receiver for PeerDataReceiver {
+    async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()> {
+        let path = get_index_path(&self.file_path, id);
+        self.save_file(path, data).await
+    }
+
+    async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()> {
+        let path = get_packfile_path(&self.file_path, id, true)?;
+        self.save_file(path, data).await
+    }
+}
+
+impl PeerDataReceiver {
     pub async fn new(peer_id: ClientId) -> anyhow::Result<Self> {
         let mut file_path = CONFIG.get().unwrap().get_received_packfiles_folder()?;
         file_path.push(hex::encode(peer_id));
@@ -51,30 +64,6 @@ impl Receiver {
             None => bail!("peer {} not found when receiving a file", hex::encode(self.peer_id)),
         }
     }
-
-    pub async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()> {
-        let path = self.file_path.join(INDEX_FOLDER).join(format!("{:0>10}", id));
-
-        self.save_file(path, data).await
-    }
-
-    pub async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()> {
-        let path = self.get_packfile_path(id)?;
-
-        self.save_file(path, data).await
-    }
-
-    pub fn get_packfile_path(&self, id: PackfileId) -> anyhow::Result<PathBuf> {
-        let mut path = self.file_path.clone().join(PACKFILE_FOLDER);
-        let hex = hex::encode(id);
-
-        // save the packfile in a folder named after the first two bytes of the hash
-        path.push(&hex[..2]);
-        fs::create_dir_all(&path)?;
-
-        path.push(hex);
-        Ok(path)
-    }
 }
 
 pub async fn handle_receiving(
@@ -86,7 +75,7 @@ pub async fn handle_receiving(
 
     match peer {
         Some(peer) if is_peer_allowed_to_send_data(&peer) => {
-            let receiver = Receiver::new(client_id).await?;
+            let receiver = PeerDataReceiver::new(client_id).await?;
             receive::receive_handle_stream(stream, nonce, client_id, receiver).await?;
             Ok(())
         }

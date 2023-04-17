@@ -1,17 +1,31 @@
-//pub const SERVER_URL: &str = "localhost:8080";
-
+/// The address of the global server.
 pub const SERVER_URL: &str = "192.168.0.216:9999";
 
+/// The address of the user interface server.
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";
+
+/// The name of the folder that contains the application data.
 pub const APP_FOLDER_NAME: &str = "p2p-backup";
-pub const BACKUP_BUFFER_FOLDER_NAME: &str = "local_packfiles";
+
+/// The name of the configuration database.
 pub const CONFIG_DB_FILE: &str = "config.db";
 
+/// The name of folder that contains the packfiles.
 pub const PACKFILE_FOLDER: &str = "pack";
+
+/// The name of folder that contains the index files.
 pub const INDEX_FOLDER: &str = "index";
 
+/// Folder name for storing packfiles that are generated locally and are waiting to be sent to other peers.
+pub const BACKUP_BUFFER_FOLDER_NAME: &str = "local_packfiles";
+
+/// Folder name for storing packfiles received from other peers.
 pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";
 
+/// Folder name for storing packfiles that received from other peers in the process of backup restoration.
+pub const RESTORE_BUFFER_FOLDER: &str = "restore_packfiles";
+
+/// Maximum storage used over the negotiated storage space with other peers, per peer.
 pub const PEER_STORAGE_USAGE_SPREAD: u64 = 32 * 1024 * 1024; // 32 MiB
 
 /// Maximum size of packfiles that are allowed to be temporarily stored on disk,

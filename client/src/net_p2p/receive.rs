@@ -3,12 +3,18 @@ use ed25519_dalek::{PublicKey, Signature};
 use futures_util::{SinkExt, StreamExt};
 use shared::{
     p2p_message::{AckBody, EncapsulatedFileBody, EncapsulatedMsg, FileInfo, Header},
-    types::{ClientId, TransportSessionNonce},
+    types::{ClientId, PackfileId, TransportSessionNonce},
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-use crate::{net_p2p::received_files_writer::Receiver, KEYS, UI};
+use crate::{KEYS, UI};
+
+#[async_trait::async_trait]
+pub trait Receiver {
+    async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()>;
+    async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()>;
+}
 
 fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> anyhow::Result<Message> {
     let body = bincode::serialize(&AckBody {
@@ -28,7 +34,7 @@ pub async fn receive_handle_stream(
     mut stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     session_nonce: TransportSessionNonce,
     source_pubkey: ClientId,
-    receiver: Receiver,
+    receiver: impl Receiver,
 ) -> anyhow::Result<()> {
     // start the counter at 1, because 0 was used by the initiation message
     let mut data_msg_counter: u64 = 1;

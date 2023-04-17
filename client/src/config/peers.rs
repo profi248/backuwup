@@ -28,6 +28,17 @@ impl Config {
         }
     }
 
+    pub fn get_restored_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
+        // todo allow the user to change this path (save to config)
+        if let Some(mut directory) = dirs::data_local_dir() {
+            directory.push(defaults::APP_FOLDER_NAME);
+            directory.push(defaults::RESTORE_BUFFER_FOLDER);
+            Ok(directory)
+        } else {
+            bail!("Unable to find system user data folder")
+        }
+    }
+
     pub async fn add_or_increment_peer_storage(
         &self,
         peer_id: ClientId,

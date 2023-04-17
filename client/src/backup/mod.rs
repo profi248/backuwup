@@ -10,6 +10,7 @@ use crate::{backup::filesystem::dir_packer, CONFIG, UI};
 
 pub mod filesystem;
 pub mod orchestrator;
+pub mod restore_send;
 pub mod send;
 
 pub static BACKUP_ORCHESTRATOR: OnceCell<Orchestrator> = OnceCell::const_new();
@@ -57,6 +58,10 @@ pub async fn run() -> anyhow::Result<()> {
         }
     };
 
+    Ok(())
+}
+
+pub async fn request_restore() -> anyhow::Result<()> {
     Ok(())
 }
 

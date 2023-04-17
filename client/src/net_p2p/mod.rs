@@ -6,8 +6,8 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 pub mod handle_connections;
 pub mod p2p_connection_manager;
 pub mod receive;
-pub mod received_files_sender;
 pub mod received_files_writer;
+pub mod restore_files_writer;
 pub mod transport;
 
 fn get_ws_config() -> WebSocketConfig {

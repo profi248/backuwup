@@ -15,9 +15,9 @@ use tokio_tungstenite::{
 };
 
 use crate::{
-    backup::send,
+    backup::{restore_send, send},
     log,
-    net_p2p::{get_listener_address, get_ws_config, received_files_writer},
+    net_p2p::{get_listener_address, get_ws_config, received_files_writer, restore_files_writer},
     net_server::requests::p2p_connection_confirm,
     CONFIG, KEYS, TRANSPORT_REQUESTS,
 };
@@ -70,7 +70,14 @@ pub async fn accept_and_listen(incoming_req: IncomingP2PConnection) -> anyhow::R
             .await?;
         }
         // initiating peer wants to restore from us
-        RequestType::RestoreAll => {}
+        RequestType::RestoreAll => {
+            restore_send::restore_all_data_to_peer(
+                incoming_req.source_client_id,
+                incoming_req.session_nonce,
+                stream,
+            )
+            .await?;
+        }
         _ => bail!("request type not implemented"),
     }
 
@@ -113,7 +120,14 @@ pub async fn accept_and_connect(finalize_req: FinalizeP2PConnection) -> anyhow::
             send::connection_established(finalize_req.destination_client_id, request.session_nonce, stream)
                 .await?;
         }
-        RequestType::RestoreAll => {}
+        RequestType::RestoreAll => {
+            restore_files_writer::handle_receiving(
+                finalize_req.destination_client_id,
+                request.session_nonce,
+                stream,
+            )
+            .await?
+        }
         _ => bail!("request type not implemented"),
     }
 

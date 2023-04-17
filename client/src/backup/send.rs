@@ -15,7 +15,7 @@ use tokio::{net::TcpStream, time};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
-    backup::BACKUP_ORCHESTRATOR,
+    backup::{filesystem::file_utils, BACKUP_ORCHESTRATOR},
     defaults::{
         INDEX_FOLDER, MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER,
         PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_RETRY_DELAY,
@@ -144,12 +144,7 @@ async fn send_index(
         match file {
             Ok(file) if file.file_type()?.is_file() => {
                 let path = file.path();
-                let index_num = path
-                    .file_name()
-                    .ok_or(anyhow!("cannot get index filename"))?
-                    .to_string_lossy()
-                    .to_string()
-                    .parse()?;
+                let index_num = file_utils::parse_index_path_into_id(&path)?;
 
                 // skip the index files that have been already sent
                 let highest_sent_index = config.get_highest_sent_index_number().await?;
@@ -275,20 +270,10 @@ async fn send_single_packfile(
     let size = fs::metadata(path)?.len();
     println!("[send] sending packfile {}", path.display());
 
-    // parse packfile id from its name
-    let packfile_id: PackfileId = hex::decode(
-        path.file_name()
-            .ok_or(anyhow!("can't get packfile filename"))?
-            .to_string_lossy()
-            .to_string(),
-    )?
-    .try_into()
-    .map_err(|_| anyhow!("invalid packfile filename"))?;
-
     // this function will wait for an acknowledgement from the other party and only return after
     // the transport is confirmed, so we should be able to safely delete the packfile
     if transport
-        .send_data(fs::read(path)?, FileInfo::Packfile(packfile_id))
+        .send_data(fs::read(path)?, FileInfo::Packfile(file_utils::parse_packfile_path_into_id(path)?))
         .await
         .is_ok()
     {
