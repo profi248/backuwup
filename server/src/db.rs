@@ -8,7 +8,7 @@ use sqlx::{
 
 use crate::handlers;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Database {
     conn_pool: PgPool,
 }

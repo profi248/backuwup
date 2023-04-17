@@ -40,6 +40,8 @@ async fn main() {
     let orig_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
         // invoke the default handler and exit the process
+        println!("Sorry, the program has encountered a fatal error and must exit. Please see details below:");
+        orig_hook(panic_info);
         UI.get().unwrap().panic(panic_info.to_string());
         std::thread::sleep(Duration::from_secs(2));
         process::exit(1);

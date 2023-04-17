@@ -80,7 +80,6 @@ impl Messenger {
 
     pub fn panic(&self, msg: impl Into<String> + Clone) {
         self.sender.send(StatusMessage::Panic(msg.clone().into())).ok();
-        println!("Fatal error: {}", msg.into());
     }
 
     pub async fn progress_add_peer(&self, id: ClientId) {

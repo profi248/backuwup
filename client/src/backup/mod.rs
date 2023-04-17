@@ -7,6 +7,7 @@ use orchestrator::Orchestrator;
 use tokio::sync::OnceCell;
 
 use crate::{backup::filesystem::dir_packer, CONFIG, UI};
+use crate::net_server::requests;
 
 pub mod filesystem;
 pub mod orchestrator;
@@ -43,6 +44,9 @@ pub async fn run() -> anyhow::Result<()> {
 
     match result {
         Ok((hash, _)) => {
+            // inform the server that the backup is done
+            requests::backup_done(hash).await?;
+
             UI.get()
                 .unwrap()
                 .send_backup_finished(true, "Backup completed successfully!");

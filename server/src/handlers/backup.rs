@@ -16,7 +16,7 @@ pub async fn backup_done(Json(request): Json<BackupDone>) -> poem::Result<Json<S
 
     DB.get()
         .unwrap()
-        .save_snapshot(request.snapshot_hash, source_client_id)
+        .save_snapshot(source_client_id, request.snapshot_hash)
         .await?;
 
     Ok(Json(ServerMessage::Ok))

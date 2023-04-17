@@ -1,13 +1,13 @@
-use std::time::Duration;
+use std::{future::Future, time::Duration};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use shared::{
     client_message::{
-        BackupRequest, BeginP2PConnectionRequest, ClientLoginAuth, ClientLoginRequest,
-        ClientRegistrationAuth, ClientRegistrationRequest, ConfirmP2PConnectionRequest,
+        BackupDone, BackupRequest, BackupRestoreRequest, BeginP2PConnectionRequest, ClientLoginAuth,
+        ClientLoginRequest, ClientRegistrationAuth, ClientRegistrationRequest, ConfirmP2PConnectionRequest,
     },
-    server_message::{ClientLoginToken, ErrorType, ServerMessage},
-    types::{ChallengeNonce, ClientId, TransportSessionNonce},
+    server_message::{BackupRestoreInfo, ClientLoginToken, ErrorType, ServerMessage},
+    types::{BlobHash, ChallengeNonce, ClientId, SessionToken, TransportSessionNonce},
 };
 
 use crate::{identity, key_manager::Signature, CONFIG};
@@ -197,8 +197,52 @@ pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
     bail!("Unrecoverable auth error");
 }
 
-/*
-async fn retry_with_login<T, F>(func: impl FnOnce(SessionToken) -> F) -> anyhow::Result<T> where F: Future<Output = Result<T, ResponseError>> {
+pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
+    retry_with_login(|token| async move {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(url("backups/done"))
+            .json(&BackupDone { session_token: token, snapshot_hash })
+            .send()
+            .await?;
+
+        match response.json().await? {
+            ServerMessage::Ok => Ok(()),
+            ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("Request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("Unexpected response:"))),
+        }
+    })
+    .await?;
+
+    Ok(())
+}
+
+pub async fn backup_restore_request() -> anyhow::Result<BackupRestoreInfo> {
+    let info = retry_with_login(|token| async move {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(url("backups/restore"))
+            .json(&BackupRestoreRequest { session_token: token })
+            .send()
+            .await?;
+
+        match response.json().await? {
+            ServerMessage::BackupRestoreInfo(info) => Ok(info),
+            ServerMessage::Error(ErrorType::Unauthorized) => Err(ResponseError::Unauthorized),
+            ServerMessage::Error(e) => Err(ResponseError::Other(anyhow!("Request failed: {e:?}"))),
+            _ => Err(ResponseError::Other(anyhow!("Unexpected response:"))),
+        }
+    })
+    .await?;
+
+    Ok(info)
+}
+
+async fn retry_with_login<T, F>(func: impl Fn(SessionToken) -> F) -> anyhow::Result<T>
+where
+    F: Future<Output = Result<T, ResponseError>>,
+{
     // retry a few times with a limit
     for _ in 0..2 {
         let config = CONFIG.get().unwrap();
@@ -225,9 +269,8 @@ async fn retry_with_login<T, F>(func: impl FnOnce(SessionToken) -> F) -> anyhow:
 enum ResponseError {
     Unauthorized,
     Network(#[from] reqwest::Error),
-    Other(#[from] anyhow::Error)
+    Other(#[from] anyhow::Error),
 }
-*/
 
 fn url(s: impl Into<String>) -> String {
     // todo handle https

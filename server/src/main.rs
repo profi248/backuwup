@@ -41,6 +41,7 @@ async fn main() {
 
     let db = Database::init().await;
 
+    DB.set(db).unwrap();
     CONNECTIONS.set(ClientConnections::new()).unwrap();
     BACKUP_REQUESTS.set(Queue::new()).unwrap();
     AUTH_MANAGER.set(ClientAuthManager::new()).unwrap();
