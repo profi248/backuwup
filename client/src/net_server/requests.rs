@@ -1,4 +1,4 @@
-use std::{future::Future, time::Duration};
+use std::{env, future::Future, time::Duration};
 
 use anyhow::{anyhow, bail};
 use shared::{
@@ -233,5 +233,5 @@ enum ResponseError {
 fn url(s: impl Into<String>) -> String {
     // todo handle https
     // todo use config
-    format!("http://{}/{}", crate::defaults::SERVER_URL, s.into())
+    format!("http://{}/{}", env::var("SERVER_URL").unwrap_or(crate::defaults::SERVER_URL.to_string()), s.into())
 }
