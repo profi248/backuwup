@@ -10,7 +10,7 @@ use anyhow::bail;
 use shared::types::ClientId;
 use tokio::sync::{oneshot, Mutex};
 
-use crate::{backup::BACKUP_ORCHESTRATOR, log, net_p2p::transport::BackupTransportManager};
+use crate::{backup::BACKUP_ORCHESTRATOR, log, net_p2p::transport::BackupTransportManager, UI};
 
 #[derive(Default, Debug)]
 pub struct BackupOrchestrator {
@@ -71,6 +71,8 @@ impl BackupOrchestrator {
         log!("[orchestrator] backup is paused");
         self.paused.store(true, Ordering::Release);
 
+        UI.get().unwrap().set_pack_running(false);
+
         self.subscribe().await
     }
 
@@ -88,6 +90,8 @@ impl BackupOrchestrator {
     pub async fn resume(&self) {
         log!("[orchestrator] backup is resumed");
         self.paused.store(false, Ordering::Release);
+
+        UI.get().unwrap().set_pack_running(true);
 
         for listener in self.listeners.lock().await.drain(..) {
             listener.send(()).ok();

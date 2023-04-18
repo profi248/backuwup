@@ -1,5 +1,6 @@
 /// The address of the global server.
-pub const SERVER_URL: &str = "192.168.0.216:9999";
+//pub const SERVER_URL: &str = "192.168.0.216:9999";
+pub const SERVER_URL: &str = "127.0.0.1:8080";
 
 /// The address of the user interface server.
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";

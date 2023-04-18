@@ -4,15 +4,10 @@ use shared::types::{ClientId, PackfileId, TransportSessionNonce};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
-use crate::{
-    backup::{
-        filesystem::file_utils::{get_index_path, get_packfile_path},
-        RESTORE_ORCHESTRATOR,
-    },
-    defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
-    net_p2p::{obfuscate_data_impl, receive, receive::Receiver, received_files_writer},
-    CONFIG,
-};
+use crate::{backup::{
+    filesystem::file_utils::{get_index_path, get_packfile_path},
+    RESTORE_ORCHESTRATOR,
+}, defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD}, net_p2p::{obfuscate_data_impl, receive, receive::Receiver, received_files_writer}, CONFIG, UI};
 
 pub struct RestoreReceiver {
     file_path: PathBuf,
@@ -65,7 +60,7 @@ pub async fn handle_receiving(
             Ok(())
         }
         Err(e) => {
-            RESTORE_ORCHESTRATOR.get().unwrap().set_finished();
+            RESTORE_ORCHESTRATOR.get().unwrap().set_finished(false, e.to_string());
             Err(e)
         }
     }

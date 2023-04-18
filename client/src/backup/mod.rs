@@ -4,6 +4,7 @@ use anyhow::{anyhow, bail};
 use backup_orchestrator::BackupOrchestrator;
 use fs_extra::dir::get_size;
 use futures_util::{try_join, FutureExt};
+use human_bytes::human_bytes;
 use shared::{p2p_message::RequestType, server_message::BackupRestoreInfo, types::ClientId};
 use tokio::{sync::OnceCell, time::sleep};
 
@@ -87,7 +88,7 @@ pub async fn request_restore() -> anyhow::Result<()> {
     return match run_restore().await {
         Ok(_) => Ok(()),
         Err(e) => {
-            RESTORE_ORCHESTRATOR.get().unwrap().set_finished();
+            RESTORE_ORCHESTRATOR.get().unwrap().set_finished(false, e.to_string());
             Err(anyhow!("restore failed: {e}"))
         }
     };
@@ -126,6 +127,8 @@ pub async fn run_restore() -> anyhow::Result<()> {
         sleep(std::time::Duration::from_secs(1)).await;
     }
 
+    UI.get().unwrap().set_pack_running(true);
+
     log!("[restore] now restoring files to the backup path...");
     // restore files to backup path
     dir_unpacker::unpack(
@@ -138,7 +141,10 @@ pub async fn run_restore() -> anyhow::Result<()> {
     )
     .await?;
 
-    orchestrator.set_finished();
+    let packfile_size = get_size(config.get_restored_packfiles_folder()?)?;
+
+    orchestrator.set_finished(true, format!("Restore completed successfully!\nReceived and unpacked {} worth of data.", human_bytes(packfile_size as f64)));
+
     log!("[restore] restore completed successfully!");
     Ok(())
 }

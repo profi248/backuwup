@@ -23,7 +23,9 @@ pub struct Messenger {
     total: AtomicU64,
     last_sent: AtomicU64,
     last_sent_peers: AtomicU64,
-    running: AtomicBool,
+    backup_running: AtomicBool,
+    restore_running: AtomicBool,
+    pack_running: AtomicBool,
     peers: Mutex<HashSet<ClientId>>,
 }
 
@@ -37,7 +39,7 @@ pub enum StatusMessage {
     BackupStarted,
     BackupFinished((bool, String)),
     RestoreStarted,
-    RestoreFinished,
+    RestoreFinished((bool, String)),
     Panic(String),
 }
 
@@ -48,10 +50,20 @@ pub struct Progress {
     failed: u64,
     file: String,
     size_estimate: u64,
-    bytes_written: u64,
-    bytes_sent: u64,
+    bytes_on_disk: u64,
+    bytes_transmitted: u64,
+    pack_running: bool,
+    backup_running: bool,
+    restore_running: bool,
     peers: Option<Vec<String>>,
 }
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct BackupProgress {}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct RestoreProgress {}
+
 
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Peer {
@@ -70,7 +82,9 @@ impl Messenger {
             total: Default::default(),
             last_sent: Default::default(),
             last_sent_peers: Default::default(),
-            running: Default::default(),
+            backup_running: Default::default(),
+            restore_running: Default::default(),
+            pack_running: Default::default(),
             peers: Default::default(),
         }
     }
@@ -120,8 +134,11 @@ impl Messenger {
                     failed: self.failed.load(Relaxed),
                     file: file.into(),
                     size_estimate: orchestrator.get_size_estimate(),
-                    bytes_written: orchestrator.get_packfile_bytes_written(),
-                    bytes_sent: orchestrator.get_packfile_bytes_sent(),
+                    bytes_on_disk: orchestrator.get_packfile_bytes_written(),
+                    bytes_transmitted: orchestrator.get_packfile_bytes_sent(),
+                    pack_running: self.pack_running.load(Relaxed),
+                    backup_running: self.backup_running.load(Relaxed),
+                    restore_running: self.restore_running.load(Relaxed),
                     peers,
                 }))
                 .ok();
@@ -142,28 +159,44 @@ impl Messenger {
     }
 
     pub fn progress_resend(&self) {
-        if !self.running.load(Relaxed) {
-            return;
+        if self.backup_running.load(Relaxed) {
+            let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
+
+            self.sender
+                .send(StatusMessage::Progress(Progress {
+                    current: self.current.load(Relaxed),
+                    total: self.total.load(Relaxed),
+                    failed: self.failed.load(Relaxed),
+                    file: "...".to_string(),
+                    size_estimate: orchestrator.get_size_estimate(),
+                    bytes_on_disk: orchestrator.get_packfile_bytes_written(),
+                    bytes_transmitted: orchestrator.get_packfile_bytes_sent(),
+                    pack_running: self.pack_running.load(Relaxed),
+                    backup_running: self.backup_running.load(Relaxed),
+                    restore_running: self.restore_running.load(Relaxed),
+                    peers: None,
+                })).ok();
+        } else if self.restore_running.load(Relaxed) {
+            self.sender
+                .send(StatusMessage::Progress(Progress {
+                    current: self.current.load(Relaxed),
+                    total: self.total.load(Relaxed),
+                    failed: self.failed.load(Relaxed),
+                    file: "...".to_string(),
+                    size_estimate: 0,
+                    bytes_on_disk: 0,
+                    bytes_transmitted: 0,
+                    pack_running: self.pack_running.load(Relaxed),
+                    backup_running: self.backup_running.load(Relaxed),
+                    restore_running: self.restore_running.load(Relaxed),
+                    peers: None,
+                })).ok();
         }
-
-        let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
-
-        self.sender
-            .send(StatusMessage::Progress(Progress {
-                current: self.current.load(Relaxed),
-                total: self.total.load(Relaxed),
-                failed: self.failed.load(Relaxed),
-                file: "...".to_string(),
-                size_estimate: orchestrator.get_size_estimate(),
-                bytes_written: orchestrator.get_packfile_bytes_written(),
-                bytes_sent: orchestrator.get_packfile_bytes_sent(),
-                peers: None,
-            }))
-            .ok();
     }
 
     pub fn send_backup_started(&self) {
-        self.running.store(true, Relaxed);
+        self.backup_running.store(true, Relaxed);
+        self.pack_running.store(true, Relaxed);
         self.sender.send(StatusMessage::BackupStarted).ok();
     }
 
@@ -174,7 +207,7 @@ impl Messenger {
         self.total.store(0, Relaxed);
         self.current.store(0, Relaxed);
         self.failed.store(0, Relaxed);
-        self.running.store(false, Relaxed);
+        self.backup_running.store(false, Relaxed);
     }
 
     pub fn send_config(&self, config: Config) {
@@ -185,12 +218,19 @@ impl Messenger {
         self.sender.subscribe()
     }
 
-    pub fn set_restore_started(&self) {
+    pub fn set_pack_running(&self, running: bool) {
+        self.pack_running.store(running, Relaxed);
+        self.progress_resend();
+    }
+
+    pub fn send_restore_started(&self) {
+        self.restore_running.store(true, Relaxed);
         self.sender.send(StatusMessage::RestoreStarted).ok();
     }
 
-    pub fn set_restore_finished(&self) {
-        self.sender.send(StatusMessage::RestoreFinished).ok();
+    pub fn send_restore_finished(&self, success: bool, msg: impl Into<String>) {
+        self.restore_running.store(false, Relaxed);
+        self.sender.send(StatusMessage::RestoreFinished((success, msg.into()))).ok();
     }
 }
 

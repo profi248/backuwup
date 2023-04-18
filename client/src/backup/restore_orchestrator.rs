@@ -43,14 +43,14 @@ impl RestoreOrchestrator {
             }
         }
 
-        UI.get().unwrap().set_restore_started();
+        UI.get().unwrap().send_restore_started();
         self.restore_running.store(true, std::sync::atomic::Ordering::Relaxed);
 
         Ok(())
     }
 
-    pub fn set_finished(&self) {
-        UI.get().unwrap().set_restore_finished();
+    pub fn set_finished(&self, success: bool, msg: impl Into<String>) {
+        UI.get().unwrap().send_restore_finished(success, msg);
         self.restore_running
             .store(false, std::sync::atomic::Ordering::Relaxed);
     }

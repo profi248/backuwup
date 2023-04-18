@@ -12,19 +12,20 @@ createApp({
             failed: 0,
             transfer_speed_history: [],
             size_estimate: 0,
-            bytes_written: 0,
-            bytes_sent: 0,
+            bytes_on_disk: 0,
+            bytes_transmitted: 0,
             bytes_sent_prev: 0,
             bytes_sent_prev_time: 0,
             peers: [],
             curr_file: "Starting...",
             settings_editable: true,
             backup_running: false,
-            backup_msg: "",
-            last_backup_success: null,
+            finished_msg: "",
+            last_success: null,
             starting: false,
             crash_message: "",
-            restoring: false,
+            restore_running: false,
+            pack_running: false,
             configuration: {
                 path: ""
             }
@@ -35,7 +36,7 @@ createApp({
             if (this.total === 0) return 0;
 
             let base_files = (this.current / this.total);
-            let base_network = (this.bytes_sent / this.bytes_written);
+            let base_network = (this.bytes_transmitted / this.bytes_on_disk);
 
             return Math.max((base_files * 100) - 2, 0);
         },
@@ -52,11 +53,13 @@ createApp({
             return `${this.bytes_to_human(avg)}/s`
         },
         data_to_send() {
-            return this.bytes_to_human(Math.max(this.bytes_written - this.bytes_sent), 0)
+            return this.bytes_to_human(Math.max(this.bytes_on_disk - this.bytes_transmitted), 0)
         }
     },
     methods: {
         bytes_to_human(bytes) {
+            if (!bytes) return "0 B";
+
             let units = ["B", "KiB", "MiB", "GiB", "TiB"];
             let unit = 0;
 
@@ -69,7 +72,7 @@ createApp({
         },
         transfer_speed_bytes() {
             let timespan = Date.now() - this.bytes_sent_prev_time;
-            let data_transferred = this.bytes_sent - this.bytes_sent_prev;
+            let data_transferred = this.bytes_transmitted - this.bytes_sent_prev;
             let bytes_per_second = (data_transferred / timespan) * 1000;
 
             return bytes_per_second;
@@ -126,10 +129,13 @@ createApp({
                     this.failed = message["data"].failed;
 
                     this.size_estimate = message["data"].size_estimate;
-                    this.bytes_written = message["data"].bytes_written;
+                    this.bytes_on_disk = message["data"].bytes_on_disk;
+                    this.pack_running = message["data"].pack_running;
+                    this.restore_running = message["data"].restore_running;
+                    this.backup_running = message["data"].backup_running;
 
-                    this.bytes_sent_prev = this.bytes_sent;
-                    this.bytes_sent = message["data"].bytes_sent;
+                    this.bytes_sent_prev = this.bytes_transmitted;
+                    this.bytes_transmitted = message["data"].bytes_transmitted;
                     this.bytes_sent_prev_time = Date.now();
 
                     let speed = this.transfer_speed_bytes();
@@ -145,22 +151,22 @@ createApp({
                         this.peers = message["data"].peers;
 
                     this.starting = false;
-                    this.backup_running = true;
                 } else if (message["type"] === "Message") {
                     this.logs += message["data"] + "\n";
                     let el = document.querySelector("#logs");
                     el.scrollTo(0, el.scrollHeight);
                 } else if (message["type"] === "BackupFinished") {
-                    this.last_backup_success = message["data"][0];
-                    this.backup_msg = message["data"][1];
+                    this.last_success = message["data"][0];
+                    this.finished_msg = message["data"][1];
                     this.total = 0;
                     this.current = 0;
-                    this.bytes_written = 0;
+                    this.bytes_on_disk = 0;
                     this.size_estimate = 0;
                     this.backup_running = false;
                     this.starting = false;
+                    this.pack_running = false;
                 } else if (message["type"] === "BackupStarted") {
-                    this.bytes_sent = 0;
+                    this.bytes_transmitted = 0;
                     this.failed = 0;
                     this.backup_running = true;
                     this.starting = false;
@@ -175,10 +181,18 @@ createApp({
                     this.crash_message = message["data"];
                     this.status = false;
                 } else if (message["type"] === "RestoreStarted") {
-                    this.restoring = true;
+                    this.restore_running = true;
                     this.starting = false;
                 } else if (message["type"] === "RestoreFinished") {
-                    this.restoring = false;
+                    this.restore_running = false;
+                    this.last_success = message["data"][0];
+                    this.finished_msg = message["data"][1];
+                    this.total = 0;
+                    this.current = 0;
+                    this.failed = 0;
+                    this.bytes_on_disk = 0;
+                    this.size_estimate = 0;
+                    this.pack_running = false;
                 }
 
             });
@@ -205,10 +219,11 @@ createApp({
             this.total = 0;
             this.failed = 0;
             this.size_estimate = 0;
-            this.bytes_written = 0;
-            this.bytes_sent = 0;
+            this.bytes_on_disk = 0;
+            this.bytes_transmitted = 0;
             this.curr_file = "Starting...";
-            this.restoring = false;
+            this.restore_running = false;
+            this.pack_running = false;
 
             clearInterval(this.reconnctor);
             this.reconnctor = setInterval(() => {

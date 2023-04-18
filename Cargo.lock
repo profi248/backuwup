@@ -250,6 +250,7 @@ dependencies = [
  "getrandom 0.2.9",
  "hex",
  "hkdf",
+ "human_bytes",
  "itertools",
  "local-ip-address",
  "memmap2",
@@ -912,6 +913,12 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
+
+[[package]]
+name = "human_bytes"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39b528196c838e8b3da8b665e08c30958a6f2ede91d79f2ffcd0d4664b9c64eb"
 
 [[package]]
 name = "hyper"

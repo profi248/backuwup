@@ -31,13 +31,14 @@
         <Transition>
             <div id="main">
                 <div class="card mb-3" v-if="status">
-                    <div class="progress rounded-bottom-0" :class="{ 'bg-light': !backup_running,
-                     'bg-success-subtle': (last_backup_success === true) && !backup_running,
-                      'bg-danger-subtle': (last_backup_success === false) && !backup_running }"
+                    <div class="progress rounded-bottom-0" :class="{ 'bg-light': !backup_running && !restore_running,
+                     'bg-success-subtle': (last_success === true) && !backup_running && !restore_running,
+                      'bg-danger-subtle': (last_success === false) && !backup_running && !restore_running }"
                          style="height: 2.2rem; border-top-left-radius: 5.15px; border-top-right-radius: 5.15px">
                         <h6 class="position-absolute py-2 ps-3" v-if="backup_running">Backup status</h6>
-                        <h6 class="position-absolute py-2 ps-3" v-else-if="!backup_running && (last_backup_success === true)">Backup successful</h6>
-                        <h6 class="position-absolute py-2 ps-3" v-else-if="!backup_running && (last_backup_success === false)">Backup error</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else-if="restore_running">Restore status</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else-if="!restore_running && !backup_running && (last_success === true)">Success</h6>
+                        <h6 class="position-absolute py-2 ps-3" v-else-if="!restore_running && !backup_running && (last_success === false)">Error</h6>
                         <h6 class="position-absolute py-2 ps-3" v-else>Backup</h6>
                         <div :style="{ width: percent + '%' }"
                              class="progress-bar progress-bar-striped bg-primary-subtle progress-bar-animated"></div>
@@ -47,7 +48,12 @@
                             <div class="col-md-6">
                                 <div class="card-body">
                                     <h5 class="card-title">File compression & encryption</h5>
-                                    <table class="table" style="table-layout: fixed">
+                                    <Transition mode="out-in">
+                                        <div v-if="pack_running">Packing in progress <div class="spinner-border spinner-border-sm ms-1"></div></div>
+                                        <div v-else>Waiting to send data to peers...</div>
+                                    </Transition>
+                                    <hr>
+                                    <table class="table table-borderless" style="table-layout: fixed">
                                         <tr>
                                             <td style="width: 120px">Progress</td>
                                             <td>{{ current }}/{{ total }} files</td>
@@ -68,7 +74,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="card-body"><h5 class="card-title">Data transfer</h5>
-                                    Transferred {{ bytes_to_human(bytes_sent) }} during this backup.
+                                    Transferred {{ bytes_to_human(bytes_transmitted) }} during this backup.
                                     <div v-if="peers.length > 0">
                                         <hr>
                                         <h6>Contacted peers</h6>
@@ -81,36 +87,69 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="row" v-else-if="restore_running">
+                            <div class="col-md-6">
+                                <div class="card-body"><h5 class="card-title">Data transfer</h5>
+                                    <span v-if="!pack_running">
+                                        Receiving data from peers <div class="spinner-border spinner-border-sm ms-1"></div>
+                                    </span>
+                                    <span v-else>
+                                        Data from all peers received successfully.
+                                    </span>
+                                    <div v-if="peers.length > 0">
+                                        <hr>
+                                        <h6>Contacted peers</h6>
+                                        <ul class="list-group">
+                                            <li class="list-group-item" v-for="peer in peers">
+                                                <span class="peer_id">{{ peer }}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card-body">
+                                    <h5 class="card-title">File unpacking & decryption</h5>
+                                    <span v-if="!pack_running">Waiting to receive all data...</span>
+                                    <span v-else>
+                                        All data received, restoring files <div class="spinner-border spinner-border-sm ms-1"></div>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="row" v-else>
                             <div class="col-md-6">
                                 <div class="card-body">
-                                    <h5 class="card-title">Create backup</h5>
-                                    <div v-if="backup_msg">
-                                        {{ backup_msg }}
+                                    <h5 class="card-title">Backup & restore</h5>
+                                    <div v-if="finished_msg">
+                                        {{ finished_msg }}
                                         <span v-if="failed != 0">
                                             <br>
                                             {{ failed }} items were not backed up.
-                                            <br>
-                                            Total transported size: {{ bytes_to_human(bytes_sent) }}.
                                         </span>
                                     </div>
                                     <div v-else>
-                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut in lectus quis eros
-                                        congue imperdiet at non lacus. Fusce interdum arcu id tellus dignissim, in aliquam
-                                        orci venenatis. Nunc cursus est et ipsum viverra viverra.
+                                        <p>
+                                            Creating a backup will compress, encrypt and package your files so that only
+                                            necessary changes are transmitted and the data can't be read by anyone else but you.
+                                            Backups will automatically be saved to random peers, and they will then be able
+                                            to save their data to you. When restoring, all peers that hold your data will
+                                            be contacted and the data will be restored from the most recent backup, to the
+                                            backup directory.
+                                        </p>
                                     </div>
 
-                                    <div class="d-grid gap-2 d-md-block mt-2">
-                                        <button type="button" class="btn btn-primary" v-on:click="start_backup(); starting = true" :disabled="starting || restoring">
+                                    <div class="d-grid gap-2 d-lg-block mt-2">
+                                        <button type="button" class="btn btn-primary" v-on:click="start_backup(); starting = true" :disabled="starting || restore_running">
                                             <span v-if="!starting">Start backup</span>
                                             <span v-else>Starting...</span>
                                         </button>
-                                        <button type="button" class="btn btn-secondary ms-md-2" v-on:click="start_restore(); starting = true" :disabled="starting || restoring">
-                                            <span v-if="!restoring">Start restore</span>
+                                        <button type="button" class="btn btn-secondary ms-lg-2" v-on:click="start_restore(); starting = true" :disabled="starting || restore_running">
+                                            <span v-if="!restore_running">Start restore</span>
                                             <span v-else>Restoring...</span>
                                         </button>
-                                        <button type="button" class="btn btn-outline-dark ms-md-2"
-                                                @click="settings_editable = true" :disabled="settings_editable || restoring || starting">
+                                        <button type="button" class="btn btn-outline-dark ms-lg-2"
+                                                @click="settings_editable = true" :disabled="settings_editable || restore_running || starting">
                                             Change settings
                                         </button>
                                     </div>
