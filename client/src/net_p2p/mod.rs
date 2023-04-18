@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use portpicker::pick_unused_port;
+use rand_chacha::rand_core::{RngCore, SeedableRng};
 use shared::p2p_message::MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
@@ -28,4 +29,28 @@ pub fn get_listener_address() -> anyhow::Result<(String, u16)> {
     let port = pick_unused_port().ok_or(anyhow!("Unable to pick an unused port"))?;
 
     Ok((format!("{local_ip_addr}:{port}"), port))
+}
+
+pub fn obfuscate_data_impl(data: &mut [u8], key: [u8; 4]) -> &[u8] {
+    for dword in &mut data.chunks_mut(4) {
+        // obfuscate each byte of the dword, the length of the chunk will be at most 4, but the last one may be shorter
+        for (idx, byte) in dword.iter_mut().enumerate() {
+            *byte ^= key[idx];
+        }
+    }
+
+    data
+}
+
+#[test]
+fn obfuscation_test() {
+    let mut data: [u8; 123123] = [0; 123123];
+    rand_chacha::ChaCha8Rng::from_seed([0; 32]).fill_bytes(&mut data);
+    let mut orig = data.clone();
+    let key = [0x40, 0x41, 0x42, 0x43];
+
+    obfuscate_data_impl(&mut data, key);
+    obfuscate_data_impl(&mut data, key);
+
+    assert_eq!(orig, data);
 }

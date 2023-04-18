@@ -53,6 +53,22 @@ impl Config {
 
         result
     }
+
+    pub async fn save_obfuscation_key(&self, key: u32) -> anyhow::Result<()> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.save_obfuscation_key(key).await;
+        transaction.commit().await?;
+
+        result
+    }
+
+    pub async fn get_obfuscation_key(&self) -> anyhow::Result<u32> {
+        let mut transaction = self.transaction().await?;
+        let result = transaction.get_obfuscation_key().await;
+        transaction.commit().await?;
+
+        result
+    }
 }
 
 impl Transaction<'_> {
@@ -122,5 +138,24 @@ impl Transaction<'_> {
             }
             None => Ok(None),
         }
+    }
+
+    pub async fn save_obfuscation_key(&mut self, key: u32) -> anyhow::Result<()> {
+        sqlx::query("insert into config (key, value) values ('obfuscation_key', $1)")
+            .bind(Vec::from(key.to_le_bytes()))
+            .execute(&mut self.transaction)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_obfuscation_key(&mut self) -> anyhow::Result<u32> {
+        let key: Vec<u8> = sqlx::query("select value from config where key = 'obfuscation_key'")
+            .fetch_one(&mut self.transaction)
+            .await?
+            .get(0);
+
+        let key = u32::from_le_bytes(key.try_into().map_err(|_| anyhow!("invalid obfuscation key"))?);
+        Ok(key)
     }
 }

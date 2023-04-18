@@ -30,7 +30,7 @@ fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> an
     Ok(Message::Binary(bincode::serialize(&msg)?))
 }
 
-pub async fn receive_handle_stream(
+pub async fn handle_stream(
     mut stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     session_nonce: TransportSessionNonce,
     source_pubkey: ClientId,
@@ -61,7 +61,7 @@ pub async fn receive_handle_stream(
                 UI.get().unwrap().log("[p2p] transport finished");
                 break;
             }
-            Some(Ok(_)) => return Err(anyhow!("Invalid message type received")),
+            Some(Ok(_)) => return Err(anyhow!("invalid message type received")),
             Some(Err(e)) => return Err(e.into()),
         }
     }

@@ -1,3 +1,5 @@
+use getrandom::getrandom;
+
 use crate::{
     key_manager::{KeyManager, MasterSecret},
     net_server::requests,
@@ -28,6 +30,13 @@ pub async fn load_secret() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn generate_obfuscation_key() -> anyhow::Result<u32> {
+    let mut key_bytes = [0u8; 4];
+    getrandom(&mut key_bytes)?;
+
+    Ok(u32::from_le_bytes(key_bytes))
+}
+
 pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
     let key_manager = KeyManager::from_secret(secret)?;
 
@@ -41,6 +50,9 @@ pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
     // try to login to server with challenge-response, to verify that the secret is correct
     let challenge_nonce = requests::login_begin(pubkey).await?;
     requests::login_complete(pubkey, key_manager.sign(&challenge_nonce)).await?;
+
+    // generate a new obfuscation key
+    transaction.save_obfuscation_key(generate_obfuscation_key()?).await?;
 
     // login successful, set initialized
     transaction.set_initialized().await?;
@@ -69,6 +81,9 @@ pub async fn new_secret_setup() -> anyhow::Result<()> {
     // perform registration to server with challenge-response
     let challenge_nonce = requests::register_begin(pubkey).await?;
     requests::register_complete(pubkey, key_manager.sign(&challenge_nonce)).await?;
+
+    // generate a new obfuscation key
+    transaction.save_obfuscation_key(generate_obfuscation_key()?).await?;
 
     // registration complete, set initialized
     transaction.set_initialized().await?;

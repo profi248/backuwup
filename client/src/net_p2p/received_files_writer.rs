@@ -9,13 +9,14 @@ use crate::{
     backup::filesystem::file_utils::{get_index_path, get_packfile_path},
     config::peers::PeerInfo,
     defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
-    net_p2p::{receive, receive::Receiver},
+    net_p2p::{obfuscate_data_impl, receive, receive::Receiver},
     CONFIG,
 };
 
 pub struct PeerDataReceiver {
     file_path: PathBuf,
     peer_id: ClientId,
+    obfuscation_key: [u8; 4],
 }
 
 #[async_trait::async_trait]
@@ -33,14 +34,17 @@ impl Receiver for PeerDataReceiver {
 
 impl PeerDataReceiver {
     pub async fn new(peer_id: ClientId) -> anyhow::Result<Self> {
-        let mut file_path = CONFIG.get().unwrap().get_received_packfiles_folder()?;
+        let config = CONFIG.get().unwrap();
+        let mut file_path = config.get_received_packfiles_folder()?;
         file_path.push(hex::encode(peer_id));
+
+        let obfuscation_key = config.get_obfuscation_key().await?.to_le_bytes();
 
         fs::create_dir_all(&file_path)?;
         fs::create_dir_all(file_path.join(INDEX_FOLDER))?;
         fs::create_dir_all(file_path.join(PACKFILE_FOLDER))?;
 
-        Ok(Self { file_path, peer_id })
+        Ok(Self { file_path, peer_id, obfuscation_key })
     }
 
     pub async fn save_file(&self, path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
@@ -51,7 +55,7 @@ impl PeerDataReceiver {
         let config = CONFIG.get().unwrap();
         match config.get_peer_info(self.peer_id).await? {
             Some(peer) if is_peer_allowed_to_send_data(&peer) => {
-                fs::write(path, obfuscate_data(data))?;
+                fs::write(path, self.obfuscate_data(data))?;
 
                 config
                     .peer_increment_received(self.peer_id, data.len() as u64)
@@ -63,6 +67,10 @@ impl PeerDataReceiver {
             }
             None => bail!("peer {} not found when receiving a file", hex::encode(self.peer_id)),
         }
+    }
+
+    pub fn obfuscate_data<'a>(&self, data: &'a mut [u8]) -> &'a [u8] {
+        obfuscate_data_impl(data, self.obfuscation_key)
     }
 }
 
@@ -76,7 +84,7 @@ pub async fn handle_receiving(
     match peer {
         Some(peer) if is_peer_allowed_to_send_data(&peer) => {
             let receiver = PeerDataReceiver::new(client_id).await?;
-            receive::receive_handle_stream(stream, nonce, client_id, receiver).await?;
+            receive::handle_stream(stream, nonce, client_id, receiver).await?;
             Ok(())
         }
         Some(_) => bail!("peer {} is not allowed to send more packfiles", hex::encode(client_id)),
@@ -87,12 +95,4 @@ pub async fn handle_receiving(
 pub fn is_peer_allowed_to_send_data(peer: &PeerInfo) -> bool {
     peer.bytes_negotiated - peer.bytes_received > 0
         || peer.bytes_negotiated.abs_diff(peer.bytes_received) < PEER_STORAGE_USAGE_SPREAD
-}
-
-// todo take an actual random key instead of a hardcoded one
-pub fn obfuscate_data(data: &mut [u8]) -> &[u8] {
-    // for byte in data.iter_mut() {
-    //     *byte ^= 0x42;
-    // }
-    data
 }

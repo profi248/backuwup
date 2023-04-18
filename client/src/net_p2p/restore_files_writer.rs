@@ -9,9 +9,8 @@ use crate::{
         filesystem::file_utils::{get_index_path, get_packfile_path},
         RESTORE_ORCHESTRATOR,
     },
-    config::peers::PeerInfo,
     defaults::{INDEX_FOLDER, PACKFILE_FOLDER, PEER_STORAGE_USAGE_SPREAD},
-    net_p2p::{receive, receive::Receiver},
+    net_p2p::{obfuscate_data_impl, receive, receive::Receiver, received_files_writer},
     CONFIG,
 };
 
@@ -36,7 +35,8 @@ impl Receiver for RestoreReceiver {
 // todo throttle restore requests to prevent a DoS
 impl RestoreReceiver {
     pub async fn new(peer_id: ClientId) -> anyhow::Result<Self> {
-        let file_path = CONFIG.get().unwrap().get_restored_packfiles_folder()?;
+        let config = CONFIG.get().unwrap();
+        let file_path = config.get_restored_packfiles_folder()?;
 
         fs::create_dir_all(&file_path)?;
         fs::create_dir_all(file_path.join(INDEX_FOLDER))?;
@@ -46,7 +46,7 @@ impl RestoreReceiver {
     }
 
     pub async fn save_file(&self, path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
-        fs::write(path, deobfuscate_data(data))?;
+        fs::write(path, data)?;
 
         Ok(())
     }
@@ -59,7 +59,7 @@ pub async fn handle_receiving(
 ) -> anyhow::Result<()> {
     let receiver = RestoreReceiver::new(client_id).await?;
 
-    match receive::receive_handle_stream(stream, nonce, client_id, receiver).await {
+    match receive::handle_stream(stream, nonce, client_id, receiver).await {
         Ok(_) => {
             RESTORE_ORCHESTRATOR.get().unwrap().complete_peer(client_id).await;
             Ok(())
@@ -69,12 +69,4 @@ pub async fn handle_receiving(
             Err(e)
         }
     }
-}
-
-// todo take an actual random key instead of a hardcoded one
-pub fn deobfuscate_data(data: &mut [u8]) -> &[u8] {
-    // for byte in data.iter_mut() {
-    //     *byte ^= 0x42;
-    // }
-    data
 }
