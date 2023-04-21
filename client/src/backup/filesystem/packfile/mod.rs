@@ -32,11 +32,11 @@ const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
 /// A struct used for writing and reading packfiles, a file format used for storing blobs efficiently
 /// and securely. Packfiles can contain one or more blobs, and are useful for preventing the
 /// existence of many small loose files, and instead pack those small files together so all
-/// packfiles are around the same size. PackfileHandler is also responsible for deduplicating blobs
+/// packfiles are around the same size. `PackfileHandler` is also responsible for deduplicating blobs
 /// so identical data is only stored once. Along with the packfiles, an index is also stored in
 /// the output folder to allow for quick seeking.
 ///
-/// When creating a backup, PackfileHandler takes in blobs, compresses and encrypts them and saves
+/// When creating a backup, `PackfileHandler` takes in blobs, compresses and encrypts them and saves
 /// them to packfiles. A reverse operation is done when restoring a backup. Packfiles are stored in
 /// a folder named "pack" in the output folder, and the index is stored in a folder named "index"
 /// in the output folder.
@@ -108,9 +108,5 @@ impl Manager {
                 packfiles_size_max: crate::defaults::MAX_PACKFILE_LOCAL_BUFFER_SIZE,
             }),
         })
-    }
-
-    pub async fn dump_index(&self) {
-        self.inner.index.lock().await.dump().await;
     }
 }

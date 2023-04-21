@@ -61,7 +61,7 @@ async fn main() {
 
     TRANSPORT_REQUESTS.set(P2PConnectionManager::new()).unwrap();
 
-    let client = Client::builder()
+    let _client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())
         .tls_built_in_root_certs(false)
         .build()

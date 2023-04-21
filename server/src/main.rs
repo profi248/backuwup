@@ -10,7 +10,7 @@ mod ws;
 
 use poem::{
     listener::{RustlsCertificate, RustlsConfig, TcpListener},
-    EndpointExt, Route, Server,
+    Route, Server,
 };
 use tokio::sync::OnceCell;
 
@@ -58,7 +58,7 @@ async fn main() {
         .at("/p2p/connection/confirm", p2p_connection_confirm)
         .at("/ws", ws::handler);
 
-    let config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
+    let _config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
 
     let listener = TcpListener::bind(&bind_ip); //.rustls(config);
     let server = Server::new(listener);

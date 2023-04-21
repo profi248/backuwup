@@ -1,10 +1,7 @@
 use std::time::Duration;
 
 use shared::types::{BlobHash, ClientId};
-use sqlx::{
-    postgres::{PgPoolOptions, PgRow},
-    query, Executor, PgPool, Postgres, Row,
-};
+use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Row};
 
 use crate::handlers;
 

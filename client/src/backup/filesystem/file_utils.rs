@@ -47,5 +47,5 @@ pub fn get_packfile_path(backup_folder: &Path, id: PackfileId, create_dirs: bool
 }
 
 pub fn get_index_path(backup_folder: &Path, id: u32) -> PathBuf {
-    backup_folder.join(INDEX_FOLDER).join(format!("{:0>10}", id))
+    backup_folder.join(INDEX_FOLDER).join(format!("{id:0>10}"))
 }

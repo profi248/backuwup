@@ -46,7 +46,7 @@ pub async fn handle_stream(
                 let (msg_num, file_info, mut data) =
                     validate_incoming_message(session_nonce, &source_pubkey, &mut data_msg_counter, &msg)?;
 
-                println!("[p2p] received file {:?}", file_info);
+                println!("[p2p] received file {file_info:?}");
 
                 match file_info {
                     FileInfo::Packfile(id) => receiver.save_packfile(id, &mut data).await?,

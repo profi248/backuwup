@@ -29,7 +29,7 @@ pub static RESTORE_ORCHESTRATOR: OnceCell<RestoreOrchestrator> = OnceCell::const
 
 pub async fn run() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
-    let destination = config.get_packfile_path().await?;
+    let destination = config.get_packfile_path()?;
 
     BackupOrchestrator::initialize_static(&destination).await?;
 
@@ -143,7 +143,13 @@ pub async fn run_restore() -> anyhow::Result<()> {
 
     let packfile_size = get_size(config.get_restored_packfiles_folder()?)?;
 
-    orchestrator.set_finished(true, format!("Restore completed successfully!\nReceived and unpacked {} worth of data.", human_bytes(packfile_size as f64)));
+    orchestrator.set_finished(
+        true,
+        format!(
+            "Restore completed successfully!\nReceived and unpacked {} worth of data.",
+            human_bytes(packfile_size as f64)
+        ),
+    );
 
     log!("[restore] restore completed successfully!");
     Ok(())

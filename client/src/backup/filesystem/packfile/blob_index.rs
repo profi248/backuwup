@@ -91,13 +91,6 @@ impl BlobIndex {
         Ok(index)
     }
 
-    pub async fn dump(&mut self) {
-        self.find_packfile(&Default::default());
-        for pair in &self.items {
-            println!("{}: {}", hex::encode(pair.0), hex::encode(pair.1));
-        }
-    }
-
     pub fn begin_packfile(&mut self) -> IndexPackfileHandle {
         IndexPackfileHandle { blobs: Vec::default() }
     }
@@ -214,7 +207,7 @@ impl BlobIndex {
         // todo: add associated data (to make sure we're decrypting a index so "index" could work)
         cipher.encrypt_in_place(nonce, b"", &mut buf)?;
 
-        let file_name = format!("{:0>10}", new_file_num);
+        let file_name = format!("{new_file_num:0>10}");
         let file_path = self.output_path.join(file_name);
         let mut file = File::create(file_path.clone()).await?;
         file.write_all(&buf).await?;

@@ -1,7 +1,4 @@
-use poem::{
-    handler,
-    web::{Data, Json},
-};
+use poem::{handler, web::Json};
 use shared::{
     client_message::{BeginP2PConnectionRequest, ConfirmP2PConnectionRequest},
     server_message::ServerMessage,
@@ -9,7 +6,6 @@ use shared::{
 };
 
 use crate::{
-    db::Database,
     handlers::{
         Error,
         Error::{BadRequest, ClientNotFound},

@@ -100,7 +100,7 @@ impl Manager {
         }
 
         if candidates_size >= PACKFILE_TARGET_SIZE || candidates_cnt >= PACKFILE_MAX_BLOBS {
-            return self.write_packfiles(true).await.map(|val| Some(val));
+            return self.write_packfiles(true).await.map(Some);
         }
 
         Ok(None)
@@ -219,7 +219,7 @@ impl Manager {
         // header_length[sizeof u64] || encrypted_header[header_length] || data
         buffer.append(&mut (header.len() as u64).to_le_bytes().to_vec());
         buffer.append(&mut header);
-        buffer.append(&mut data);
+        buffer.append(data);
 
         Ok((packfile_id, buffer))
     }

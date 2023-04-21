@@ -24,7 +24,7 @@ impl Config {
         result
     }
 
-    pub async fn get_packfile_path(&self) -> anyhow::Result<PathBuf> {
+    pub fn get_packfile_path(&self) -> anyhow::Result<PathBuf> {
         let mut dir = dirs::data_local_dir().expect("Cannot find the system app data directory");
         dir.push(APP_FOLDER_NAME);
         dir.push(BACKUP_BUFFER_FOLDER_NAME);
@@ -70,7 +70,7 @@ impl Transaction<'_> {
 
     pub async fn save_highest_sent_index_number(&mut self, index: u32) -> anyhow::Result<()> {
         sqlx::query("insert or replace into config (key, value) values ('highest_sent_index', $1)")
-            .bind(index as i64)
+            .bind(i64::from(index))
             .execute(&mut self.transaction)
             .await?;
 

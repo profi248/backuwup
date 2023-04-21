@@ -64,7 +64,6 @@ pub struct BackupProgress {}
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct RestoreProgress {}
 
-
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Peer {
     id: String,
@@ -96,7 +95,7 @@ impl Messenger {
     }
 
     pub fn panic(&self, msg: impl Into<String> + Clone) {
-        self.sender.send(StatusMessage::Panic(msg.clone().into())).ok();
+        self.sender.send(StatusMessage::Panic(msg.into())).ok();
     }
 
     pub async fn progress_add_peer(&self, id: ClientId) {
@@ -175,7 +174,8 @@ impl Messenger {
                     backup_running: self.backup_running.load(Relaxed),
                     restore_running: self.restore_running.load(Relaxed),
                     peers: None,
-                })).ok();
+                }))
+                .ok();
         } else if self.restore_running.load(Relaxed) {
             self.sender
                 .send(StatusMessage::Progress(Progress {
@@ -190,7 +190,8 @@ impl Messenger {
                     backup_running: self.backup_running.load(Relaxed),
                     restore_running: self.restore_running.load(Relaxed),
                     peers: None,
-                })).ok();
+                }))
+                .ok();
         }
     }
 
@@ -230,7 +231,9 @@ impl Messenger {
 
     pub fn send_restore_finished(&self, success: bool, msg: impl Into<String>) {
         self.restore_running.store(false, Relaxed);
-        self.sender.send(StatusMessage::RestoreFinished((success, msg.into()))).ok();
+        self.sender
+            .send(StatusMessage::RestoreFinished((success, msg.into())))
+            .ok();
     }
 }
 

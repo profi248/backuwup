@@ -12,12 +12,7 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use crate::{
-    backup::send,
-    identity, log,
-    net_p2p::{handle_connections, received_files_writer},
-    CONFIG, UI,
-};
+use crate::{backup::send, identity, log, net_p2p::handle_connections, CONFIG, UI};
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -27,7 +22,7 @@ pub async fn connect_ws() {
     // server reconnection loop
     loop {
         let server_url = env::var("SERVER_URL").unwrap_or(crate::defaults::SERVER_URL.to_string());
-        let endpoint = format!("ws://{}/ws", server_url);
+        let endpoint = format!("ws://{server_url}/ws");
         let mut stream = websocket_connect(endpoint).await;
 
         // message processing loop

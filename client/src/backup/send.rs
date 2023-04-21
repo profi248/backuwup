@@ -9,7 +9,7 @@ use fs_extra::dir::get_size;
 use shared::{
     p2p_message::{FileInfo, RequestType},
     server_message_ws::BackupMatched,
-    types::{ClientId, PackfileId, TransportSessionNonce},
+    types::{ClientId, TransportSessionNonce},
 };
 use tokio::{net::TcpStream, time};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};

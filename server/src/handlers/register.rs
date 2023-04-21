@@ -1,7 +1,4 @@
-use poem::{
-    handler,
-    web::{Data, Json},
-};
+use poem::{handler, web::Json};
 use shared::{
     client_message::{ClientRegistrationAuth, ClientRegistrationRequest},
     server_message::{ClientRegistrationChallenge, ServerMessage},

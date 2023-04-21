@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use portpicker::pick_unused_port;
-use rand_chacha::rand_core::{RngCore, SeedableRng};
 use shared::p2p_message::MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 
@@ -44,8 +43,13 @@ pub fn obfuscate_data_impl(data: &mut [u8], key: [u8; 4]) -> &[u8] {
 
 #[test]
 fn obfuscation_test() {
-    let mut data: [u8; 123123] = [0; 123123];
-    rand_chacha::ChaCha8Rng::from_seed([0; 32]).fill_bytes(&mut data);
+    use rand_chacha::{
+        rand_core::{RngCore, SeedableRng},
+        ChaCha8Rng,
+    };
+
+    let mut data: [u8; 123_123] = [0; 123_123];
+    ChaCha8Rng::from_seed([0; 32]).fill_bytes(&mut data);
     let mut orig = data.clone();
     let key = [0x40, 0x41, 0x42, 0x43];
 
