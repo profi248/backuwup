@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use cast::{i64, u64};
 use shared::{
     constants::{BACKUP_REQUEST_EXPIRY, MAX_BACKUP_STORAGE_REQUEST_SIZE},
     server_message_ws::{BackupMatched, ServerMessageWs},
@@ -30,6 +31,7 @@ impl Add for Request {
     }
 }
 
+/// A queue of storage requests.
 #[derive(Clone)]
 pub struct Queue {
     queue: Arc<Mutex<SumQueue<Request>>>,
@@ -48,6 +50,8 @@ impl Queue {
         }
     }
 
+    /// Fulfill a storage request by matching it with other requests in the queue.
+    ///
     /// The storage request fulfillment strategy is to put incoming requests in
     /// a queue with expiration. From there, they are removed and matched as
     /// new requests come in. As it's a queue, the requests that came first
@@ -62,7 +66,7 @@ impl Queue {
             return Err(handlers::Error::BadRequest);
         }
 
-        let mut storage_to_fulfill: i64 = request.storage_required as i64;
+        let mut storage_to_fulfill = i64(request.storage_required).unwrap();
 
         while let Some(destination) = self.pop() {
             // don't match requests from the same client and discard them to avoid infinite loops
@@ -104,7 +108,7 @@ impl Queue {
                         .save_storage_negotiated(
                             request.client_id,
                             destination.client_id,
-                            request.storage_required as i64,
+                            i64(request.storage_required).unwrap(),
                         )
                         .await?;
                     DB.get()
@@ -112,11 +116,11 @@ impl Queue {
                         .save_storage_negotiated(
                             destination.client_id,
                             request.client_id,
-                            request.storage_required as i64,
+                            i64(request.storage_required).unwrap(),
                         )
                         .await?;
 
-                    match storage_to_fulfill.cmp(&(destination.storage_required as i64)) {
+                    match storage_to_fulfill.cmp(&i64(destination.storage_required).unwrap()) {
                         // if destination's requested storage is greater then the remaining part of
                         // incoming request, we have successfully fulfilled the request and
                         // the remaining portion of destination's request will be put back on the queue
@@ -132,7 +136,7 @@ impl Queue {
                         // we will subtract from the storage that still need fulfilling,
                         // and continue with other requests
                         Ordering::Greater => {
-                            storage_to_fulfill -= destination.storage_required as i64;
+                            storage_to_fulfill -= i64(destination.storage_required).unwrap();
 
                             continue;
                         }
@@ -157,7 +161,7 @@ impl Queue {
         if storage_to_fulfill > 0 {
             self.push(Request {
                 client_id: request.client_id,
-                storage_required: storage_to_fulfill as u64,
+                storage_required: u64(storage_to_fulfill).unwrap(),
             });
         }
 
@@ -170,6 +174,7 @@ impl Queue {
         }
     }
 
+    /// Push a request to the storage request queue.
     fn push(&self, request: Request) {
         self.queue
             .lock()
@@ -177,6 +182,7 @@ impl Queue {
             .push(request);
     }
 
+    /// Pop a request from the storage request queue.
     fn pop(&self) -> Option<Request> {
         self.queue.lock().expect("Failed to lock backup request queue").pop()
     }

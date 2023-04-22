@@ -26,7 +26,7 @@ pub async fn p2p_connection_begin(
     let destination_client_id = request.destination_client_id;
     let session_nonce = request.session_nonce;
 
-    println!("p2p connection begin request received to {destination_client_id:?}");
+    println!("p2p connection begin request received to {}", hex::encode(destination_client_id));
 
     if !DB.get().unwrap().client_exists(destination_client_id).await? {
         println!("{destination_client_id:?} doesn't exist");
@@ -62,7 +62,7 @@ pub async fn p2p_connection_confirm(
         return Err(BadRequest.into());
     }
 
-    println!("p2p connection confirm request received to {destination_client_id:?}");
+    println!("p2p connection confirm request received to {}", hex::encode(destination_client_id));
 
     if !DB.get().unwrap().client_exists(source_client_id).await? {
         return Err(ClientNotFound(source_client_id).into());

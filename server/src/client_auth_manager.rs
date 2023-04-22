@@ -11,9 +11,13 @@ use shared::types::{ChallengeNonce, ChallengeResponse, ClientId, SessionToken};
 
 use crate::handlers;
 
+/// Specifies how long a challenge nonce is valid for.
 const CHALLENGE_EXPIRATION: Duration = Duration::from_secs(30);
+
+/// Specifies how long a session token is valid for, at maximum.
 const SESSION_EXPIRATION: Duration = Duration::from_secs(24 * 3600);
 
+/// Keeps track of client authentication challenges and active sessions.
 pub struct ClientAuthManager {
     data: Arc<Mutex<ClientAuthManagerInner>>,
 }
@@ -39,6 +43,7 @@ impl ClientAuthManager {
         Self { data: Arc::new(Mutex::new(inner)) }
     }
 
+    /// Starts a new challenge, given client, generating a random nonce.
     pub fn challenge_begin(&self, client_id: ClientId) -> Result<ChallengeNonce, handlers::Error> {
         let mut nonce: ChallengeNonce = Default::default();
         getrandom(&mut nonce)?;
@@ -51,6 +56,7 @@ impl ClientAuthManager {
         Ok(nonce)
     }
 
+    /// Verifies a response to challenge that has been started before.
     pub fn challenge_verify(
         &self,
         client_id: ClientId,
@@ -73,6 +79,7 @@ impl ClientAuthManager {
         Ok(())
     }
 
+    /// Generates a new random session token and associates it with the given client.
     pub fn session_start(&self, client_id: ClientId) -> Result<SessionToken, handlers::Error> {
         let mut token: SessionToken = Default::default();
         getrandom(&mut token)?;
@@ -84,13 +91,10 @@ impl ClientAuthManager {
         Ok(token)
     }
 
+    /// Returns the client associated with the given session token.
     pub fn get_session(&self, token: SessionToken) -> Option<ClientId> {
         let data = self.data.lock().unwrap();
 
         data.sessions.get(&token).copied()
-    }
-
-    pub fn session_clear(&self, token: SessionToken) {
-        self.data.lock().expect("Lock failed").sessions.remove(&token);
     }
 }

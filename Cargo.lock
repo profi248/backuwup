@@ -1860,6 +1860,7 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cast",
  "delay_map",
  "dotenvy",
  "ed25519-dalek",

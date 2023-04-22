@@ -5,12 +5,14 @@ use sqlx::{postgres::PgPoolOptions, query, Executor, PgPool, Row};
 
 use crate::handlers;
 
+/// Manages the database connection and provides access to the database.
 #[derive(Clone, Debug)]
 pub struct Database {
     conn_pool: PgPool,
 }
 
 impl Database {
+    /// Initializes the database connection and creates the database schema if it doesn't exist.
     pub async fn init() -> Self {
         let db_url = dotenvy::var("DB_URL").expect("DB_URL environment variable not set or invalid");
 
@@ -42,6 +44,7 @@ impl Database {
         db
     }
 
+    /// Creates the database schema if it doesn't exist yet.
     async fn create_schema(pool: PgPool) -> Result<(), handlers::Error> {
         let result = query("select value from metadata where key = 'schema_version'")
             .fetch_optional(&pool)
@@ -68,6 +71,7 @@ impl Database {
         }
     }
 
+    /// Saves a new client to the database.
     pub async fn register_client(&self, client_id: ClientId) -> Result<(), handlers::Error> {
         query("insert into clients (pubkey, registered) values ($1, now())")
             .bind(client_id)
@@ -77,6 +81,7 @@ impl Database {
         Ok(())
     }
 
+    /// Checks whether a client exists in the database.
     pub async fn client_exists(&self, client_id: ClientId) -> Result<bool, handlers::Error> {
         let result = query("select pubkey from clients where pubkey = $1")
             .bind(client_id)
@@ -87,6 +92,7 @@ impl Database {
         Ok(result)
     }
 
+    /// Updates the last login timestamp of a client to the current time.
     pub async fn client_update_logged_in(&self, client_id: ClientId) -> Result<(), handlers::Error> {
         query("update clients set last_login = now() where pubkey = $1")
             .bind(client_id)
@@ -96,6 +102,8 @@ impl Database {
         Ok(())
     }
 
+    /// Adds a record about a storage negotiation to the database, with the source and destination
+    /// clients, storage size and current timestamp.
     pub async fn save_storage_negotiated(
         &self,
         source: ClientId,
@@ -115,6 +123,7 @@ impl Database {
         Ok(())
     }
 
+    /// Get the snapshot hash of the latest backup for a certain client.
     pub async fn get_latest_client_snapshot(
         &self,
         client_id: ClientId,
@@ -137,6 +146,7 @@ impl Database {
         }
     }
 
+    /// Saves a new backup record with a snapshot hash.
     pub async fn save_snapshot(
         &self,
         client_id: ClientId,
@@ -151,6 +161,7 @@ impl Database {
         Ok(())
     }
 
+    /// Get the list of clients that have negotiated storage with a certain client.
     pub async fn get_client_negotiated_peers(
         &self,
         client_id: ClientId,

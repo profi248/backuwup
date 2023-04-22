@@ -43,6 +43,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
+#[allow(clippy::match_same_arms)]
 impl ResponseError for Error {
     fn status(&self) -> StatusCode {
         match self {

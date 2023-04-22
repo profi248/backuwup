@@ -18,6 +18,7 @@ use tokio::sync::Mutex;
 
 use crate::{handlers, handlers::check_token_header, CONNECTIONS};
 
+/// Upgrade an incoming HTTP request to a WebSocket connection.
 #[poem::handler]
 pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
     let mut client_id = Default::default();
@@ -49,6 +50,7 @@ pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
     .with_status(if authorized { StatusCode::SWITCHING_PROTOCOLS } else { StatusCode::UNAUTHORIZED })
 }
 
+/// Listens for incoming messages on a WebSocket connection, to handle if the connection is closed.
 pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client_id: ClientId) {
     loop {
         let msg = ws_recv.next().await;
@@ -57,7 +59,6 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
         match msg {
             None | Some(Err(_) | Ok(Message::Close(_))) => {
                 CONNECTIONS.get().unwrap().remove_connection(client_id).await;
-
                 println!("[ws] connection dropped: {client_id:?}");
                 break;
             }
@@ -66,23 +67,28 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
     }
 }
 
+/// Keeps track of all active WebSocket connections to clients.
 pub struct ClientConnections {
     connections: Arc<Mutex<HashMap<ClientId, SplitSink<WebSocketStream, Message>>>>,
 }
 
 impl ClientConnections {
+    /// Creates a new instance of `ClientConnections`.
     pub fn new() -> Self {
         Self { connections: Arc::new(Mutex::new(HashMap::new())) }
     }
 
+    /// Keeps track of a new connection.
     pub async fn new_connection(&self, client_id: ClientId, connection: SplitSink<WebSocketStream, Message>) {
         self.connections.lock().await.insert(client_id, connection);
     }
 
+    /// Removes a connection.
     pub async fn remove_connection(&self, client_id: ClientId) {
         self.connections.lock().await.remove(&client_id);
     }
 
+    /// Send a message to a connected client identified by its ID.
     pub async fn notify_client(
         &self,
         client_id: ClientId,

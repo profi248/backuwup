@@ -35,7 +35,6 @@ pub async fn register_complete(
 
     DB.get().unwrap().register_client(request.client_id).await?;
 
-    // todo nicer print formatting
-    println!("Client {:?} registered successfully", request.client_id);
+    println!("Client {} registered successfully", hex::encode(request.client_id));
     Ok(Json(ServerMessage::Ok))
 }
