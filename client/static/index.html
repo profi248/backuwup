@@ -138,7 +138,6 @@
                                             backup directory.
                                         </p>
                                     </div>
-
                                     <div class="d-grid gap-2 d-lg-block mt-2">
                                         <button type="button" class="btn btn-primary" v-on:click="start_backup(); starting = true" :disabled="starting || restore_running">
                                             <span v-if="!starting">Start backup</span>
@@ -158,10 +157,6 @@
                             <div class="col-md-6">
                                 <div class="card-body">
                                     <h5 class="card-title">Configuration</h5>
-                                    <!--                        <div class="d-flex h-100 justify-content-center align-items-center">-->
-                                    <!--                            <button type="button" class="btn btn-outline-dark align-content-center">Change settings</button>-->
-                                    <!--                        </div>-->
-
                                     <div class="form-floating mb-3">
                                         <input type="text" class="form-control" v-model="configuration.path" id="path"
                                                placeholder="name@example.com" :disabled="!settings_editable">
@@ -172,12 +167,6 @@
                         </div>
                     </Transition>
                 </div>
-                <!--            <div class="d-flex justify-content-center z-n1 position-absolute" v-else>-->
-                <!--                <div class="spinner-border" role="status">-->
-                <!--                    <span class="visually-hidden">Loading...</span>-->
-                <!--                </div>-->
-                <!--            </div>-->
-
                 <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs"
                           disabled>{{ logs }}</textarea>
             </div>

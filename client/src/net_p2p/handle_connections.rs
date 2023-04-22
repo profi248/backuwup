@@ -22,6 +22,8 @@ use crate::{
     CONFIG, KEYS, TRANSPORT_REQUESTS,
 };
 
+/// Handles a new incoming connection request from a peer, setting the tunnel up for a file transfer,
+/// and then handing off the connection to the appropriate handler.
 pub async fn accept_and_listen(incoming_req: IncomingP2PConnection) -> anyhow::Result<()> {
     // reject connections from unknown peers
     if CONFIG
@@ -84,6 +86,8 @@ pub async fn accept_and_listen(incoming_req: IncomingP2PConnection) -> anyhow::R
     Ok(())
 }
 
+/// Handles a fulfilled outgoing connection request to a peer, sending the initialization message,
+/// and then handing off the connection to the appropriate handler.
 pub async fn accept_and_connect(finalize_req: FinalizeP2PConnection) -> anyhow::Result<()> {
     let url = format!("ws://{}", finalize_req.destination_ip_address);
 
@@ -134,6 +138,7 @@ pub async fn accept_and_connect(finalize_req: FinalizeP2PConnection) -> anyhow::
     Ok(())
 }
 
+/// Connects to a peer, retrying a few times if the connection fails.
 async fn sock_conn(url: &String) -> anyhow::Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
     let mut attempts = 3;
 
@@ -156,6 +161,7 @@ async fn sock_conn(url: &String) -> anyhow::Result<WebSocketStream<MaybeTlsStrea
     })
 }
 
+/// Waits for the peer to send us a request message, and returns the request type.
 async fn receive_request(
     nonce: TransportSessionNonce,
     client_id: ClientId,
@@ -181,6 +187,7 @@ async fn receive_request(
     Ok(body.request)
 }
 
+/// Validates the signature on an encapsulated message.
 fn validate_encapsulated_signature(
     source_pubkey: &[u8],
     encapsulated: &EncapsulatedMsg,

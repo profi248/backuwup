@@ -10,6 +10,7 @@ pub mod received_files_writer;
 pub mod restore_files_writer;
 pub mod transport;
 
+/// Returns the WebSocket configuration used for P2P connections.
 fn get_ws_config() -> WebSocketConfig {
     WebSocketConfig {
         max_send_queue: None,
@@ -19,6 +20,7 @@ fn get_ws_config() -> WebSocketConfig {
     }
 }
 
+/// Returns the local IP address and a random high range port, used for listening for peer connections.
 pub fn get_listener_address() -> anyhow::Result<(String, u16)> {
     // get our IP address on the local network, since we can currently only connect to
     // computers in the same network segment
@@ -30,6 +32,7 @@ pub fn get_listener_address() -> anyhow::Result<(String, u16)> {
     Ok((format!("{local_ip_addr}:{port}"), port))
 }
 
+/// Obfuscates/deobfuscates the given data in-place using the given key.
 pub fn obfuscate_data_impl(data: &mut [u8], key: [u8; 4]) -> &[u8] {
     for dword in &mut data.chunks_mut(4) {
         // obfuscate each byte of the dword, the length of the chunk will be at most 4, but the last one may be shorter
@@ -50,7 +53,7 @@ fn obfuscation_test() {
 
     let mut data: [u8; 123_123] = [0; 123_123];
     ChaCha8Rng::from_seed([0; 32]).fill_bytes(&mut data);
-    let mut orig = data.clone();
+    let orig = data;
     let key = [0x40, 0x41, 0x42, 0x43];
 
     obfuscate_data_impl(&mut data, key);

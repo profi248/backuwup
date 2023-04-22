@@ -23,18 +23,18 @@ pub struct RestoreReceiver {
 impl Receiver for RestoreReceiver {
     async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()> {
         let path = get_index_path(&self.file_path, id);
-        self.save_file(path, data).await
+        Self::save_file(path, data)
     }
 
     async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()> {
         let path = get_packfile_path(&self.file_path, id, true)?;
-        self.save_file(path, data).await
+        Self::save_file(path, data)
     }
 }
 
 // todo throttle restore requests to prevent a DoS
 impl RestoreReceiver {
-    pub async fn new(peer_id: ClientId) -> anyhow::Result<Self> {
+    pub fn new(peer_id: ClientId) -> anyhow::Result<Self> {
         let config = CONFIG.get().unwrap();
         let file_path = config.get_restored_packfiles_folder()?;
 
@@ -45,7 +45,7 @@ impl RestoreReceiver {
         Ok(Self { file_path, peer_id })
     }
 
-    pub async fn save_file(&self, path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
+    pub fn save_file(path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
         fs::write(path, data)?;
 
         Ok(())
@@ -57,7 +57,7 @@ pub async fn handle_receiving(
     nonce: TransportSessionNonce,
     stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) -> anyhow::Result<()> {
-    let receiver = RestoreReceiver::new(client_id).await?;
+    let receiver = RestoreReceiver::new(client_id)?;
 
     match receive::handle_stream(stream, nonce, client_id, receiver).await {
         Ok(_) => {

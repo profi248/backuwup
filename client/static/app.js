@@ -73,9 +73,7 @@ createApp({
         transfer_speed_bytes() {
             let timespan = Date.now() - this.bytes_sent_prev_time;
             let data_transferred = this.bytes_transmitted - this.bytes_sent_prev;
-            let bytes_per_second = (data_transferred / timespan) * 1000;
-
-            return bytes_per_second;
+            return (data_transferred / timespan) * 1000;
         },
         get_config() {
             if (this.socket) {

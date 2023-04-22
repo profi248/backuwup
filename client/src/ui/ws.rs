@@ -10,6 +10,7 @@ use crate::{
     UI,
 };
 
+/// Upgrade to a WebSocket connection and start sending log messages to the client.
 #[poem::handler]
 pub fn handler(ws: WebSocket) -> impl IntoResponse {
     // subscribe to the sender
@@ -24,6 +25,7 @@ pub fn handler(ws: WebSocket) -> impl IntoResponse {
     })
 }
 
+/// Receives messages from the rest of the program and sends them to the WebSocket client.
 async fn send_log_messages(
     mut ws_send: SplitSink<WebSocketStream, Message>,
     mut log_receiver: Receiver<StatusMessage>,

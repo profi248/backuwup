@@ -86,13 +86,13 @@ impl BackupTransportManager {
                             notifier.send(message_id).ok();
                         }
                         Err(e) => {
-                            log!("[p2p] error while processing ack: {}", e);
+                            log!("[p2p] error while processing ack: {e}");
                         }
                     }
                 }
                 Ok(Message::Close(_)) => break,
-                Ok(_) => break,
-                Err(_) => break,
+                Ok(_) => log!("[p2p] invalid message type while waiting for ack"),
+                Err(e) => log!("[p2p] WebSocket error while waiting for ack: {e}"),
             }
         }
     }

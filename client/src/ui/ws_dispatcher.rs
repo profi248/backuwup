@@ -24,6 +24,7 @@ pub struct Config {
     pub path: Option<PathBuf>,
 }
 
+/// Dispatches messages from the WebSocket clients (the web UI) to the appropriate handlers.
 pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
     loop {
         let msg = match ws_recv.next().await {

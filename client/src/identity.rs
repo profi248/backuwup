@@ -6,6 +6,7 @@ use crate::{
     CONFIG, KEYS,
 };
 
+/// Perform a login to the server, using the stored master secret, and save the token to disk.
 pub async fn login() -> anyhow::Result<()> {
     let key_manager = KEYS.get().unwrap();
     let pubkey = key_manager.get_pubkey();
@@ -22,6 +23,7 @@ pub async fn login() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Initialize the key manager.
 pub async fn load_secret() -> anyhow::Result<()> {
     let secret = CONFIG.get().unwrap().load_master_secret().await?;
     KEYS.set(KeyManager::from_secret(secret)?)
@@ -30,6 +32,7 @@ pub async fn load_secret() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Generate a random 4-byte backup storage obfuscation key.
 pub fn generate_obfuscation_key() -> anyhow::Result<u32> {
     let mut key_bytes = [0u8; 4];
     getrandom(&mut key_bytes)?;
@@ -37,6 +40,7 @@ pub fn generate_obfuscation_key() -> anyhow::Result<u32> {
     Ok(u32::from_le_bytes(key_bytes))
 }
 
+/// Performs an initial setup process, given an existing seed to restore from.
 pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
     let key_manager = KeyManager::from_secret(secret)?;
 
@@ -64,6 +68,7 @@ pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Performs an initial setup process, generating a new master secret.
 pub async fn new_secret_setup() -> anyhow::Result<()> {
     let key_manager = KeyManager::generate()?;
 

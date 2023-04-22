@@ -8,6 +8,7 @@ use crate::{
     KEYS,
 };
 
+/// Handle the first start guide in a CLI, which allows the user to either start fresh or restore from a mnemonic.
 pub async fn first_run_guide() {
     println!("{}", "Welcome!".yellow().bold());
     let items = vec!["Start fresh", "Restore"];
@@ -54,7 +55,6 @@ async fn fresh_setup_guide() {
     println!("{}", "Generating a secret and registering...".green());
     println!();
 
-    // todo improve error handling
     identity::new_secret_setup().await.expect("Failed to setup!");
 
     let secret = KEYS.get().unwrap().get_master_secret();

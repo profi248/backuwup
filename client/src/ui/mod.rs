@@ -6,6 +6,7 @@ pub mod ws_status_message;
 use poem::{endpoint::EmbeddedFilesEndpoint, listener::TcpListener, Route, Server};
 use rust_embed::RustEmbed;
 
+/// Serve the static files and register the WebSocket endpoint.
 pub async fn run(bind_addr: String) {
     #[derive(RustEmbed)]
     #[folder = "static"]

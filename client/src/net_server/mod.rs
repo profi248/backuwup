@@ -16,6 +16,7 @@ use crate::{backup::send, identity, log, net_p2p::handle_connections, CONFIG, UI
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
+/// Connects to the server via WebSocket and starts the message processing loop.
 pub async fn connect_ws() {
     let logger = UI.get().unwrap();
 
@@ -46,6 +47,7 @@ pub async fn connect_ws() {
     }
 }
 
+/// Processes a message received from the server.
 async fn process_message(msg: Message) {
     // process the message in a separate task
     tokio::spawn(async {
@@ -81,6 +83,7 @@ async fn process_message(msg: Message) {
     });
 }
 
+/// Connects to the server via WebSocket, logging in if necessary, and returns the stream.
 async fn websocket_connect(endpoint: String) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
     let logger = UI.get().unwrap();
     let config = CONFIG.get().unwrap();

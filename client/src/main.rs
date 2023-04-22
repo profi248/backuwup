@@ -1,8 +1,11 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::redundant_else, clippy::wrong_self_convention, clippy::manual_let_else)]
-
-//#![allow(dead_code)]
+#![allow(
+    clippy::redundant_else,
+    clippy::wrong_self_convention,
+    clippy::manual_let_elsem,
+    clippy::doc_markdown
+)]
 
 use std::{env, panic, process, time::Duration};
 
@@ -36,7 +39,8 @@ async fn main() {
     // Windows needs explicit enabling of terminal color escapes support
     enable_ansi_support().ok();
 
-    // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130)
+    // make any panics in threads quit the entire application (https://stackoverflow.com/a/36031130),
+    // and try sending send the panic message to the WebSocket clients
     let orig_hook = panic::take_hook();
     panic::set_hook(Box::new(move |panic_info| {
         // invoke the default handler and exit the process

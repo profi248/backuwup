@@ -19,6 +19,8 @@ pub struct P2PConnectionRequest {
     pub purpose: RequestType,
 }
 
+/// Keeps track of outgoing connection requests and generates nonces,
+/// validating that incoming responses are not unsolicited.
 pub struct P2PConnectionManager {
     requests: Arc<Mutex<HashMapDelay<ClientId, P2PConnectionRequest>>>,
 }
@@ -36,6 +38,7 @@ impl P2PConnectionManager {
         }
     }
 
+    /// Saves a connection request, and returns the session nonce to be sent to the peer.
     pub async fn add_request(
         &self,
         client_id: ClientId,
@@ -50,6 +53,7 @@ impl P2PConnectionManager {
         Ok(session_nonce)
     }
 
+    /// Returns the connection request for the given client ID, if it exists and has not expired.
     pub async fn finalize_request(&self, client_id: ClientId) -> anyhow::Result<P2PConnectionRequest> {
         let mut requests = self.requests.lock().await;
         match requests.remove(&client_id) {

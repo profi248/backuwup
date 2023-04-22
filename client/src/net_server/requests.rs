@@ -12,6 +12,7 @@ use shared::{
 
 use crate::{identity, key_manager::Signature, CONFIG};
 
+/// Request a challenge nonce as a first step in the registration process.
 pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
     let client = reqwest::Client::new();
 
@@ -28,6 +29,7 @@ pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> 
     }
 }
 
+/// Complete the registration process by sending the challenge response.
 pub async fn register_complete(pubkey: ClientId, response: Signature) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
 
@@ -47,6 +49,7 @@ pub async fn register_complete(pubkey: ClientId, response: Signature) -> anyhow:
     }
 }
 
+/// Request a challenge nonce as a first step in the login process.
 pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
     let client = reqwest::Client::new();
 
@@ -63,6 +66,7 @@ pub async fn login_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
     }
 }
 
+/// Complete the login process by sending the challenge response.
 pub async fn login_complete(pubkey: ClientId, response: Signature) -> anyhow::Result<ClientLoginToken> {
     let client = reqwest::Client::new();
 
@@ -82,6 +86,7 @@ pub async fn login_complete(pubkey: ClientId, response: Signature) -> anyhow::Re
     }
 }
 
+// Request a P2P connection to another client.
 pub async fn p2p_connection_begin(
     destination_client_id: ClientId,
     session_nonce: TransportSessionNonce,
@@ -109,6 +114,7 @@ pub async fn p2p_connection_begin(
     .await
 }
 
+/// Send the server our IP address, to confirm a requested P2P connection.
 pub async fn p2p_connection_confirm(
     source_client_id: ClientId,
     destination_ip_address: String,
@@ -136,6 +142,7 @@ pub async fn p2p_connection_confirm(
     .await
 }
 
+/// Send the server a backup storage request.
 pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
     retry_with_login(|token| async move {
         let client = reqwest::Client::new();
@@ -155,6 +162,7 @@ pub async fn backup_storage_request(amount: u64) -> anyhow::Result<()> {
     .await
 }
 
+/// Notify the server that a backup has been completed.
 pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
     retry_with_login(|token| async move {
         let client = reqwest::Client::new();
@@ -176,6 +184,7 @@ pub async fn backup_done(snapshot_hash: BlobHash) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Request data needed to restore a backup.
 pub async fn backup_restore() -> anyhow::Result<BackupRestoreInfo> {
     let info = retry_with_login(|token| async move {
         let client = reqwest::Client::new();
@@ -197,6 +206,7 @@ pub async fn backup_restore() -> anyhow::Result<BackupRestoreInfo> {
     Ok(info)
 }
 
+/// Retry a function that needs a session token, logging in if necessary.
 async fn retry_with_login<T, F>(func: impl Fn(SessionToken) -> F) -> anyhow::Result<T>
 where
     F: Future<Output = Result<T, ResponseError>>,

@@ -16,6 +16,7 @@ pub trait Receiver {
     async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()>;
 }
 
+/// Generate an ack message for the given sequence number.
 fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> anyhow::Result<Message> {
     let body = bincode::serialize(&AckBody {
         header: Header { sequence_number: *seq, session_nonce: nonce },
@@ -30,6 +31,7 @@ fn ack_msg(nonce: TransportSessionNonce, seq: &mut u64, acknowledged: u64) -> an
     Ok(Message::Binary(bincode::serialize(&msg)?))
 }
 
+/// Validate and handle received messages, passing the incoming data to a `Receiver`.
 pub async fn handle_stream(
     mut stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
     session_nonce: TransportSessionNonce,
@@ -69,6 +71,7 @@ pub async fn handle_stream(
     Ok(())
 }
 
+/// Ensure that the incoming message is valid according to the protocol and return the data.
 fn validate_incoming_message(
     session_nonce: TransportSessionNonce,
     source_pubkey: &ClientId,

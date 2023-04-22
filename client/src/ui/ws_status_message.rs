@@ -15,6 +15,7 @@ use tokio::sync::{
 
 use crate::{backup::BACKUP_ORCHESTRATOR, ui::ws_dispatcher::Config};
 
+/// Manage sending status messages to the WebSocket clients (the web user interface).
 #[derive(Debug)]
 pub struct Messenger {
     sender: Sender<StatusMessage>,
@@ -29,7 +30,6 @@ pub struct Messenger {
     peers: Mutex<HashSet<ClientId>>,
 }
 
-// todo better support for restore and peer info
 #[derive(Clone, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum StatusMessage {
@@ -76,15 +76,15 @@ impl Messenger {
     pub fn new(sender: Sender<StatusMessage>) -> Self {
         Self {
             sender,
-            current: Default::default(),
-            failed: Default::default(),
-            total: Default::default(),
-            last_sent: Default::default(),
-            last_sent_peers: Default::default(),
-            backup_running: Default::default(),
-            restore_running: Default::default(),
-            pack_running: Default::default(),
-            peers: Default::default(),
+            current: AtomicU64::default(),
+            failed: AtomicU64::default(),
+            total: AtomicU64::default(),
+            last_sent: AtomicU64::default(),
+            last_sent_peers: AtomicU64::default(),
+            backup_running: AtomicBool::default(),
+            restore_running: AtomicBool::default(),
+            pack_running: AtomicBool::default(),
+            peers: Mutex::default(),
         }
     }
 

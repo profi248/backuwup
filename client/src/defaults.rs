@@ -1,5 +1,4 @@
 /// The address of the global server.
-//pub const SERVER_URL: &str = "192.168.0.216:9999";
 pub const SERVER_URL: &str = "127.0.0.1:8080";
 
 /// The address of the user interface server.
@@ -31,8 +30,7 @@ pub const PEER_STORAGE_USAGE_SPREAD: u64 = 32 * 1024 * 1024; // 32 MiB
 
 /// Maximum size of packfiles that are allowed to be temporarily stored on disk,
 /// while waiting for transferring them to a peer.
-//pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: usize = 4 * 1024 * 1024 * 1024; // 4 GiB
-pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: u64 = 100 * 1024 * 1024;
+pub const MAX_PACKFILE_LOCAL_BUFFER_SIZE: u64 = 100 * 1024 * 1024; // 100 MiB
 
 /// Maximum amount of seconds to wait until considering packfile transfer as failed.
 pub const PACKFILE_SEND_TIMEOUT: u64 = 20;
