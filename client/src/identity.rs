@@ -1,12 +1,12 @@
 use getrandom::getrandom;
 
 use crate::{
-    key_manager::{KeyManager, MasterSecret},
+    key_manager::{KeyManager, RootSecret},
     net_server::requests,
     CONFIG, KEYS,
 };
 
-/// Perform a login to the server, using the stored master secret, and save the token to disk.
+/// Perform a login to the server, using the stored root secret, and save the token to disk.
 pub async fn login() -> anyhow::Result<()> {
     let key_manager = KEYS.get().unwrap();
     let pubkey = key_manager.get_pubkey();
@@ -25,7 +25,7 @@ pub async fn login() -> anyhow::Result<()> {
 
 /// Initialize the key manager.
 pub async fn load_secret() -> anyhow::Result<()> {
-    let secret = CONFIG.get().unwrap().load_master_secret().await?;
+    let secret = CONFIG.get().unwrap().load_root_secret().await?;
     KEYS.set(KeyManager::from_secret(secret)?)
         .expect("KeyManager already set");
 
@@ -41,12 +41,12 @@ pub fn generate_obfuscation_key() -> anyhow::Result<u32> {
 }
 
 /// Performs an initial setup process, given an existing seed to restore from.
-pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
+pub async fn existing_secret_setup(secret: RootSecret) -> anyhow::Result<()> {
     let key_manager = KeyManager::from_secret(secret)?;
 
     let mut transaction = CONFIG.get().unwrap().transaction().await?;
     transaction
-        .save_master_secret(key_manager.get_master_secret())
+        .save_root_secret(key_manager.get_root_secret())
         .await?;
 
     let pubkey = key_manager.get_pubkey();
@@ -68,7 +68,7 @@ pub async fn existing_secret_setup(secret: MasterSecret) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Performs an initial setup process, generating a new master secret.
+/// Performs an initial setup process, generating a new root secret.
 pub async fn new_secret_setup() -> anyhow::Result<()> {
     let key_manager = KeyManager::generate()?;
 
@@ -76,9 +76,9 @@ pub async fn new_secret_setup() -> anyhow::Result<()> {
     // we don't end up with an inconsistent state
     let mut transaction = CONFIG.get().unwrap().transaction().await?;
 
-    // save master secret to disk
+    // save root secret to disk
     transaction
-        .save_master_secret(key_manager.get_master_secret())
+        .save_root_secret(key_manager.get_root_secret())
         .await?;
 
     let pubkey = key_manager.get_pubkey();

@@ -3,7 +3,7 @@ use shared::types::SessionToken;
 use sqlx::Row;
 
 use super::{Config, Transaction};
-use crate::key_manager::MasterSecret;
+use crate::key_manager::RootSecret;
 
 impl Config {
     pub async fn is_initialized(&self) -> anyhow::Result<bool> {
@@ -22,17 +22,17 @@ impl Config {
         result
     }
 
-    pub async fn save_master_secret(&self, secret: MasterSecret) -> anyhow::Result<()> {
+    pub async fn save_root_secret(&self, secret: RootSecret) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
-        let result = transaction.save_master_secret(secret).await;
+        let result = transaction.save_root_secret(secret).await;
         transaction.commit().await?;
 
         result
     }
 
-    pub async fn load_master_secret(&self) -> anyhow::Result<MasterSecret> {
+    pub async fn load_root_secret(&self) -> anyhow::Result<RootSecret> {
         let mut transaction = self.transaction().await?;
-        let result = transaction.load_master_secret().await;
+        let result = transaction.load_root_secret().await;
         transaction.commit().await?;
 
         result
@@ -88,23 +88,23 @@ impl Transaction<'_> {
         Ok(())
     }
 
-    pub async fn save_master_secret(&mut self, secret: MasterSecret) -> anyhow::Result<()> {
-        sqlx::query("insert into config (key, value) values ('master_secret', $1)")
+    pub async fn save_root_secret(&mut self, secret: RootSecret) -> anyhow::Result<()> {
+        sqlx::query("insert into config (key, value) values ('root_secret', $1)")
             .bind(Vec::from(secret))
             .execute(&mut self.transaction)
             .await?;
         Ok(())
     }
 
-    pub async fn load_master_secret(&mut self) -> anyhow::Result<MasterSecret> {
-        let secret: Vec<u8> = sqlx::query("select value from config where key = 'master_secret'")
+    pub async fn load_root_secret(&mut self) -> anyhow::Result<RootSecret> {
+        let secret: Vec<u8> = sqlx::query("select value from config where key = 'root_secret'")
             .fetch_one(&mut self.transaction)
             .await?
             .get(0);
 
         match secret.try_into() {
             Ok(secret) => Ok(secret),
-            Err(_) => Err(anyhow!("Invalid master secret")),
+            Err(_) => Err(anyhow!("Invalid root secret")),
         }
     }
 

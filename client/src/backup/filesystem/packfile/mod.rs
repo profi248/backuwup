@@ -55,9 +55,9 @@ const KEY_DERIVATION_CONSTANT_HEADER: &[u8] = b"header";
 ///         - nonce [12 bytes]
 ///         - actual encrypted blob data
 ///
-/// The header is encrypted with a key derived from the master key and a constant. Packfile ID is
+/// The header is encrypted with a key derived from the backup primary key and a constant. Packfile ID is
 /// random and used as a nonce for encrypting the header. Each blob is encrypted with a key derived
-/// from the master key and the specific blob hash, nonce is random and stored along with the
+/// from the backup primary key and the specific blob hash, nonce is random and stored along with the
 /// encrypted data. All encryption/authentication is done using AES-256-GCM. Header length is
 /// currently not encrypted, so it's possible to estimate the number of blobs stored in a file,
 /// but I don't think it's a big problem now.

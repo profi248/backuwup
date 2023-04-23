@@ -4,7 +4,7 @@ use owo_colors::OwoColorize;
 
 use crate::{
     identity,
-    key_manager::{MasterSecret, MASTER_SECRET_LENGTH},
+    key_manager::RootSecret,
     KEYS,
 };
 
@@ -33,7 +33,7 @@ async fn restore_setup_guide() {
         .validate_with(|str: &String| -> Result<(), String> {
             let mnemonic = Mnemonic::parse(str).map_err(|e| e.to_string())?;
 
-            if mnemonic.to_entropy().len() != MASTER_SECRET_LENGTH {
+            if RootSecret::try_from(mnemonic.to_entropy()).is_err() {
                 return Err("Invalid length".to_string());
             }
 
@@ -42,7 +42,7 @@ async fn restore_setup_guide() {
         .interact()
         .expect("Failed to enter secret");
 
-    let secret: MasterSecret = Mnemonic::parse(&secret).unwrap().to_entropy().try_into().unwrap();
+    let secret: RootSecret = Mnemonic::parse(&secret).unwrap().to_entropy().try_into().unwrap();
     identity::existing_secret_setup(secret)
         .await
         .expect("Failed to setup!");
@@ -57,7 +57,7 @@ async fn fresh_setup_guide() {
 
     identity::new_secret_setup().await.expect("Failed to setup!");
 
-    let secret = KEYS.get().unwrap().get_master_secret();
+    let secret = KEYS.get().unwrap().get_root_secret();
     let mnemonic = Mnemonic::from_entropy(&secret).unwrap().to_string();
 
     println!("{}", "This is your mnemonic that is used as a password for backup restoration, please write it down and keep it safe!".bold().red());

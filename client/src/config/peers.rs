@@ -125,7 +125,7 @@ impl Transaction<'_> {
         )
         .bind(&peer_id[..])
         .bind(negotiated as i64)
-        .bind(Config::get_unix_timestamp() as i64)
+        .bind(Config::get_unix_timestamp())
         .execute(&mut self.transaction)
         .await?;
 
@@ -158,7 +158,7 @@ impl Transaction<'_> {
             "update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = $2 where pubkey = $3",
         )
         .bind(amount as i64)
-        .bind(Config::get_unix_timestamp() as i64)
+        .bind(Config::get_unix_timestamp())
         .bind(&peer_id[..])
         .execute(&mut self.transaction)
         .await?;
@@ -171,7 +171,7 @@ impl Transaction<'_> {
             "update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3",
         )
         .bind(amount as i64)
-        .bind(Config::get_unix_timestamp() as i64)
+        .bind(Config::get_unix_timestamp())
         .bind(&peer_id[..])
         .execute(&mut self.transaction)
         .await?;
@@ -222,7 +222,7 @@ impl Transaction<'_> {
 
     pub async fn get_peers(&mut self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
         let oldest_timestamp = match last_seen_limit_seconds {
-            Some(seconds) => (Config::get_unix_timestamp() - seconds) as i64,
+            Some(seconds) => Config::get_unix_timestamp() - (seconds as i64),
             None => 0,
         };
 
@@ -254,7 +254,7 @@ impl Transaction<'_> {
 
     pub async fn peer_update_last_seen(&mut self, peer_id: ClientId) -> anyhow::Result<()> {
         sqlx::query("update peers set last_seen = $1 where pubkey = $2")
-            .bind(Config::get_unix_timestamp() as i64)
+            .bind(Config::get_unix_timestamp())
             .bind(&peer_id[..])
             .execute(&mut self.transaction)
             .await?;

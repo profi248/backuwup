@@ -9,15 +9,14 @@ use rand_chacha::{
 };
 use sha2::Sha256;
 
-pub type MasterSecret = [u8; 32];
+pub type RootSecret = [u8; 32];
 pub type PubkeyBytes = [u8; 32];
 pub type SymmetricKey = [u8; 32];
 pub type Signature = [u8; 64];
 
-pub const MASTER_SECRET_LENGTH: usize = 32;
 
 pub struct KeyManager {
-    master_secret: MasterSecret,
+    root_secret: RootSecret,
     signature_keypair: Keypair,
     backup_secret_key: SymmetricKey,
 }
@@ -30,15 +29,15 @@ impl Debug for KeyManager {
 
 impl KeyManager {
     pub fn generate() -> anyhow::Result<Self> {
-        let mut master_secret: MasterSecret = Default::default();
-        getrandom(&mut master_secret)?;
+        let mut root_secret: RootSecret = Default::default();
+        getrandom(&mut root_secret)?;
 
-        Self::from_secret(master_secret)
+        Self::from_secret(root_secret)
     }
 
-    pub fn from_secret(master_secret: MasterSecret) -> anyhow::Result<Self> {
-        // seed our CSPRNG with the master secret to generate keys reproducibly
-        let mut csprng = ChaCha20Rng::from_seed(master_secret);
+    pub fn from_secret(root_secret: RootSecret) -> anyhow::Result<Self> {
+        // seed our CSPRNG with the root secret to generate keys reproducibly
+        let mut csprng = ChaCha20Rng::from_seed(root_secret);
 
         // take 32 bytes of CSPRNG's output to generate the Ed25519 keypair
         let mut privkey: [u8; 32] = Default::default();
@@ -55,15 +54,15 @@ impl KeyManager {
         csprng.fill_bytes(&mut backup_secret_key);
 
         Ok(Self {
-            master_secret,
+            root_secret,
             signature_keypair,
             backup_secret_key,
         })
     }
 
-    //  it would be better to not have this
-    pub fn get_master_secret(&self) -> MasterSecret {
-        self.master_secret
+    // it would be better to not have this
+    pub fn get_root_secret(&self) -> RootSecret {
+        self.root_secret
     }
 
     pub fn get_pubkey(&self) -> PubkeyBytes {

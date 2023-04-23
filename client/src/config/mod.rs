@@ -64,8 +64,8 @@ impl Config {
         config
     }
 
-    pub fn get_server_root_tls_cert(&self) -> Box<&[u8]> {
-        Box::new(crate::defaults::SERVER_ROOT_TLS_CERT_PEM.as_bytes())
+    pub fn get_server_root_tls_cert(&self) -> &[u8] {
+        crate::defaults::SERVER_ROOT_TLS_CERT_PEM.as_bytes()
     }
 
     async fn create_db_structure(pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {
@@ -99,11 +99,11 @@ impl Config {
         Ok(Transaction { transaction })
     }
 
-    fn get_unix_timestamp() -> u64 {
-        SystemTime::now()
+    fn get_unix_timestamp() -> i64 {
+        cast::i64(SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
-            .unwrap_or(0)
+            .unwrap_or(0)).expect("timestamp overflow")
     }
 }
 

@@ -27,8 +27,8 @@ type Entry = Vec<(BlobHash, PackfileId)>;
 /// On disk, index consists of many files in a folder, using a sequential numbering system.
 /// To load the index in memory, all files are combined into one long list. The reason for splitting
 /// index into individual files is to make additions easy, and to prevent files from growing too large.
-/// The index files are also encrypted before saving, with a key derived from master key and constant,
-/// and the index ID as nonce. Index capacity is capped to 50 000 entries, making the largest file
+/// The index files are also encrypted before saving, with a key derived from the backup primary key and a
+/// constant, and the index ID as nonce. Index capacity is capped to 50 000 entries, making the largest file
 /// size slightly larger than 2 MiB.
 ///
 /// TODO improve space efficiency of index (if needed):
