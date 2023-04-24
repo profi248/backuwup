@@ -25,7 +25,7 @@ impl Config {
     pub async fn init() -> Self {
         let mut structure_initialized = true;
 
-        let mut config_file = dirs::config_dir().expect("Cannot find the system config directory");
+        let mut config_file = dirs::config_local_dir().expect("Cannot find the system config directory");
         config_file.push(crate::defaults::APP_FOLDER_NAME);
 
         fs::create_dir_all(config_file.clone())

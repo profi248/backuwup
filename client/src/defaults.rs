@@ -1,11 +1,11 @@
 /// The address of the global server.
-pub const SERVER_URL: &str = "127.0.0.1:8080";
+pub const SERVER_ADDR: &str = "127.0.0.1:9999";
 
 /// The address of the user interface server.
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";
 
 /// The name of the folder that contains the application data.
-pub const APP_FOLDER_NAME: &str = "p2p-backup";
+pub const APP_FOLDER_NAME: &str = "backuwup";
 
 /// The name of the configuration database.
 pub const CONFIG_DB_FILE: &str = "config.db";

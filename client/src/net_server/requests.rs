@@ -245,7 +245,7 @@ fn url(s: impl Into<String>) -> String {
     // todo use config
     format!(
         "http://{}/{}",
-        env::var("SERVER_URL").unwrap_or(crate::defaults::SERVER_URL.to_string()),
+        env::var("SERVER_ADDR").unwrap_or(crate::defaults::SERVER_ADDR.to_string()),
         s.into()
     )
 }

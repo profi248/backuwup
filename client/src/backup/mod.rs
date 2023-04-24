@@ -41,7 +41,11 @@ pub async fn run() -> anyhow::Result<()> {
 
     let backup_path = config.get_backup_path().await?;
     if backup_path.is_none() {
-        bail!("backup path not set")
+        UI.get()
+            .unwrap()
+            .send_backup_finished(false, format!("Backup failed: backup path not set"));
+
+        bail!("backup path not set");
     }
 
     BACKUP_ORCHESTRATOR.get().unwrap().set_backup_started();

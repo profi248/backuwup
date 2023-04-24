@@ -22,7 +22,7 @@ pub async fn connect_ws() {
 
     // server reconnection loop
     loop {
-        let server_url = env::var("SERVER_URL").unwrap_or(crate::defaults::SERVER_URL.to_string());
+        let server_url = env::var("SERVER_ADDR").unwrap_or(crate::defaults::SERVER_ADDR.to_string());
         let endpoint = format!("ws://{server_url}/ws");
         let mut stream = websocket_connect(endpoint).await;
 
