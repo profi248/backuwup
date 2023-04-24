@@ -3,3 +3,5 @@
 .vscode
 perf.data*
 massif.out*
+.idea
+docs/book
