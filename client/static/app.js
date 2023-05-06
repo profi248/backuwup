@@ -84,6 +84,11 @@ createApp({
         },
         start_restore() {
             if (this.socket) {
+                if (this.configuration.path === "") {
+                    alert("Please enter a backup path.");
+                    return;
+                }
+
                 if (this.settings_editable) {
                     this.send_config();
                 }
@@ -93,6 +98,7 @@ createApp({
                 }));
 
                 this.settings_editable = false;
+                this.starting = true;
             }
         },
         send_config() {
@@ -105,6 +111,11 @@ createApp({
         },
         start_backup() {
             if (this.socket) {
+                if (this.configuration.path === "") {
+                    alert("Please enter a backup path.");
+                    return;
+                }
+
                 if (this.settings_editable) {
                     this.send_config();
                 }
@@ -112,6 +123,8 @@ createApp({
                 this.socket.send(JSON.stringify({
                     type: "StartBackup"
                 }));
+
+                this.starting = true;
             }
         },
         connect_ws() {

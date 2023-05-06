@@ -139,11 +139,11 @@
                                         </p>
                                     </div>
                                     <div class="d-grid gap-2 d-lg-block mt-2">
-                                        <button type="button" class="btn btn-primary" v-on:click="start_backup(); starting = true" :disabled="starting || restore_running">
+                                        <button type="button" class="btn btn-primary" v-on:click="start_backup()" :disabled="starting || restore_running">
                                             <span v-if="!starting">Start backup</span>
                                             <span v-else>Starting...</span>
                                         </button>
-                                        <button type="button" class="btn btn-secondary ms-lg-2" v-on:click="start_restore(); starting = true" :disabled="starting || restore_running">
+                                        <button type="button" class="btn btn-secondary ms-lg-2" v-on:click="start_restore()" :disabled="starting || restore_running">
                                             <span v-if="!restore_running">Start restore</span>
                                             <span v-else>Restoring...</span>
                                         </button>
