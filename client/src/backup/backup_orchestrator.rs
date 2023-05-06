@@ -36,6 +36,8 @@ pub struct BackupOrchestrator {
     storage_request_last_sent: AtomicU64,
     /// The last time that backup storage was matched.
     storage_request_last_matched: AtomicU64,
+    /// The total number of bytes that have been fulfilled in storage requests this session.
+    storage_requests_fulfilled_size: AtomicU64,
     /// Path to the backup destination (packfile folder).
     destination_path: PathBuf,
     /// Backup size estimate (calculated from input folder).
@@ -58,6 +60,7 @@ impl BackupOrchestrator {
                 orchestrator.packfile_bytes_sent.store(0, Ordering::Relaxed);
                 orchestrator.packing_completed.store(false, Ordering::Release);
                 orchestrator.size_estimate.store(0, Ordering::Release);
+                orchestrator.storage_requests_fulfilled_size.store(0, Ordering::Relaxed);
             }
             None => {
                 BACKUP_ORCHESTRATOR
@@ -148,6 +151,7 @@ impl BackupOrchestrator {
         self.packing_completed.store(true, Ordering::Release);
     }
 
+    /// Get the time of the last storage request.
     pub fn get_storage_request_last_sent(&self) -> u64 {
         self.storage_request_last_sent.load(Ordering::Acquire)
     }
@@ -156,6 +160,27 @@ impl BackupOrchestrator {
     pub fn update_storage_request_last_sent(&self) {
         self.storage_request_last_sent
             .store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
+    }
+
+    /// Get the time of the last matched storage request.
+    pub fn get_storage_request_last_matched(&self) -> u64 {
+        self.storage_request_last_matched.load(Ordering::Acquire)
+    }
+
+    /// Update the last time that backup storage was matched.
+    pub fn update_storage_request_last_matched(&self) {
+        self.storage_request_last_matched
+            .store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
+    }
+
+    /// Increment the total size of storage requests fulfilled.
+    pub fn increment_storage_request_fulfilled_size(&self, size: u64) {
+        self.storage_requests_fulfilled_size.fetch_add(size, Ordering::Relaxed);
+    }
+
+    /// Get the total size of storage requests fulfilled.
+    pub fn get_storage_request_fulfilled_size(&self) -> u64 {
+        self.storage_requests_fulfilled_size.load(Ordering::Relaxed)
     }
 
     /// Set the backup as started.
@@ -173,11 +198,6 @@ impl BackupOrchestrator {
         self.backup_running.load(Ordering::Acquire)
     }
 
-    /// Get the time of the last matched storage request.
-    pub fn get_storage_request_last_matched(&self) -> u64 {
-        self.storage_request_last_matched.load(Ordering::Acquire)
-    }
-
     /// Set the backup size estimate.
     pub fn set_size_estimate(&self, size: u64) {
         self.size_estimate.store(size, Ordering::Release);
@@ -186,11 +206,5 @@ impl BackupOrchestrator {
     /// Get the backup size estimate.
     pub fn get_size_estimate(&self) -> u64 {
         self.size_estimate.load(Ordering::Acquire)
-    }
-
-    /// Update the last time that backup storage was matched.
-    pub fn update_storage_request_last_matched(&self) {
-        self.storage_request_last_matched
-            .store(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(), Ordering::Release);
     }
 }

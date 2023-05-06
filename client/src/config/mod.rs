@@ -6,6 +6,7 @@
 pub mod backup;
 pub mod identity;
 pub mod peers;
+pub mod log;
 
 use std::{
     fs,
@@ -76,14 +77,15 @@ impl Config {
     async fn create_db_structure(pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {
         sqlx::query(
             "create table if not exists config
-                (
+            (
                     key text not null
                         constraint config_pk
                         primary key,
                     value any
-                );
+            );
+
             create table if not exists peers
-                (
+            (
                     pubkey      blob not null
                         constraint peers_pk
                         primary key,
@@ -92,7 +94,15 @@ impl Config {
                     bytes_negotiated  integer,
                     first_seen        integer,
                     last_seen         integer
-                );",
+            );
+
+            create table if not exists log
+            (
+                id         integer primary key,
+                timestamp  integer,
+                event_type integer,
+                event_data blob
+            );",
         )
         .execute(pool)
         .await

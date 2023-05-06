@@ -28,6 +28,11 @@ use crate::{
     CONFIG, P2P_CONN_REQUESTS, UI,
 };
 
+/// The maximum size of a single storage request at a time.
+const STORAGE_REQUEST_CAP: u64 = 150_000_000; // 150 MB
+/// The default size of a single storage request, if the size cannot be estimated.
+const STORAGE_REQUEST_STEP: u64 = 50_000_000; // 50 MB
+
 /// A function designed to be a run in a task as a part of the backup process, it periodically scans
 /// the local filesystem for new packfiles, manages connections with peers and sends
 /// packfiles/indexes to them. Packfiles are sent just as they are being written, while indexes are
@@ -325,10 +330,11 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
         .add_request(matched.destination_id, RequestType::Transport)
         .await?;
 
-    BACKUP_ORCHESTRATOR
-        .get()
-        .ok_or(anyhow!("Backup orchestrator not initialized"))?
-        .update_storage_request_last_matched();
+    let orchestrator = BACKUP_ORCHESTRATOR.get()
+        .ok_or(anyhow!("Backup orchestrator not initialized"))?;
+
+    orchestrator.update_storage_request_last_matched();
+    orchestrator.increment_storage_request_fulfilled_size(matched.storage_available);
 
     CONFIG
         .get()
@@ -362,7 +368,15 @@ pub async fn connection_established(
     Ok(())
 }
 
-// todo do a better estimation, for example if we are just running a backup that has little changes
+#[allow(overlapping_range_endpoints, clippy::match_overlapping_arm)]
 fn estimate_storage_request_size() -> u64 {
-    BACKUP_ORCHESTRATOR.get().unwrap().get_size_estimate()
+    let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
+    let difference = orchestrator.get_size_estimate() - orchestrator.get_storage_request_fulfilled_size();
+
+    // exclusive range pattern are still nightly-only, this is probably the nicest solution
+    match difference {
+        ..=0 => STORAGE_REQUEST_STEP,
+        1..=STORAGE_REQUEST_CAP => difference,
+        STORAGE_REQUEST_CAP.. => STORAGE_REQUEST_CAP,
+    }
 }

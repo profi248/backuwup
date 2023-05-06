@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
+use cast::From;
 use backup_orchestrator::BackupOrchestrator;
 use fs_extra::dir::get_size;
 use futures_util::{try_join, FutureExt};
@@ -57,10 +58,10 @@ pub async fn run() -> anyhow::Result<()> {
     BACKUP_ORCHESTRATOR.get().unwrap().set_backup_started();
 
     // create a size estimate to use with storage requests
-    estimate_size(backup_path.as_ref().unwrap());
+    estimate_size(backup_path.as_ref().unwrap()).await;
 
     // start tasks for filesystem walking and for sending to peers
-    let pack_result = tokio::spawn(dir_packer::pack(backup_path.unwrap(), destination.clone()));
+    let pack_result = tokio::spawn(dir_packer::pack(backup_path.clone().unwrap(), destination.clone()));
     let transport_result = tokio::spawn(send::send(destination));
 
     // unpack the inner result so it stops whenever one of the tasks returns an error
@@ -77,6 +78,9 @@ pub async fn run() -> anyhow::Result<()> {
             UI.get()
                 .unwrap()
                 .send_backup_finished(true, "Backup completed successfully!");
+
+            config.log_backup(i64::cast(BACKUP_ORCHESTRATOR.get().unwrap().get_size_estimate())
+                                  .expect("bad size"), backup_path.as_ref().unwrap()).await?;
 
             UI.get()
                 .unwrap()
@@ -180,13 +184,25 @@ async fn request_restore_from_peer(peer_id: ClientId) -> anyhow::Result<()> {
 }
 
 /// Estimate the size of the data currently being backed up.
-fn estimate_size(backup_path: &PathBuf) {
+async fn estimate_size(backup_path: &PathBuf) {
     match get_size(backup_path) {
         Ok(size) => {
             // use a constant to estimate compression of a typical dataset,
             // we could do something smarter based on file types, but this is good enough for now
-            let size = (size as f64 * 0.9) as u64;
-            BACKUP_ORCHESTRATOR.get().unwrap().set_size_estimate(size);
+            let new_size = (size as f64 * 0.9) as u64;
+
+            // try to get the difference from the previous backup, if the previous backup doesn't
+            // exist or the path is different, we will just use the new size
+            let difference = CONFIG.get().unwrap().get_backup_size_difference(i64::cast(new_size).expect("bad size"), backup_path).await;
+
+            let estimate = match difference {
+                Ok(Some(0)) => 0,                                          // no difference
+                Ok(Some(..=0)) => new_size,                                // new backup is smaller, we can't estimate
+                Ok(Some(size)) => u64::cast(size).expect("bad size"), // new backup is bigger, use the difference
+                _ => new_size,                                             // no valid previous backup, use the new size
+            };
+
+            BACKUP_ORCHESTRATOR.get().unwrap().set_size_estimate(estimate);
         }
         Err(e) => {
             BACKUP_ORCHESTRATOR.get().unwrap().set_backup_finished();
