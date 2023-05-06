@@ -34,7 +34,6 @@ impl Receiver for RestoreReceiver {
     }
 }
 
-// todo throttle restore requests to prevent a DoS
 impl RestoreReceiver {
     pub fn new(peer_id: ClientId) -> anyhow::Result<Self> {
         let config = CONFIG.get().unwrap();
@@ -59,6 +58,7 @@ pub async fn handle_receiving(
     nonce: TransportSessionNonce,
     stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) -> anyhow::Result<()> {
+    // the peer that sends us data is not going to be known if we are restoring from clean state
     let receiver = RestoreReceiver::new(client_id)?;
 
     match receive::handle_stream(stream, nonce, client_id, receiver).await {

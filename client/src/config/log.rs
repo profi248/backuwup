@@ -1,8 +1,10 @@
 //! Contains functions related to logging events.
 
 use std::path::PathBuf;
-use sqlx::Row;
+
 use shared::types::ClientId;
+use sqlx::Row;
+
 use crate::config::{Config, Transaction};
 
 enum EventType {
@@ -74,9 +76,7 @@ impl Transaction<'_> {
         let event = serde_json::to_string(&RestoreRequestEvent { peer_id })?;
         let event_type = EventType::RestoreRequest.to_id();
 
-        sqlx::query(
-            "insert into log (timestamp, event_type, event_data) values ($1, $2, json($3))",
-        )
+        sqlx::query("insert into log (timestamp, event_type, event_data) values ($1, $2, json($3))")
             .bind(Config::get_unix_timestamp())
             .bind(event_type)
             .bind(event)
@@ -93,7 +93,8 @@ impl Transaction<'_> {
             "select timestamp from log where event_type = $1 and event_data ->> 'peer_id' = $2 order by timestamp desc limit 1",
         )
             .bind(event_type)
-            .bind(&peer_id[..])
+            // to properly match the peer_id, it needs to be a JSON array since that's how serde_json serializes it
+            .bind(serde_json::to_string(&peer_id[..])?)
             .fetch_optional(&mut self.transaction)
             .await?;
 
@@ -107,9 +108,7 @@ impl Transaction<'_> {
         let event = serde_json::to_string(&BackupEvent { size, path: path.clone() })?;
         let event_type = EventType::Backup.to_id();
 
-        sqlx::query(
-            "insert into log (timestamp, event_type, event_data) values ($1, $2, json($3))",
-        )
+        sqlx::query("insert into log (timestamp, event_type, event_data) values ($1, $2, json($3))")
             .bind(Config::get_unix_timestamp())
             .bind(event_type)
             .bind(event)
@@ -119,15 +118,19 @@ impl Transaction<'_> {
         Ok(())
     }
 
-    pub async fn get_backup_size_difference(&mut self, size: i64, path: &PathBuf) -> anyhow::Result<Option<i64>> {
+    pub async fn get_backup_size_difference(
+        &mut self,
+        size: i64,
+        path: &PathBuf,
+    ) -> anyhow::Result<Option<i64>> {
         let event_type = EventType::Backup.to_id();
 
         let result = sqlx::query(
             "select event_data ->> 'size' from log where event_type = $1 order by timestamp desc limit 1",
         )
-            .bind(event_type)
-            .fetch_optional(&mut self.transaction)
-            .await?;
+        .bind(event_type)
+        .fetch_optional(&mut self.transaction)
+        .await?;
 
         match result {
             Some(row) => {
@@ -135,10 +138,12 @@ impl Transaction<'_> {
                 let old_path: String = row.try_get(1)?;
                 let old_path = PathBuf::from(old_path);
 
-                if old_path != *path { return Ok(None); }
+                if old_path != *path {
+                    return Ok(None);
+                }
 
                 Ok(Some(size - last_size))
-            },
+            }
             None => Ok(None),
         }
     }

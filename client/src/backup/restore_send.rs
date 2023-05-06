@@ -10,7 +10,8 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use crate::{
     backup::filesystem::file_utils::{parse_index_path_into_id, parse_packfile_path_into_id},
-    defaults::{INDEX_FOLDER, PACKFILE_FOLDER},
+    config::Config,
+    defaults::{INDEX_FOLDER, PACKFILE_FOLDER, RESTORE_THROTTLE_DELAY},
     log,
     net_p2p::{obfuscate_data_impl, transport::BackupTransportManager},
     CONFIG,
@@ -23,6 +24,16 @@ pub async fn restore_all_data_to_peer(
     nonce: TransportSessionNonce,
     socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
 ) -> anyhow::Result<()> {
+    let config = CONFIG.get().unwrap();
+
+    if let Some(last_request) = config.get_last_peer_restore_request(peer_id).await? {
+        if last_request > Config::get_unix_timestamp() - (RESTORE_THROTTLE_DELAY as i64) {
+            bail!("restore request from {} throttled", hex::encode(peer_id));
+        }
+    }
+
+    config.log_peer_restore_request(peer_id).await?;
+
     let mut transport = BackupTransportManager::new(socket, nonce, peer_id);
     let mut file_path = CONFIG.get().unwrap().get_received_packfiles_folder()?;
     file_path.push(hex::encode(peer_id));

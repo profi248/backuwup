@@ -60,7 +60,9 @@ impl BackupOrchestrator {
                 orchestrator.packfile_bytes_sent.store(0, Ordering::Relaxed);
                 orchestrator.packing_completed.store(false, Ordering::Release);
                 orchestrator.size_estimate.store(0, Ordering::Release);
-                orchestrator.storage_requests_fulfilled_size.store(0, Ordering::Relaxed);
+                orchestrator
+                    .storage_requests_fulfilled_size
+                    .store(0, Ordering::Relaxed);
             }
             None => {
                 BACKUP_ORCHESTRATOR
@@ -175,7 +177,8 @@ impl BackupOrchestrator {
 
     /// Increment the total size of storage requests fulfilled.
     pub fn increment_storage_request_fulfilled_size(&self, size: u64) {
-        self.storage_requests_fulfilled_size.fetch_add(size, Ordering::Relaxed);
+        self.storage_requests_fulfilled_size
+            .fetch_add(size, Ordering::Relaxed);
     }
 
     /// Get the total size of storage requests fulfilled.

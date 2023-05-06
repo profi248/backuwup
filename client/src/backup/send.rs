@@ -20,18 +20,14 @@ use crate::{
     backup::{filesystem::file_utils, BACKUP_ORCHESTRATOR},
     defaults::{
         INDEX_FOLDER, MAX_PACKFILE_LOCAL_BUFFER_SIZE, PACKFILE_FOLDER,
-        PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_RETRY_DELAY,
+        PACKFILE_LOCAL_BUFFER_RESUME_THRESHOLD, STORAGE_REQUEST_CAP, STORAGE_REQUEST_RETRY_DELAY,
+        STORAGE_REQUEST_STEP,
     },
     log,
     net_p2p::transport::BackupTransportManager,
     net_server::{requests, requests::p2p_connection_begin},
     CONFIG, P2P_CONN_REQUESTS, UI,
 };
-
-/// The maximum size of a single storage request at a time.
-const STORAGE_REQUEST_CAP: u64 = 150_000_000; // 150 MB
-/// The default size of a single storage request, if the size cannot be estimated.
-const STORAGE_REQUEST_STEP: u64 = 50_000_000; // 50 MB
 
 /// A function designed to be a run in a task as a part of the backup process, it periodically scans
 /// the local filesystem for new packfiles, manages connections with peers and sends
@@ -330,7 +326,8 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
         .add_request(matched.destination_id, RequestType::Transport)
         .await?;
 
-    let orchestrator = BACKUP_ORCHESTRATOR.get()
+    let orchestrator = BACKUP_ORCHESTRATOR
+        .get()
         .ok_or(anyhow!("Backup orchestrator not initialized"))?;
 
     orchestrator.update_storage_request_last_matched();

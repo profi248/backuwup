@@ -5,8 +5,8 @@
 
 pub mod backup;
 pub mod identity;
-pub mod peers;
 pub mod log;
+pub mod peers;
 
 use std::{
     fs,
@@ -114,7 +114,7 @@ impl Config {
         Ok(Transaction { transaction })
     }
 
-    fn get_unix_timestamp() -> i64 {
+    pub fn get_unix_timestamp() -> i64 {
         cast::i64(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

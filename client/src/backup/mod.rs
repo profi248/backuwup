@@ -4,8 +4,8 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};
-use cast::From;
 use backup_orchestrator::BackupOrchestrator;
+use cast::From;
 use fs_extra::dir::get_size;
 use futures_util::{try_join, FutureExt};
 use human_bytes::human_bytes;
@@ -79,8 +79,12 @@ pub async fn run() -> anyhow::Result<()> {
                 .unwrap()
                 .send_backup_finished(true, "Backup completed successfully!");
 
-            config.log_backup(i64::cast(BACKUP_ORCHESTRATOR.get().unwrap().get_size_estimate())
-                                  .expect("bad size"), backup_path.as_ref().unwrap()).await?;
+            config
+                .log_backup(
+                    i64::cast(BACKUP_ORCHESTRATOR.get().unwrap().get_size_estimate()).expect("bad size"),
+                    backup_path.as_ref().unwrap(),
+                )
+                .await?;
 
             UI.get()
                 .unwrap()
@@ -193,7 +197,11 @@ async fn estimate_size(backup_path: &PathBuf) {
 
             // try to get the difference from the previous backup, if the previous backup doesn't
             // exist or the path is different, we will just use the new size
-            let difference = CONFIG.get().unwrap().get_backup_size_difference(i64::cast(new_size).expect("bad size"), backup_path).await;
+            let difference = CONFIG
+                .get()
+                .unwrap()
+                .get_backup_size_difference(i64::cast(new_size).expect("bad size"), backup_path)
+                .await;
 
             let estimate = match difference {
                 Ok(Some(0)) => 0,                                          // no difference

@@ -14,7 +14,10 @@ use shared::{
     types::{ClientId, TransportSessionNonce},
 };
 use tokio::{net::TcpStream, sync::broadcast, time::timeout};
-use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{
+    tungstenite::{error::ProtocolError::ResetWithoutClosingHandshake, Error::Protocol, Message},
+    MaybeTlsStream, WebSocketStream,
+};
 
 use crate::{
     defaults::{PACKFILE_ACK_TIMEOUT, PACKFILE_SEND_TIMEOUT},
@@ -94,6 +97,7 @@ impl BackupTransportManager {
                     }
                 }
                 Ok(Message::Close(_)) => break,
+                Err(Protocol(ResetWithoutClosingHandshake)) => break, // ignore incosquential close error
                 Ok(_) => log!("[p2p] invalid message type while waiting for ack"),
                 Err(e) => log!("[p2p] WebSocket error while waiting for ack: {e}"),
             }

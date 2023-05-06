@@ -10,7 +10,7 @@ use shared::{
 use tokio::net::TcpStream;
 use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-use crate::{KEYS, UI};
+use crate::{log, KEYS};
 
 #[async_trait::async_trait]
 pub trait Receiver {
@@ -62,7 +62,7 @@ pub async fn handle_stream(
                     .await?;
             }
             Some(Ok(Message::Close(_))) | None => {
-                UI.get().unwrap().log("[p2p] transport finished");
+                log!("[p2p] transport finished");
                 break;
             }
             Some(Ok(_)) => return Err(anyhow!("invalid message type received")),
