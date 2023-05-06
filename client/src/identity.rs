@@ -47,9 +47,7 @@ pub async fn existing_secret_setup(secret: RootSecret) -> anyhow::Result<()> {
     let key_manager = KeyManager::from_secret(secret)?;
 
     let mut transaction = CONFIG.get().unwrap().transaction().await?;
-    transaction
-        .save_root_secret(key_manager.get_root_secret())
-        .await?;
+    transaction.save_root_secret(key_manager.get_root_secret()).await?;
 
     let pubkey = key_manager.get_pubkey();
 
@@ -79,9 +77,7 @@ pub async fn new_secret_setup() -> anyhow::Result<()> {
     let mut transaction = CONFIG.get().unwrap().transaction().await?;
 
     // save root secret to disk
-    transaction
-        .save_root_secret(key_manager.get_root_secret())
-        .await?;
+    transaction.save_root_secret(key_manager.get_root_secret()).await?;
 
     let pubkey = key_manager.get_pubkey();
 

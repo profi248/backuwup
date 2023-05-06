@@ -205,7 +205,7 @@ impl Manager {
 
     /// Serializes and encrypts a single packfile.
     fn serialize_packfile(
-        mut data: &mut Vec<u8>,
+        data: &mut Vec<u8>,
         header: &mut Vec<PackfileHeaderBlob>,
         bytes_written: usize,
     ) -> Result<(PackfileId, Vec<u8>), PackfileError> {

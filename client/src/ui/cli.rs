@@ -4,11 +4,7 @@ use bip39::Mnemonic;
 use dialoguer::{theme::ColorfulTheme, Input, Password, Select};
 use owo_colors::OwoColorize;
 
-use crate::{
-    identity,
-    key_manager::RootSecret,
-    KEYS,
-};
+use crate::{identity, key_manager::RootSecret, KEYS};
 
 /// Handle the first start guide in a CLI, which allows the user to either start fresh or restore from a mnemonic.
 pub async fn first_run_guide() {

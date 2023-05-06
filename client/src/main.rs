@@ -5,10 +5,11 @@
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
 #![allow(
+    dead_code,
     clippy::redundant_else,
     clippy::wrong_self_convention,
     clippy::manual_let_else,
-    clippy::doc_markdown,
+    clippy::doc_markdown
 )]
 
 use std::{env, panic, process, time::Duration};

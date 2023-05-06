@@ -57,11 +57,7 @@ impl KeyManager {
         let mut backup_secret_key: SymmetricKey = Default::default();
         csprng.fill_bytes(&mut backup_secret_key);
 
-        Ok(Self {
-            root_secret,
-            signature_keypair,
-            backup_secret_key,
-        })
+        Ok(Self { root_secret, signature_keypair, backup_secret_key })
     }
 
     /// Get the root secret of the key manager.

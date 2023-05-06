@@ -76,7 +76,6 @@ async fn process_message(msg: Message) {
                 ServerMessageWs::FinalizeP2PConnection(request) => {
                     handle_connections::accept_and_connect(request).await
                 }
-                ServerMessageWs::StorageChallengeRequest(_) => Ok(()),
             }
             .map_err(|e| log!("[net] Error processing incoming message: {}", e))
             .ok();
