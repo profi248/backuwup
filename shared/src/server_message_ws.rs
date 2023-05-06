@@ -8,7 +8,6 @@ pub enum ServerMessageWs {
     BackupMatched(BackupMatched),
     IncomingP2PConnection(IncomingP2PConnection),
     FinalizeP2PConnection(FinalizeP2PConnection),
-    StorageChallengeRequest(StorageChallengeRequest),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,9 +26,4 @@ pub struct IncomingP2PConnection {
 pub struct FinalizeP2PConnection {
     pub destination_client_id: ClientId,
     pub destination_ip_address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct StorageChallengeRequest {
-    // todo
 }
