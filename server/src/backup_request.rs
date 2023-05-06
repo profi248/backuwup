@@ -83,7 +83,7 @@ impl Queue {
                 .notify_client(
                     destination.client_id,
                     ServerMessageWs::BackupMatched(BackupMatched {
-                        storage_available: request.storage_required,
+                        storage_available: destination.storage_required,
                         destination_id: request.client_id,
                     }),
                 )
