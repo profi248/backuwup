@@ -1,3 +1,5 @@
+//! Contains logic for packing and unpacking a directory tree into a packfile.
+
 pub mod dir_packer;
 pub mod dir_unpacker;
 pub mod file_utils;

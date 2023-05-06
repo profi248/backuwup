@@ -1,3 +1,5 @@
+//! Handler for storage requests.
+
 use poem::{handler, web::Json};
 use shared::{client_message::BackupRequest, server_message::ServerMessage};
 

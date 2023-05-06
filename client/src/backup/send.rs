@@ -1,3 +1,5 @@
+//! Allows for coordinated sending of files to peers during the backup process.
+
 use std::{
     fs,
     path::{Path, PathBuf},

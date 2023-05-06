@@ -1,3 +1,6 @@
+//! Configuration related to identity management, like the initialization status, the root secret,
+//! the session token and the obfuscation key.
+
 use anyhow::anyhow;
 use shared::types::SessionToken;
 use sqlx::Row;

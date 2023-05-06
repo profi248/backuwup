@@ -1,3 +1,6 @@
+//! Contains all the logic for creating and restoring backups, including sending and
+//! receiving files over the network and packing/unpacking them.
+
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail};

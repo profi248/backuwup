@@ -1,3 +1,5 @@
+//! Configuration related to peer communication and files received from peers.
+
 use std::path::PathBuf;
 
 use anyhow::bail;

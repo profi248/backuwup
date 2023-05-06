@@ -1,3 +1,5 @@
+//! Contains the packing logic of the packfile.
+
 use std::{
     path::PathBuf,
     sync::atomic::{Ordering, Ordering::Relaxed},

@@ -1,3 +1,5 @@
+//! Contains logic for sending all received data to a peer during a restore operation.
+
 use anyhow::bail;
 use shared::{
     p2p_message::FileInfo,

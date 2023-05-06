@@ -1,3 +1,7 @@
+//! This is the client part of the implementation. It is responsible for creating and restoring
+//! backups, communicating with peers, sending metadata to the server and
+//! providing a UI for the user.
+
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
 #![allow(

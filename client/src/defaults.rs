@@ -1,3 +1,5 @@
+//! Contains the default values for the configuration and various constants.
+
 /// The address of the global server.
 pub const SERVER_ADDR: &str = "127.0.0.1:9999";
 

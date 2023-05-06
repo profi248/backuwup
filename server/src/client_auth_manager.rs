@@ -1,3 +1,5 @@
+//! Keeps track the challenge-response authentication process and active sessions.
+
 use std::{
     fmt::{Debug, Formatter},
     sync::{Arc, Mutex},

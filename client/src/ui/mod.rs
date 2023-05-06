@@ -1,3 +1,5 @@
+//! Contains the backend for the UI.
+
 pub mod cli;
 pub mod ws;
 mod ws_dispatcher;

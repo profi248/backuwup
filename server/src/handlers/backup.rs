@@ -1,3 +1,5 @@
+//! Handlers for for backup/snapshot-related API endpoints.
+
 use poem::{handler, web::Json};
 use shared::{
     client_message::{BackupDone, BackupRestoreRequest},

@@ -1,3 +1,5 @@
+//! Contains utility functions for working with files and paths.
+
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -1,3 +1,5 @@
+//! Implements the CLI for initial setup and restore.
+
 use bip39::Mnemonic;
 use dialoguer::{theme::ColorfulTheme, Input, Password, Select};
 use owo_colors::OwoColorize;

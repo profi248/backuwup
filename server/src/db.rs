@@ -1,3 +1,5 @@
+//! Database access and management.
+
 use std::time::Duration;
 
 use shared::types::{BlobHash, ClientId};

@@ -1,3 +1,5 @@
+//! Dispatches incoming messages from the clients.
+
 use std::path::PathBuf;
 
 use anyhow::bail;

@@ -1,3 +1,5 @@
+//! The server part of the application, responsible for storing metadata and matching peers.
+
 #![deny(unused_must_use, deprecated)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::single_match_else)]

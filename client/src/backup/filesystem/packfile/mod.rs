@@ -1,3 +1,5 @@
+//! Implements packfiles and the index used for storing blobs efficiently and securely.
+
 pub mod blob_index;
 pub mod pack;
 pub mod unpack;

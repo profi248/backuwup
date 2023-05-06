@@ -1,3 +1,8 @@
+//! Handles the configuration and other local data. Contains the `Transaction` struct that can be
+//! used to perform database transactions and has all the necessary methods to access the database.
+//! The `Config` struct is used create a `Transaction` and has shorthand methods for most of the
+//! same methods in `Transaction`.
+
 pub mod backup;
 pub mod identity;
 pub mod peers;

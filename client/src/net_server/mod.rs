@@ -1,3 +1,5 @@
+//! Communicates with the server via WebSocket and HTTP requests.
+
 pub mod requests;
 
 use std::env;

@@ -1,3 +1,5 @@
+//! WebSocket connection handler.
+
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use poem::{
     web::websocket::{Message, WebSocket, WebSocketStream},

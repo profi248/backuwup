@@ -1,3 +1,5 @@
+//! Implements packing a directory tree into packfiles.
+
 use std::{
     collections::VecDeque,
     ffi::OsString,

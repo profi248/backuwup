@@ -1,3 +1,5 @@
+//! Contains the P2P networking code.
+
 use anyhow::anyhow;
 use portpicker::pick_unused_port;
 use shared::p2p_message::MAX_ENCAPSULATED_BACKUP_CHUNK_SIZE;

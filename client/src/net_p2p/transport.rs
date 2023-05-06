@@ -1,3 +1,6 @@
+//! Implements the sending part of the P2P transport protocol, including replay protection and
+//! acknowledgements.
+
 use std::time::Duration;
 
 use anyhow::bail;

@@ -1,3 +1,5 @@
+//! Functions related to identity management, such as login and setup.
+
 use getrandom::getrandom;
 
 use crate::{

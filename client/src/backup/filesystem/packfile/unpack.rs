@@ -1,3 +1,5 @@
+//! Contains the logic for unpacking blobs from packfiles.
+
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
 use shared::types::{BlobHash, NONCE_SIZE};

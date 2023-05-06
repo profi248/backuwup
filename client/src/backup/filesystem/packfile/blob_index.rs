@@ -1,3 +1,5 @@
+//! Contains the index implementation, which is used for quickly finding packfiles.
+
 use std::{collections::HashSet, path::PathBuf};
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};

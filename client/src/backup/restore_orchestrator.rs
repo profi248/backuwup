@@ -1,3 +1,5 @@
+//! Implements coordination between various parts of the restore process.
+
 use std::{collections::HashMap, sync::atomic::AtomicBool};
 
 use anyhow::bail;

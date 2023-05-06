@@ -1,3 +1,6 @@
+//! Manages accepting incoming connections and responding to fulfilled outgoing connections,
+//! and upgrading them to the appropriate tunnel type, passing them off to the appropriate handler.
+
 use std::time::Duration;
 
 use anyhow::{anyhow, bail};

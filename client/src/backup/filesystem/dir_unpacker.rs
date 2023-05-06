@@ -1,3 +1,5 @@
+//! Implements unpacking of packfiles into a directory.
+
 use std::{collections::VecDeque, path::PathBuf};
 
 use anyhow::bail;

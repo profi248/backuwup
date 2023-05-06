@@ -1,3 +1,5 @@
+//! Contains functions to make HTTP requests to the server.
+
 use std::{env, future::Future, time::Duration};
 
 use anyhow::{anyhow, bail};

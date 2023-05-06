@@ -1,3 +1,5 @@
+//! Handlers for login API endpoints.
+
 use poem::{handler, web::Json};
 use shared::{
     client_message::{ClientLoginAuth, ClientLoginRequest},

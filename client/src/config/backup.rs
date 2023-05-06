@@ -1,3 +1,5 @@
+//! Configuration related to working with backup settings.
+
 use std::path::PathBuf;
 
 use sqlx::Row;

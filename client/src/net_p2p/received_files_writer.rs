@@ -1,3 +1,5 @@
+//! Write received peer backup files to disk.
+
 use std::{fs, path::PathBuf};
 
 use anyhow::bail;

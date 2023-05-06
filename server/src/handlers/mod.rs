@@ -1,3 +1,5 @@
+//! Handlers for the various API endpoints.
+
 pub mod backup;
 pub mod backup_request;
 pub mod login;

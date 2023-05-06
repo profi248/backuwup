@@ -1,3 +1,5 @@
+//! Write our restore files received from a peer.
+
 use std::{fs, path::PathBuf};
 
 use shared::types::{ClientId, PackfileId, TransportSessionNonce};

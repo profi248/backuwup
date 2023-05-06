@@ -1,3 +1,5 @@
+//! Contains logic for fulfilling storage requests.
+
 use std::{
     cmp::Ordering,
     fmt::{Debug, Formatter},

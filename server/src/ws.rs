@@ -1,3 +1,5 @@
+//! WebSocket connections with clients.
+
 use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},

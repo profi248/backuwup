@@ -1,3 +1,5 @@
+//! Handlers for P2P connection establishment API endpoints.
+
 use poem::{handler, web::Json};
 use shared::{
     client_message::{BeginP2PConnectionRequest, ConfirmP2PConnectionRequest},

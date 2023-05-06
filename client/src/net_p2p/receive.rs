@@ -1,3 +1,5 @@
+//! Receive data from a remote peer.
+
 use anyhow::{anyhow, bail};
 use ed25519_dalek::{PublicKey, Signature};
 use futures_util::{SinkExt, StreamExt};

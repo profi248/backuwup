@@ -1,3 +1,5 @@
+//! Implements coordination between various parts of the backup process.
+
 use std::{
     cmp::max,
     collections::HashMap,

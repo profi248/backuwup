@@ -1,3 +1,5 @@
+//! Key generation and signatures.
+
 use std::fmt::{Debug, Formatter};
 
 use ed25519_dalek::{Keypair, SecretKey, Signer};

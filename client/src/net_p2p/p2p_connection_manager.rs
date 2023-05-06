@@ -1,3 +1,5 @@
+//! Keeps track of outgoing connection requests and generates nonces.
+
 use std::{
     fmt::{Debug, Formatter},
     sync::Arc,

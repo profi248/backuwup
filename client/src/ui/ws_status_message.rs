@@ -1,3 +1,5 @@
+//! Handle sending status messages to the WebSocket clients.
+
 use std::{
     collections::HashSet,
     str::from_utf8,
