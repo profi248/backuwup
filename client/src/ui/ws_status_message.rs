@@ -73,6 +73,7 @@ pub struct Peer {
 }
 
 impl Messenger {
+    /// Create a new `Messenger` instance.
     pub fn new(sender: Sender<StatusMessage>) -> Self {
         Self {
             sender,
@@ -88,29 +89,40 @@ impl Messenger {
         }
     }
 
+    /// Let the actual WebSocket handler subscribe to the internal broadcast channel.
+    pub fn subscribe(&self) -> Receiver<StatusMessage> {
+        self.sender.subscribe()
+    }
+
+    /// Send a generic log message to the WebSocket clients.
     pub fn log(&self, msg: impl Into<String> + Clone) {
         // ignore sending errors because they are not very meaningful
         self.sender.send(StatusMessage::Message(msg.clone().into())).ok();
         println!("[log] {}", msg.into());
     }
 
+    /// Send a panic (crash) message to the WebSocket clients.
     pub fn panic(&self, msg: impl Into<String> + Clone) {
         self.sender.send(StatusMessage::Panic(msg.into())).ok();
     }
 
+    /// Add a peer to the list of peers that have been seen during the current backup.
     pub async fn progress_add_peer(&self, id: ClientId) {
         let mut peers = self.peers.lock().await;
         peers.insert(id);
     }
 
+    /// Set the total number of files to be backed up.
     pub fn progress_set_total(&self, total: u64) {
         self.total.store(total, Relaxed);
     }
 
+    /// Increment the number of files that have failed to up.
     pub fn progress_increment_failed(&self) {
         self.failed.fetch_add(1, Relaxed);
     }
 
+    /// Send the current progress to the WebSocket clients, if there has been a certain delay.
     pub async fn progress_notify_increment(&self, file: impl Into<String>) {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
 
@@ -157,7 +169,8 @@ impl Messenger {
             .join(":")
     }
 
-    pub fn progress_resend(&self) {
+    /// Send a progress update to the WebSocket clients.
+    pub fn send_progress(&self) {
         if self.backup_running.load(Relaxed) {
             let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
 
@@ -195,12 +208,14 @@ impl Messenger {
         }
     }
 
+    /// Send a backup started message to the WebSocket clients.
     pub fn send_backup_started(&self) {
         self.backup_running.store(true, Relaxed);
         self.pack_running.store(true, Relaxed);
         self.sender.send(StatusMessage::BackupStarted).ok();
     }
 
+    /// Send a backup finished message to the WebSocket clients.
     pub fn send_backup_finished(&self, success: bool, msg: impl Into<String>) {
         self.sender
             .send(StatusMessage::BackupFinished((success, msg.into())))
@@ -211,24 +226,24 @@ impl Messenger {
         self.backup_running.store(false, Relaxed);
     }
 
+    /// Send a config update to the WebSocket clients.
     pub fn send_config(&self, config: Config) {
         self.sender.send(StatusMessage::Config(config)).ok();
     }
 
-    pub fn subscribe(&self) -> Receiver<StatusMessage> {
-        self.sender.subscribe()
-    }
-
+    /// Set the pack running state.
     pub fn set_pack_running(&self, running: bool) {
         self.pack_running.store(running, Relaxed);
-        self.progress_resend();
+        self.send_progress();
     }
 
+    /// Send a restore started message to the WebSocket clients.
     pub fn send_restore_started(&self) {
         self.restore_running.store(true, Relaxed);
         self.sender.send(StatusMessage::RestoreStarted).ok();
     }
 
+    /// Send a restore finished message to the WebSocket clients.
     pub fn send_restore_finished(&self, success: bool, msg: impl Into<String>) {
         self.restore_running.store(false, Relaxed);
         self.sender

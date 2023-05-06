@@ -14,7 +14,7 @@ pub type PubkeyBytes = [u8; 32];
 pub type SymmetricKey = [u8; 32];
 pub type Signature = [u8; 64];
 
-
+/// A struct that handles key generation, signatures and key derivation.
 pub struct KeyManager {
     root_secret: RootSecret,
     signature_keypair: Keypair,
@@ -28,6 +28,7 @@ impl Debug for KeyManager {
 }
 
 impl KeyManager {
+    /// Generate a new key manager with a new root secret.
     pub fn generate() -> anyhow::Result<Self> {
         let mut root_secret: RootSecret = Default::default();
         getrandom(&mut root_secret)?;
@@ -35,6 +36,7 @@ impl KeyManager {
         Self::from_secret(root_secret)
     }
 
+    /// Initialize a key manager from an existing root secret.
     pub fn from_secret(root_secret: RootSecret) -> anyhow::Result<Self> {
         // seed our CSPRNG with the root secret to generate keys reproducibly
         let mut csprng = ChaCha20Rng::from_seed(root_secret);
@@ -60,19 +62,23 @@ impl KeyManager {
         })
     }
 
-    // it would be better to not have this
+    /// Get the root secret of the key manager.
     pub fn get_root_secret(&self) -> RootSecret {
+        // it would be nicer to not have this, but the CLI currently needs it
         self.root_secret
     }
 
+    /// Get the public key of the signature keypair.
     pub fn get_pubkey(&self) -> PubkeyBytes {
         self.signature_keypair.public.to_bytes()
     }
 
+    /// Sign a message with the signature keypair.
     pub fn sign(&self, data: &[u8]) -> Signature {
         self.signature_keypair.sign(data).to_bytes()
     }
 
+    /// Derive a symmetric key from the backup secret key with a KDF.
     pub fn derive_backup_key(&self, info: &[u8]) -> SymmetricKey {
         let kdf = Hkdf::<Sha256>::from_prk(&self.backup_secret_key).unwrap();
         let mut output: SymmetricKey = Default::default();

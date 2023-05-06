@@ -48,6 +48,7 @@ pub async fn dispatch_commands(mut ws_recv: SplitStream<WebSocketStream>) {
     }
 }
 
+/// Processes a message received from the client and run the appropriate task.
 async fn process_message(msg: &serde_json::Result<ClientMessage>) -> anyhow::Result<()> {
     match msg {
         Ok(ClientMessage::Config(conf)) => set_config(conf).await?,
@@ -60,6 +61,7 @@ async fn process_message(msg: &serde_json::Result<ClientMessage>) -> anyhow::Res
     Ok(())
 }
 
+/// Applies the received configuration.
 async fn set_config(conf: &Config) -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
 
@@ -70,6 +72,7 @@ async fn set_config(conf: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Sends the current configuration to the client.
 async fn send_config_message() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
 
@@ -77,7 +80,7 @@ async fn send_config_message() -> anyhow::Result<()> {
         .unwrap()
         .send_config(Config { path: config.get_backup_path().await? });
 
-    UI.get().unwrap().progress_resend();
+    UI.get().unwrap().send_progress();
 
     Ok(())
 }

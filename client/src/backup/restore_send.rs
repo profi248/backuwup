@@ -14,6 +14,8 @@ use crate::{
     CONFIG,
 };
 
+/// Send all packfiles and index files that we have received from a peer to that peer, over an
+/// already established WebSocket connection.
 pub async fn restore_all_data_to_peer(
     peer_id: ClientId,
     nonce: TransportSessionNonce,

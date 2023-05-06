@@ -242,7 +242,6 @@ enum ResponseError {
 
 fn url(s: impl Into<String>) -> String {
     // todo handle https
-    // todo use config
     format!(
         "http://{}/{}",
         env::var("SERVER_ADDR").unwrap_or(crate::defaults::SERVER_ADDR.to_string()),

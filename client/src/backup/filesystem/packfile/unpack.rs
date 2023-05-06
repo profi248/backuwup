@@ -17,6 +17,7 @@ use crate::{
 };
 
 impl Manager {
+    /// Returns the blob if it exists in the packfile.
     pub async fn get_blob(&mut self, blob_hash: &BlobHash) -> Result<Option<Blob>, PackfileError> {
         if let Some(packfile_id) = self.inner.index.lock().await.find_packfile(blob_hash) {
             let path = self.get_packfile_path(packfile_id, false).await?;

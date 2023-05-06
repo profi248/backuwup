@@ -8,24 +8,28 @@ use std::ffi::OsString;
 use serde::{Deserialize, Serialize};
 use shared::types::{BlobHash, BlobNonce};
 
+/// Represents the type of the blob, either a file chunk or a tree.
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum BlobKind {
     FileChunk,
     Tree,
 }
 
+// Specifies the compression algorithm used for the blob.
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum CompressionKind {
     None,
     Zstd,
 }
 
+// Specifies the type of the tree, either a file or a directory.
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub enum TreeKind {
     File,
     Dir,
 }
 
+/// Represents an item in the header of a packfile (a single blob).
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
 pub struct PackfileHeaderBlob {
     pub hash: BlobHash,
@@ -35,6 +39,7 @@ pub struct PackfileHeaderBlob {
     pub offset: u64,
 }
 
+/// Represents an in-memory blob.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct Blob {
     pub hash: BlobHash,
@@ -42,6 +47,7 @@ pub struct Blob {
     pub data: Vec<u8>,
 }
 
+/// Represents an in-memory encrypted blob.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct BlobEncrypted {
     pub hash: BlobHash,
@@ -50,13 +56,7 @@ pub struct BlobEncrypted {
     pub nonce: BlobNonce,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
-struct Snapshot {
-    id: u64,
-    timestamp: u64,
-    tree: BlobHash,
-}
-
+/// Represents metadata of a file/directory.
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug, Default)]
 struct TreeMetadata {
     size: Option<u64>,
@@ -64,6 +64,7 @@ struct TreeMetadata {
     ctime: Option<u64>,
 }
 
+/// Represents a directory tree, for encoding into a blob or in-memory.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 struct Tree {
     kind: TreeKind,
@@ -77,7 +78,6 @@ struct Tree {
 pub enum PackfileError {
     #[error("Packfile local buffer over limit")]
     ExceededBufferLimit,
-
     #[error("Invalid packfile header size")]
     InvalidHeaderSize,
     #[error("Packfile too large")]

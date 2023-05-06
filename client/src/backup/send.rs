@@ -23,16 +23,21 @@ use crate::{
     log,
     net_p2p::transport::BackupTransportManager,
     net_server::{requests, requests::p2p_connection_begin},
-    CONFIG, TRANSPORT_REQUESTS, UI,
+    CONFIG, P2P_CONN_REQUESTS, UI,
 };
 
+/// A function designed to be a run in a task as a part of the backup process, it periodically scans
+/// the local filesystem for new packfiles, manages connections with peers and sends
+/// packfiles/indexes to them. Packfiles are sent just as they are being written, while indexes are
+/// sent after the packfiles are done. If files are not created anymore, and all the files have
+/// been sent successfully, the function terminates.
 pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
 
     let pack_folder = output_folder.join(PACKFILE_FOLDER);
     let index_folder = output_folder.join(INDEX_FOLDER);
 
-    let mut last_written = orchestrator.packfile_bytes_written();
+    let mut last_written = orchestrator.get_packfile_bytes_written();
     let mut last_matched = orchestrator.get_storage_request_last_matched();
     let mut connection = None;
     let mut packfiles_done = false;
@@ -40,13 +45,12 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
 
     // sending loop that takes care of reestablishing the connection and transporting all files
     loop {
-        // todo flushing the packer here would be useful
         // temporarily stop the backup if the local buffer got too large
         if orchestrator.available_packfile_bytes() > MAX_PACKFILE_LOCAL_BUFFER_SIZE {
             orchestrator.pause().await;
         }
 
-        let current_written = orchestrator.packfile_bytes_written();
+        let current_written = orchestrator.get_packfile_bytes_written();
         let current_matched = orchestrator.get_storage_request_last_matched();
 
         // try establishing a peer connection if we just started or connection got terminated
@@ -134,6 +138,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Try to send all index files using an existing connection.
 async fn send_index(
     folder: &Path,
     peer_id: ClientId,
@@ -177,6 +182,7 @@ async fn send_index(
     Ok(())
 }
 
+/// Try to send all packfiles using an existing connection.
 async fn send_packfiles_from_folder(
     folder: &Path,
     peer_id: ClientId,
@@ -204,6 +210,9 @@ async fn send_packfiles_from_folder(
     Ok(())
 }
 
+/// Try to obtain a connection to a peer by using the strategy of first using existing established
+/// connections, then connecting to known peers in order of most storage, and finally sending
+/// a storage request if one hasn't been sent recently.
 async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManager)> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
     let config = CONFIG.get().unwrap();
@@ -221,7 +230,7 @@ async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManag
     // if no connections are active, try establishing them,
     // starting with an existing peer with most storage
     for peer in peers_with_storage {
-        let nonce = TRANSPORT_REQUESTS
+        let nonce = P2P_CONN_REQUESTS
             .get()
             .unwrap()
             .add_request(*peer, RequestType::Transport)
@@ -259,6 +268,7 @@ async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManag
     Err(anyhow!("Unable to get any connections at this time"))
 }
 
+/// Transport a single packfile over an existing connection.
 async fn send_single_packfile(
     path: &PathBuf,
     peer_id: ClientId,
@@ -289,6 +299,7 @@ async fn send_single_packfile(
     Err(anyhow!("Packfile not sent"))
 }
 
+/// Send a storage request if we haven't sent one in a while.
 async fn send_storage_request_if_needed() -> anyhow::Result<()> {
     let orchestrator = BACKUP_ORCHESTRATOR.get().unwrap();
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -304,9 +315,9 @@ async fn send_storage_request_if_needed() -> anyhow::Result<()> {
     Ok(())
 }
 
-// todo maybe store to which peers we have sent a packfile
+/// Store the peer ID and try connecting to it if a storage request has been matched.
 pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::Result<()> {
-    let nonce = TRANSPORT_REQUESTS
+    let nonce = P2P_CONN_REQUESTS
         .get()
         .unwrap()
         .add_request(matched.destination_id, RequestType::Transport)
@@ -328,6 +339,7 @@ pub async fn handle_storage_request_matched(matched: BackupMatched) -> anyhow::R
     Ok(())
 }
 
+/// Register a newly establish connection with the backup orchestrator so it can be used.
 pub async fn connection_established(
     client_id: ClientId,
     nonce: TransportSessionNonce,

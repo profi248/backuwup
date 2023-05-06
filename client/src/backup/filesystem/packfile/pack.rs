@@ -25,6 +25,7 @@ use crate::{
 };
 
 impl Manager {
+    /// Queues a blob to be written to the packfile.
     pub async fn add_blob(&self, blob: Blob) -> Result<Option<u64>, PackfileError> {
         if blob.data.len() > BLOB_MAX_UNCOMPRESSED_SIZE {
             return Err(PackfileError::BlobTooLarge);
@@ -51,6 +52,7 @@ impl Manager {
         self.trigger_write_if_desired().await
     }
 
+    /// Compresses and encrypts blob data.
     fn compress_encrypt_blob(blob: &Blob) -> Result<(Vec<u8>, BlobNonce), PackfileError> {
         let mut compressor = Compressor::new(ZSTD_COMPRESSION_LEVEL)?;
         compressor.include_checksum(false)?;
@@ -74,6 +76,7 @@ impl Manager {
         Ok((blob_data, nonce_bytes))
     }
 
+    /// Writes all queued blobs to disk.
     pub async fn flush(&self) -> Result<(), PackfileError> {
         self.write_packfiles(false).await?;
 
@@ -83,6 +86,7 @@ impl Manager {
         Ok(())
     }
 
+    /// Writes all queued blobs to disk if the packfile is over threshold.
     async fn trigger_write_if_desired(&self) -> Result<Option<u64>, PackfileError> {
         let mut candidates_size: usize = 0;
         let mut candidates_cnt: usize = 0;
@@ -106,6 +110,7 @@ impl Manager {
         Ok(None)
     }
 
+    /// Always writes all queued blobs to disk.
     async fn write_packfiles(&self, report_buffer_limit: bool) -> Result<u64, PackfileError> {
         let mut blobs = self.inner.blobs.lock().await;
         let mut index = self.inner.index.lock().await;
@@ -188,6 +193,7 @@ impl Manager {
             };
         }
 
+        // if buffer limit was exceeded, return a specific error so that the caller can wait
         if buffer_limit_exceeded && report_buffer_limit {
             Err(PackfileError::ExceededBufferLimit)
         } else {
@@ -195,6 +201,7 @@ impl Manager {
         }
     }
 
+    /// Serializes and encrypts a single packfile.
     fn serialize_packfile(
         mut data: &mut Vec<u8>,
         header: &mut Vec<PackfileHeaderBlob>,
@@ -224,6 +231,7 @@ impl Manager {
         Ok((packfile_id, buffer))
     }
 
+    /// Returns the path to a packfile with the given hash.
     pub async fn get_packfile_path(
         &self,
         packfile_hash: PackfileId,

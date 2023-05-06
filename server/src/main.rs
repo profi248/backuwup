@@ -28,9 +28,13 @@ use crate::{
     ws::ClientConnections,
 };
 
+/// Access to the global database connection pool.
 static DB: OnceCell<Database> = OnceCell::const_new();
+/// Manage and track WebSocket connections to clients.
 static CONNECTIONS: OnceCell<ClientConnections> = OnceCell::const_new();
+/// In-memory queue of backup requests.
 static BACKUP_REQUESTS: OnceCell<Queue> = OnceCell::const_new();
+/// In-memory handler for client challenges and sessions.
 static AUTH_MANAGER: OnceCell<ClientAuthManager> = OnceCell::const_new();
 
 #[tokio::main]

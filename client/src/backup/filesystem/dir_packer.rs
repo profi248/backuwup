@@ -32,6 +32,7 @@ type FsNodePtr = Option<Arc<FsNode>>;
 /// growing too big and exceeding the maximum size, as well as for effective deduplication.
 const TREE_BLOB_MAX_CHILDREN: usize = 10_000;
 
+/// An in-memory representation of a filesystem node.
 struct FsNode {
     parent: FsNodePtr,
     name: OsString,
@@ -64,8 +65,6 @@ pub async fn pack(backup_root: PathBuf, pack_folder: PathBuf) -> anyhow::Result<
     browse_dir_tree(&backup_root, root_node, &mut processing_queue, &mut total_file_count)?;
     UI.get().unwrap().progress_set_total(total_file_count);
 
-    // todo implement index rebuilding
-    // todo handle sigterm
     let root_hash = match pack_files_in_directory(&backup_root, &mut processing_queue, packer.clone()).await {
         Ok(h) => h,
         Err(e) => {
@@ -281,6 +280,7 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
     Ok(hash)
 }
 
+/// Add a file blob to the packfile manager, and return the hash of the blob.
 async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Result<BlobHash> {
     let hash = blake3::hash(data).into();
 
@@ -293,7 +293,6 @@ async fn add_file_blob(packer: &packfile::Manager, data: &[u8]) -> anyhow::Resul
     match packer.add_blob(blob).await {
         Ok(written) => {
             if let Some(bytes) = written {
-                // todo maybe notify the logger too
                 BACKUP_ORCHESTRATOR
                     .get()
                     .unwrap()
@@ -362,6 +361,7 @@ fn split_serialize_tree(tree: &Tree) -> anyhow::Result<VecDeque<Blob>> {
     }
 }
 
+/// Add a tree to the packfile, splitting it into multiple trees if necessary.
 async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> anyhow::Result<BlobHash> {
     let tree_blobs = split_serialize_tree(dir_tree)?;
     let first_blob_hash = tree_blobs[0].hash;
@@ -370,7 +370,6 @@ async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> an
         match packer.add_blob(blob).await {
             Ok(written) => {
                 if let Some(bytes) = written {
-                    // todo maybe notify the logger too
                     BACKUP_ORCHESTRATOR
                         .get()
                         .unwrap()
@@ -387,6 +386,7 @@ async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> an
     Ok(first_blob_hash)
 }
 
+/// Get the metadata of a file or directory.
 fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
     let metadata = path.metadata()?;
 
@@ -405,6 +405,7 @@ fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
     })
 }
 
+/// Recursively find the path of a `FsNodePtr`.
 fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
     let mut components = Vec::new();
     let mut path = root_path.clone();

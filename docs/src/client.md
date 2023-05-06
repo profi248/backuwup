@@ -14,16 +14,16 @@ After installing the Rust toolchain, the application (including all Rust librari
 cargo run --release
 ```
 
-The client applications relies on SQLite. If you don't have the library installed already, the build might fail, and it will be necessary to get it manually. On Linux it should be sufficient to install packages from the repository, usually named `libsqlite3-dev` and `libsqlite3` for Debian-based distributions or `sqlite-devel` and `sqlite` for Red Hat-based distributions. On Windows, try following [this guide](https://github.com/rusqlite/rusqlite#notes-on-building-rusqlite-and-libsqlite3-sys).
+The client application relies on SQLite. If you don't have the library installed already, the build might fail, and it will be necessary to get it manually. On Linux it should be sufficient to install packages from the repository, usually named `libsqlite3-dev` and `libsqlite3` for Debian-based distributions or `sqlite-devel` and `sqlite` for Red Hat-based distributions. On Windows, try following [this guide](https://github.com/rusqlite/rusqlite#notes-on-building-rusqlite-and-libsqlite3-sys).
 
 ## Usage
-The client application needs to connect to a server. The default server address is `127.0.0.1:8080`, but it can be overridden with the environment variable `SERVER_ADDR`.
+The client application needs to connect to a server. The default server address is `127.0.0.1:9999`, but it can be overridden with the environment variable `SERVER_ADDR`.
 
-Backuwup client expects to run in a terminal environment and with ANSI color escapes supported (works on common Linux and modern Windows versions). When the application is started for the first time, a command line first start guide will show up. The user can choose to either set up the application for scratch (when creating a new backup) or from an existing mnemonic (for restoring an existing backup). When starting from scratch, it's necessary to save the displayed mnemonic to be able to perform a restore later if the application data is destroyed.
+Backuwup client expects to run in a terminal environment and with ANSI color escapes supported (works on common Linux and modern Windows versions). When the application is started for the first time, a command line first start guide will show up. The user can choose to either set up the application from scratch (when creating a new backup) or from an existing mnemonic (for restoring an existing backup). When starting from scratch, it's necessary to save the displayed mnemonic to be able to perform a restore later if the application data is destroyed.
 
 After the first setup guide is completed, a web user interface is started. To access it, simply open the displayed link in a browser. The default address of the web user interface is `http://127.0.0.1:3000` (and is accessible only on the local computer). This can be overridden by the environment variable `UI_BIND_ADDR`. For example, setting it to `0.0.0.0:3001` will change the port to `3001` and will allow access not only from the local computer.
 
-The web user interface offers easy access to main functions with buttons at the top and displays basic progress graphically. Below the panel at the top, there's a window which shows logs. The terminal window where the application is running will show even more detailed logs.
+The web user interface offers easy access to main functions with buttons at the top and displays basic progress graphically. Below the panel at the top, there's a window that shows logs. The terminal window where the application is running will show even more detailed logs.
 
 ### Backups and restores
 Before starting a backup or a restore, a path needs to be set. That can be done in the right section of the user interface. 

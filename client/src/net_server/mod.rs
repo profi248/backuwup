@@ -35,7 +35,6 @@ pub async fn connect_ws() {
                 }
                 Some(Ok(msg)) => {
                     logger.log(format!("[net] message from server: {msg}"));
-
                     process_message(msg).await;
                 }
                 Some(Err(e)) => {

@@ -8,6 +8,7 @@ use shared::types::PackfileId;
 
 use crate::defaults::{INDEX_FOLDER, PACKFILE_FOLDER};
 
+/// Parse a packfile path from a file name into a native packfile ID.
 pub fn parse_packfile_path_into_id(path: &Path) -> anyhow::Result<PackfileId> {
     let packfile_id: PackfileId = hex::decode(
         path.file_name()
@@ -21,6 +22,7 @@ pub fn parse_packfile_path_into_id(path: &Path) -> anyhow::Result<PackfileId> {
     Ok(packfile_id)
 }
 
+/// Parse an index path from a file name into a native index ID.
 pub fn parse_index_path_into_id(path: &Path) -> anyhow::Result<u32> {
     let index_num = path
         .file_name()
@@ -32,6 +34,7 @@ pub fn parse_index_path_into_id(path: &Path) -> anyhow::Result<u32> {
     Ok(index_num)
 }
 
+/// Get the path to a packfile, optionally creating parent directories if they don't exist.
 pub fn get_packfile_path(backup_folder: &Path, id: PackfileId, create_dirs: bool) -> anyhow::Result<PathBuf> {
     let mut path = backup_folder.join(PACKFILE_FOLDER);
     let hex = hex::encode(id);
@@ -46,6 +49,7 @@ pub fn get_packfile_path(backup_folder: &Path, id: PackfileId, create_dirs: bool
     Ok(path)
 }
 
+/// Get the path to an index file.
 pub fn get_index_path(backup_folder: &Path, id: u32) -> PathBuf {
     backup_folder.join(INDEX_FOLDER).join(format!("{id:0>10}"))
 }

@@ -3,8 +3,8 @@
 #![allow(
     clippy::redundant_else,
     clippy::wrong_self_convention,
-    clippy::manual_let_elsem,
-    clippy::doc_markdown
+    clippy::manual_let_else,
+    clippy::doc_markdown,
 )]
 
 use std::{env, panic, process, time::Duration};
@@ -26,9 +26,13 @@ mod net_p2p;
 mod net_server;
 mod ui;
 
-static TRANSPORT_REQUESTS: OnceCell<P2PConnectionManager> = OnceCell::const_new();
+/// Keep track of outgoing P2P connection requests sent from different parts of the application.
+static P2P_CONN_REQUESTS: OnceCell<P2PConnectionManager> = OnceCell::const_new();
+/// Provides access to the global application configuration, which is used by many parts of the application.
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
+/// Allows many parts different of the application to update state of the UI or send log messages.
 static UI: OnceCell<Messenger> = OnceCell::const_new();
+/// Generates and manages the secrets, all keys are derived from the root secret on startup.
 static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
 
 #[tokio::main]
@@ -60,10 +64,10 @@ async fn main() {
     }
 
     // create a queue for sending all log messages to web clients
-    let (log_sender, _) = channel(100);
+    let (log_sender, _) = channel(1000);
     UI.set(Messenger::new(log_sender.clone())).unwrap();
 
-    TRANSPORT_REQUESTS.set(P2PConnectionManager::new()).unwrap();
+    P2P_CONN_REQUESTS.set(P2PConnectionManager::new()).unwrap();
 
     let _client = Client::builder()
         .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())

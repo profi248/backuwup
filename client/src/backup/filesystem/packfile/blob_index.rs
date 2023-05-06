@@ -31,7 +31,7 @@ type Entry = Vec<(BlobHash, PackfileId)>;
 /// constant, and the index ID as nonce. Index capacity is capped to 50 000 entries, making the largest file
 /// size slightly larger than 2 MiB.
 ///
-/// TODO improve space efficiency of index (if needed):
+/// Idea to improve space efficiency of index (if needed):
 /// To save space, we'll only store the minimum amount required to uniquely find a blob.
 /// At first only the initial 3 bytes will be saved, if a collision is found, we will store as
 /// many bytes as necessary. When reading index, the longest matching blob hash will be
@@ -60,6 +60,7 @@ pub struct IndexPackfileHandle {
 }
 
 impl BlobIndex {
+    /// Initializes an index, creating all necessary folders and loading existing index files.
     pub async fn new(output_path: PathBuf) -> Result<Self, PackfileError> {
         fs::create_dir_all(&output_path).await?;
         let mut index_files = ReadDirStream::new(fs::read_dir(&output_path).await?);
@@ -67,7 +68,7 @@ impl BlobIndex {
         let mut max_num = 0;
         while let Some(entry) = index_files.next().await {
             // todo: entry may be a directory
-            // Ignore files that don't match our pattern.
+            // ignore files that don't match our pattern
             max_num = max_num.max(
                 (entry?
                     .file_name()
@@ -91,10 +92,12 @@ impl BlobIndex {
         Ok(index)
     }
 
+    /// Returns a handle to a newly created packfile for index.
     pub fn begin_packfile(&mut self) -> IndexPackfileHandle {
         IndexPackfileHandle { blobs: Vec::default() }
     }
 
+    /// Adds a blob to the packfile in index.
     pub fn add_to_packfile(
         &mut self,
         handle: &mut IndexPackfileHandle,
@@ -109,6 +112,7 @@ impl BlobIndex {
         Ok(())
     }
 
+    /// Finalizes a packfile in index, actually adding all blobs to the final index.
     pub async fn finalize_packfile(
         &mut self,
         handle: &IndexPackfileHandle,
@@ -121,6 +125,7 @@ impl BlobIndex {
         Ok(())
     }
 
+    /// Returns whether the blob is already known by the index.
     pub fn is_blob_duplicate(&mut self, blob_hash: &BlobHash) -> bool {
         if self.blobs_queued.contains(blob_hash) {
             return true;
@@ -133,6 +138,7 @@ impl BlobIndex {
         false
     }
 
+    /// Finds the packfile that contains the blob.
     pub fn find_packfile(&self, blob_hash: &BlobHash) -> Option<PackfileId> {
         match self.items.binary_search_by_key(&blob_hash, |(a, _)| a) {
             Ok(entry_idx) => Some(self.items[entry_idx].1),
@@ -140,6 +146,7 @@ impl BlobIndex {
         }
     }
 
+    /// Adds a mapping from blob hash to packfile hash to the index, flushing to disk if over threshold.
     pub async fn push(
         &mut self,
         blob_hash: &BlobHash,
@@ -155,13 +162,14 @@ impl BlobIndex {
         Ok(())
     }
 
+    /// Loads all index files from disk.
     async fn load(&mut self) -> Result<(), PackfileError> {
         let mut index_files = ReadDirStream::new(fs::read_dir(&self.output_path).await?);
 
         while let Some(entry) = index_files.next().await {
             let entry = entry?;
             // todo: ignore directories
-            // Ignore files that don't match our pattern.
+            // ignore files that don't match our pattern
             let file_num = (entry
                 .file_name()
                 .into_string()
@@ -185,12 +193,13 @@ impl BlobIndex {
             }
         }
 
-        // Sort all the entries so we're able to use binary search.
+        // sort all the entries so we're able to use binary search
         self.items.sort_unstable_by_key(|&(a, _)| a);
 
         Ok(())
     }
 
+    /// Unconditionally flushes the index to disk.
     pub async fn flush(&mut self) -> Result<(), PackfileError> {
         let mut buf = bincode::options().with_varint_encoding().serialize(&self.items_buf)?;
         let new_file_num = self
@@ -198,7 +207,7 @@ impl BlobIndex {
             .checked_add(1)
             .expect("bug: index file counter overflow");
 
-        // Derive a key for index and let nonce be the index file number.
+        // derive a key for index and let nonce be the index file number
         let key = KEYS.get().unwrap().derive_backup_key(KEY_DERIVATION_CONSTANT);
         let cipher = Aes256Gcm::new(&key.into());
         let nonce_bytes = self.counter_to_nonce(new_file_num);
@@ -219,6 +228,7 @@ impl BlobIndex {
         Ok(())
     }
 
+    /// Converts a file number to a nonce.
     fn counter_to_nonce(&self, file_number: u32) -> [u8; NONCE_SIZE] {
         let mut nonce_bytes = [0; NONCE_SIZE];
         nonce_bytes[0..4].copy_from_slice(&file_number.to_le_bytes());

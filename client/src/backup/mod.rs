@@ -15,7 +15,7 @@ use crate::{
     },
     log,
     net_server::requests,
-    CONFIG, TRANSPORT_REQUESTS, UI,
+    CONFIG, P2P_CONN_REQUESTS, UI,
 };
 
 pub mod backup_orchestrator;
@@ -24,9 +24,12 @@ pub mod restore_orchestrator;
 pub mod restore_send;
 pub mod send;
 
+/// A global state of the backup process, used for coordinating all components.
 pub static BACKUP_ORCHESTRATOR: OnceCell<BackupOrchestrator> = OnceCell::const_new();
+/// A global state of the restore process, used for coordinating all components.
 pub static RESTORE_ORCHESTRATOR: OnceCell<RestoreOrchestrator> = OnceCell::const_new();
 
+/// Start the entire backup process, spawning tasks for packing and sending files.
 pub async fn run() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
     let destination = config.get_packfile_path()?;
@@ -43,7 +46,7 @@ pub async fn run() -> anyhow::Result<()> {
     if backup_path.is_none() {
         UI.get()
             .unwrap()
-            .send_backup_finished(false, format!("Backup failed: backup path not set"));
+            .send_backup_finished(false, "Backup failed: backup path not set");
 
         bail!("backup path not set");
     }
@@ -86,6 +89,7 @@ pub async fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Initialize the restore process, requesting files from peers and unpacking them.
 pub async fn request_restore() -> anyhow::Result<()> {
     RestoreOrchestrator::initialize_static().await?;
     RESTORE_ORCHESTRATOR.get().unwrap().set_started()?;
@@ -98,6 +102,7 @@ pub async fn request_restore() -> anyhow::Result<()> {
     };
 }
 
+/// Run the actual restore procedure.
 pub async fn run_restore() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
 
@@ -159,8 +164,9 @@ pub async fn run_restore() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Request all files from a peer for restoration.
 async fn request_restore_from_peer(peer_id: ClientId) -> anyhow::Result<()> {
-    let nonce = TRANSPORT_REQUESTS
+    let nonce = P2P_CONN_REQUESTS
         .get()
         .unwrap()
         .add_request(peer_id, RequestType::RestoreAll)
@@ -170,6 +176,7 @@ async fn request_restore_from_peer(peer_id: ClientId) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Estimate the size of the data currently being backed up.
 fn estimate_size(backup_path: &PathBuf) {
     match get_size(backup_path) {
         Ok(size) => {

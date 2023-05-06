@@ -19,7 +19,7 @@ use crate::{
     log,
     net_p2p::{get_listener_address, get_ws_config, received_files_writer, restore_files_writer},
     net_server::requests::p2p_connection_confirm,
-    CONFIG, KEYS, TRANSPORT_REQUESTS,
+    CONFIG, KEYS, P2P_CONN_REQUESTS,
 };
 
 /// Handles a new incoming connection request from a peer, setting the tunnel up for a file transfer,
@@ -98,7 +98,7 @@ pub async fn accept_and_connect(finalize_req: FinalizeP2PConnection) -> anyhow::
     let mut stream = sock_conn(&url).await?;
     log!("[p2p] connected successfully");
 
-    let request = TRANSPORT_REQUESTS
+    let request = P2P_CONN_REQUESTS
         .get()
         .ok_or(anyhow!("transport requests not initialized"))?
         .finalize_request(finalize_req.destination_client_id)

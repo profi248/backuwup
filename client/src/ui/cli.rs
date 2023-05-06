@@ -24,6 +24,7 @@ pub async fn first_run_guide() {
     }
 }
 
+/// Display the restore guide in a CLI, which allows the user to enter a mnemonic and restore from it.
 async fn restore_setup_guide() {
     println!("{}", "Restoring".green());
 
@@ -51,6 +52,8 @@ async fn restore_setup_guide() {
     println!("{}", "Success!".green());
 }
 
+/// Display the fresh setup guide in a CLI, showing the user a newly generated mnemonic and
+/// prompting them to write it down.
 async fn fresh_setup_guide() {
     println!("{}", "Generating a secret and registering...".green());
     println!();

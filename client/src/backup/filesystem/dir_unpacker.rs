@@ -8,6 +8,7 @@ use tokio::{fs, fs::File, io::AsyncWriteExt};
 
 use crate::backup::filesystem::{packfile, BlobKind, Tree, TreeKind};
 
+/// Unpack a tree of a given hash from packfiles into a directory.
 pub async fn unpack(
     packfile_dir: impl Into<PathBuf>,
     destination_dir: impl Into<PathBuf> + Clone,
@@ -70,6 +71,7 @@ pub async fn unpack(
     Ok(())
 }
 
+/// Restore a single file from a tree.
 async fn restore_file(
     mut packer: packfile::Manager,
     child_tree: Box<Tree>,
@@ -89,6 +91,7 @@ async fn restore_file(
     Ok(())
 }
 
+/// Set the mtime of a file to the mtime stored in the tree metadata.
 fn set_path_mtime(path: &PathBuf, tree: &Tree) -> anyhow::Result<()> {
     if let Some(time) = tree.metadata.mtime.map(|t| FileTime::from_unix_time(t as i64, 0)) {
         set_file_mtime(path, time)?;
@@ -97,6 +100,7 @@ fn set_path_mtime(path: &PathBuf, tree: &Tree) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Fetch a tree and all its siblings into a single tree.
 async fn fetch_full_tree(packer: packfile::Manager, hash: &BlobHash) -> anyhow::Result<Tree> {
     let mut root_tree = fetch_tree(packer.clone(), hash).await?;
 
@@ -110,6 +114,7 @@ async fn fetch_full_tree(packer: packfile::Manager, hash: &BlobHash) -> anyhow::
     Ok(root_tree)
 }
 
+/// Fetch a single tree from a packfile.
 async fn fetch_tree(mut packer: packfile::Manager, hash: &BlobHash) -> anyhow::Result<Tree> {
     let tree_blob = match packer.get_blob(hash).await? {
         Some(t) => t,
