@@ -33,7 +33,7 @@ pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
 
     ws.on_upgrade(move |mut socket| async move {
         if !authorized {
-            println!("Unauthorized WebSocket connection");
+            println!("[ws] unauthorized WebSocket connection");
             return;
         }
 
@@ -47,7 +47,7 @@ pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
         // messages todo maybe send a message to the old connection to close it?
         CONNECTIONS.get().unwrap().new_connection(client_id, ws_send).await;
 
-        println!("[ws] new connection: {client_id:?}");
+        println!("[ws] new connection: {}", hex::encode(client_id));
     })
     .with_status(if authorized { StatusCode::SWITCHING_PROTOCOLS } else { StatusCode::UNAUTHORIZED })
 }
@@ -61,7 +61,7 @@ pub async fn incoming_listener(mut ws_recv: SplitStream<WebSocketStream>, client
         match msg {
             None | Some(Err(_) | Ok(Message::Close(_))) => {
                 CONNECTIONS.get().unwrap().remove_connection(client_id).await;
-                println!("[ws] connection dropped: {client_id:?}");
+                println!("[ws] connection dropped: {}", hex::encode(client_id));
                 break;
             }
             _ => continue,
@@ -101,7 +101,7 @@ impl ClientConnections {
             .get_mut(&client_id)
             .ok_or(handlers::Error::ClientNotConnected(client_id))?;
 
-        println!("[ws] notifying client {client_id:?} with message {message:?}");
+        println!("[ws] notifying client {} with message {message:?}", hex::encode(client_id));
         connection
             .send(Message::Text(serde_json::to_string(&message)?))
             .await?;

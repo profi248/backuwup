@@ -18,10 +18,16 @@ use sum_queue::SumQueue;
 
 use crate::{handlers, CONNECTIONS, DB};
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Request {
     pub storage_required: u64,
     pub client_id: ClientId,
+}
+
+impl Debug for Request {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Request {{ storage_required: {}, client_id: {} }}", self.storage_required, hex::encode(self.client_id))
+    }
 }
 
 // sum will be the total requested space
