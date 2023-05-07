@@ -76,6 +76,7 @@ impl PeerDataReceiver {
     }
 }
 
+/// Initiates the receiving of a backup from a peer.
 pub async fn handle_receiving(
     client_id: ClientId,
     nonce: TransportSessionNonce,
@@ -94,7 +95,12 @@ pub async fn handle_receiving(
     }
 }
 
+/// Returns whether a certain peer is allowed to store more backup data.
 pub fn is_peer_allowed_to_send_data(peer: &PeerInfo) -> bool {
-    peer.bytes_negotiated - peer.bytes_received > 0
-        || peer.bytes_negotiated.abs_diff(peer.bytes_received) < PEER_STORAGE_USAGE_SPREAD
+    // allow a buffer of a pre-defined constant for usage over negotiate storage
+    match peer.bytes_negotiated - peer.bytes_received {
+        1.. => true,
+        s @ ..=0 if s.abs() < PEER_STORAGE_USAGE_SPREAD => true,
+        _ => false
+    }
 }

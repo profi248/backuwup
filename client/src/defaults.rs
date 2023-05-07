@@ -28,7 +28,7 @@ pub const RECEIVED_PACKFILES_FOLDER: &str = "received_packfiles";
 pub const RESTORE_BUFFER_FOLDER: &str = "restore_packfiles";
 
 /// Maximum storage used over the negotiated storage space with other peers, per peer.
-pub const PEER_STORAGE_USAGE_SPREAD: u64 = 64 * 1024 * 1024; // 64 MiB
+pub const PEER_STORAGE_USAGE_SPREAD: i64 = 32 * 1024 * 1024; // 32 MiB
 
 /// Maximum size of packfiles that are allowed to be temporarily stored on disk,
 /// while waiting for transferring them to a peer.
