@@ -27,8 +27,9 @@ pub async fn restore_all_data_to_peer(
     let config = CONFIG.get().unwrap();
 
     if let Some(last_request) = config.get_last_peer_restore_request(peer_id).await? {
+        let remaining = (RESTORE_THROTTLE_DELAY as i64) - (Config::get_unix_timestamp() - last_request);
         if last_request > Config::get_unix_timestamp() - (RESTORE_THROTTLE_DELAY as i64) {
-            bail!("restore request from {} throttled", hex::encode(peer_id));
+            bail!("rate limited restore request from {}, wait {remaining}s", hex::encode(peer_id));
         }
     }
 
