@@ -8,6 +8,7 @@ use sqlx::Row;
 
 use super::{Config, Transaction};
 use crate::defaults;
+use crate::defaults::PEER_STORAGE_USAGE_SPREAD;
 
 pub struct PeerInfo {
     pub pubkey: ClientId,
@@ -207,9 +208,10 @@ impl Transaction<'_> {
     pub async fn find_peers_with_storage(&mut self) -> anyhow::Result<Vec<ClientId>> {
         let rows = sqlx::query(
             "select pubkey, (bytes_negotiated - bytes_transmitted) as free_storage \
-             from peers where free_storage > 0 \
+             from peers where free_storage > 0 or abs(free_storage) < $1 \
              order by free_storage desc",
         )
+        .bind(PEER_STORAGE_USAGE_SPREAD)
         .fetch_all(&mut self.transaction)
         .await?;
 
