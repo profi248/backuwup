@@ -27,7 +27,8 @@ createApp({
             restore_running: false,
             pack_running: false,
             configuration: {
-                path: ""
+                path: "",
+                client_id: ""
             }
         }
     },

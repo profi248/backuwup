@@ -101,6 +101,6 @@ pub fn is_peer_allowed_to_send_data(peer: &PeerInfo) -> bool {
     match peer.bytes_negotiated - peer.bytes_received {
         1.. => true,
         s @ ..=0 if s.abs() < PEER_STORAGE_USAGE_SPREAD => true,
-        _ => false
+        _ => false,
     }
 }

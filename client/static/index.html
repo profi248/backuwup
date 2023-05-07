@@ -169,6 +169,9 @@
                 </div>
                 <textarea class="w-100 rounded-2 border border-2 p-3 text-body mt-4 mx-auto" rows="15" id="logs"
                           disabled>{{ logs }}</textarea>
+                <div class="text-center text-secondary mt-2" v-if="configuration.client_id">
+                    Client ID<br><span class="peer_id">{{ configuration.client_id }}</span>
+                </div>
             </div>
         </Transition>
     </div>

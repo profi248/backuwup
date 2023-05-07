@@ -12,9 +12,13 @@ use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 use crate::{log, KEYS};
 
+/// Generic for a receiver of incoming files, implemented by
+/// `PeerDataReceiver` and `RestoreReceiver`.
 #[async_trait::async_trait]
 pub trait Receiver {
+    /// Save an index file to disk.
     async fn save_index(&self, id: u32, data: &mut [u8]) -> anyhow::Result<()>;
+    /// Save a packfile to disk.
     async fn save_packfile(&self, id: PackfileId, data: &mut [u8]) -> anyhow::Result<()>;
 }
 

@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     backup::{request_restore, run},
-    CONFIG, UI,
+    ui::ws_status_message::Messenger,
+    CONFIG, KEYS, UI,
 };
 
 #[derive(Deserialize)]
@@ -23,6 +24,7 @@ pub enum ClientMessage {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Config {
+    pub client_id: String,
     pub path: Option<PathBuf>,
 }
 
@@ -77,10 +79,11 @@ async fn set_config(conf: &Config) -> anyhow::Result<()> {
 /// Sends the current configuration to the client.
 async fn send_config_message() -> anyhow::Result<()> {
     let config = CONFIG.get().unwrap();
+    let client_id = Messenger::peer_id_display(&KEYS.get().unwrap().get_pubkey());
 
     UI.get()
         .unwrap()
-        .send_config(Config { path: config.get_backup_path().await? });
+        .send_config(Config { path: config.get_backup_path().await?, client_id });
 
     UI.get().unwrap().send_progress();
 

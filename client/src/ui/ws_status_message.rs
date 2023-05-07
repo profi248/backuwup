@@ -163,7 +163,7 @@ impl Messenger {
     }
 
     /// Format peer id as a easily readable hex string (like an IPv6 address).
-    fn peer_id_display(id: &ClientId) -> String {
+    pub fn peer_id_display(id: &ClientId) -> String {
         // we can convert from and to utf8 because it's all ascii
         hex::encode(id).as_bytes()[..]
             .chunks(2)
