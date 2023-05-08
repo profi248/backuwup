@@ -1,7 +1,7 @@
 //! Contains logic for fulfilling storage requests.
 
 use std::{
-    cmp::Ordering,
+    cmp::{min, Ordering},
     fmt::{Debug, Formatter},
     ops::Add,
     sync::{Arc, Mutex},
@@ -74,6 +74,7 @@ impl Queue {
             return Err(handlers::Error::BadRequest);
         }
 
+        // we can cast safely, because we checked that the request is not larger than the max size
         let mut storage_to_fulfill = i64(request.storage_required).unwrap();
 
         while let Some(destination) = self.pop() {
@@ -82,6 +83,9 @@ impl Queue {
                 continue;
             }
 
+            // the amount of storage that both peers get, dictated by the smaller of the requests
+            let storage_match = min(u64(storage_to_fulfill).unwrap(), destination.storage_required);
+
             // notify a client that its enqueued request has been fulfilled
             let notify_result = CONNECTIONS
                 .get()
@@ -89,7 +93,7 @@ impl Queue {
                 .notify_client(
                     destination.client_id,
                     ServerMessageWs::BackupMatched(BackupMatched {
-                        storage_available: destination.storage_required,
+                        storage_available: storage_match,
                         destination_id: request.client_id,
                     }),
                 )
@@ -104,27 +108,28 @@ impl Queue {
                         .notify_client(
                             request.client_id,
                             ServerMessageWs::BackupMatched(BackupMatched {
-                                storage_available: destination.storage_required,
+                                storage_available: storage_match,
                                 destination_id: destination.client_id,
                             }),
                         )
                         .await?;
 
-                    // save the fulfilled request in the database
+                    // save the fulfilled request in the database, for both clients
                     DB.get()
                         .unwrap()
                         .save_storage_negotiated(
                             request.client_id,
                             destination.client_id,
-                            i64(request.storage_required).unwrap(),
+                            i64(storage_match).unwrap(),
                         )
                         .await?;
+
                     DB.get()
                         .unwrap()
                         .save_storage_negotiated(
                             destination.client_id,
                             request.client_id,
-                            i64(request.storage_required).unwrap(),
+                            i64(storage_match).unwrap(),
                         )
                         .await?;
 
@@ -135,10 +140,10 @@ impl Queue {
                         Ordering::Less => {
                             self.push(Request {
                                 client_id: destination.client_id,
-                                storage_required: destination.storage_required - request.storage_required,
+                                storage_required: destination.storage_required - storage_match,
                             });
 
-                            break;
+                            return Ok(());
                         }
                         // if this destination hasn't fulfilled our incoming request completely,
                         // we will subtract from the storage that still need fulfilling,
@@ -150,7 +155,7 @@ impl Queue {
                         }
                         // if requested amounts are equal, both clients have been notified,
                         // requests have been discarded and we are done
-                        Ordering::Equal => break,
+                        Ordering::Equal => return Ok(()),
                     }
                 }
                 Err(e) => {
@@ -166,12 +171,10 @@ impl Queue {
 
         // the incoming request is not entirely fulfilled (or not fulfilled at all),
         // so we'll put the remainder in the queue
-        if storage_to_fulfill > 0 {
-            self.push(Request {
-                client_id: request.client_id,
-                storage_required: u64(storage_to_fulfill).unwrap(),
-            });
-        }
+        self.push(Request {
+            client_id: request.client_id,
+            storage_required: u64(storage_to_fulfill).unwrap(),
+        });
 
         Ok(())
     }

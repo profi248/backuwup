@@ -20,13 +20,13 @@ pub async fn make_backup_request(Json(request): Json<BackupRequest>) -> poem::Re
 
     let queue = BACKUP_REQUESTS.get().unwrap();
 
-    println!("[backup request] new request: {request:?}");
+    println!("\n[backup request] new request: {request:?}");
     println!("\n[backup request] queue before fulfill vvv");
     queue.debug_print();
 
     match queue.fulfill(request).await {
         Ok(_) => {
-            println!("\n[backup request] queue after fulfill vvv");
+            println!("[backup request] queue after fulfill vvv");
             queue.debug_print();
 
             Ok(Json(ServerMessage::Ok))
