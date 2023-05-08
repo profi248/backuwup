@@ -17,7 +17,6 @@ use std::{env, panic, process, time::Duration};
 use enable_ansi_support::enable_ansi_support;
 use futures_util::future;
 use net_p2p::p2p_connection_manager::P2PConnectionManager;
-use reqwest::{Certificate, Client};
 use tokio::sync::{broadcast::channel, OnceCell};
 
 use crate::{config::Config, key_manager::KeyManager, ui::ws_status_message::Messenger};
@@ -73,12 +72,6 @@ async fn main() {
     UI.set(Messenger::new(log_sender.clone())).unwrap();
 
     P2P_CONN_REQUESTS.set(P2PConnectionManager::new()).unwrap();
-
-    let _client = Client::builder()
-        .add_root_certificate(Certificate::from_pem(&config.get_server_root_tls_cert()).unwrap())
-        .tls_built_in_root_certs(false)
-        .build()
-        .unwrap();
 
     let ui_bind_addr = env::var("UI_BIND_ADDR").unwrap_or(defaults::UI_BIND_ADDR.to_string());
 

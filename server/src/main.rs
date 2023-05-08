@@ -42,9 +42,6 @@ static AUTH_MANAGER: OnceCell<ClientAuthManager> = OnceCell::const_new();
 #[tokio::main]
 async fn main() {
     let bind_ip = dotenvy::var("BIND_IP").expect("BIND_IP environment variable not set or invalid");
-    let cert = dotenvy::var("TLS_CERT").expect("TLS_CERT environment variable not set or invalid");
-    let key = dotenvy::var("TLS_KEY").expect("TLS_KEY environment variable not set or invalid");
-
     let db = Database::init().await;
 
     DB.set(db).unwrap();
@@ -64,9 +61,7 @@ async fn main() {
         .at("/p2p/connection/confirm", p2p_connection_confirm)
         .at("/ws", ws::handler);
 
-    let _config = RustlsConfig::new().fallback(RustlsCertificate::new().cert(cert).key(key));
-
-    let listener = TcpListener::bind(&bind_ip); //.rustls(config);
+    let listener = TcpListener::bind(&bind_ip);
     let server = Server::new(listener);
     println!("server listening on {bind_ip}");
     server.run(app).await.unwrap();

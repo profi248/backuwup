@@ -16,8 +16,11 @@ cargo run --release
 
 The client application relies on SQLite. If you don't have the library installed already, the build might fail, and it will be necessary to get it manually. On Linux it should be sufficient to install packages from the repository, usually named `libsqlite3-dev` and `libsqlite3` for Debian-based distributions or `sqlite-devel` and `sqlite` for Red Hat-based distributions. On Windows, try following [this guide](https://github.com/rusqlite/rusqlite#notes-on-building-rusqlite-and-libsqlite3-sys).
 
+Configuration constants can be changed in the `defaults.rs` file.
 ## Usage
 The client application needs to connect to a server. The default server address is `127.0.0.1:9999`, but it can be overridden with the environment variable `SERVER_ADDR`.
+
+By default, for testing purposes, the precompiled clients use unencrypted HTTP/WebSocket by for communication with the server. This can be overridden by setting the `USE_TLS` environment variable to `1`. **Important**: TLS is disabled strictly for the ease of testing, it's necessary to use TLS with a valid certificate in production environments! 
 
 Backuwup client expects to run in a terminal environment and with ANSI color escapes supported (works on common Linux and modern Windows versions). When the application is started for the first time, a command line first start guide will show up. The user can choose to either set up the application from scratch (when creating a new backup) or from an existing mnemonic (for restoring an existing backup). When starting from scratch, it's necessary to save the displayed mnemonic to be able to perform a restore later if the application data is destroyed.
 

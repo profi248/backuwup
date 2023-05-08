@@ -68,8 +68,6 @@ pub async fn unpack(
         }
     }
 
-    println!("restoration done!!");
-
     Ok(())
 }
 

@@ -8,13 +8,10 @@ use anyhow::anyhow;
 use futures_util::StreamExt;
 use shared::server_message_ws::ServerMessageWs;
 use tokio::{net::TcpStream, time};
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, http::StatusCode, Error, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, MaybeTlsStream, tungstenite::{client::IntoClientRequest, Error, http::StatusCode, Message}, WebSocketStream};
 
-use crate::{backup::send, identity, log, net_p2p::handle_connections, CONFIG, UI};
+use crate::{backup::send, CONFIG, identity, log, net_p2p::handle_connections, UI};
+use crate::config::Config;
 
 const RETRY_INTERVAL: time::Duration = time::Duration::from_secs(5);
 
@@ -25,7 +22,13 @@ pub async fn connect_ws() {
     // server reconnection loop
     loop {
         let server_url = env::var("SERVER_ADDR").unwrap_or(crate::defaults::SERVER_ADDR.to_string());
-        let endpoint = format!("ws://{server_url}/ws");
+
+        let protocol = match Config::use_tls() {
+            true => "wss",
+            false => "ws"
+        };
+
+        let endpoint = format!("{protocol}://{server_url}/ws");
         let mut stream = websocket_connect(endpoint).await;
 
         // message processing loop

@@ -19,3 +19,6 @@ docker-compose down
 It's also possible to run the server without Docker. The server binary can be compiled and launched in an equivalent way to the client binary, except it depends on PostgreSQL development libraries instead of SQLite.
 
 The PostgreSQL database needs to be run and managed separately. Credentials for the database can be set up in the `.env` file.
+
+## Production deployment
+For a production deployment, it's recommended to use the Docker setup, along with a reverse proxy (like nginx) that provides TLS support with a valid certificate. Using TLS in production is mandatory.  

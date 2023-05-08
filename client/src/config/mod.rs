@@ -8,15 +8,13 @@ pub mod identity;
 pub mod log;
 pub mod peers;
 
-use std::{
-    fs,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{env, fs, time::{SystemTime, UNIX_EPOCH}};
 
 use sqlx::{
-    sqlite::{SqlitePoolOptions, SqliteQueryResult},
-    Error, Sqlite, SqlitePool,
+    Error,
+    sqlite::{SqlitePoolOptions, SqliteQueryResult}, Sqlite, SqlitePool,
 };
+use crate::defaults::SERVER_USE_TLS;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -70,8 +68,13 @@ impl Config {
         config
     }
 
-    pub fn get_server_root_tls_cert(&self) -> &[u8] {
-        crate::defaults::SERVER_ROOT_TLS_CERT_PEM.as_bytes()
+    /// Returns whether to use TLS based on an environment variable or precompiled configuration
+    pub fn use_tls() -> bool {
+        match env::var("USE_TLS") {
+            Ok(val) if val == "1" => true,
+            Ok(val) if val == "0" => false,
+            _ => SERVER_USE_TLS
+        }
     }
 
     async fn create_db_structure(pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {

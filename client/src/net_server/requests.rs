@@ -13,6 +13,7 @@ use shared::{
 };
 
 use crate::{identity, key_manager::Signature, CONFIG};
+use crate::config::Config;
 
 /// Request a challenge nonce as a first step in the registration process.
 pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
@@ -242,10 +243,16 @@ enum ResponseError {
     Other(#[from] anyhow::Error),
 }
 
+/// Returns a full URL for a particular endpoint.
 fn url(s: impl Into<String>) -> String {
-    // todo handle https
+    let protocol = match Config::use_tls() {
+        true => "https",
+        false => "http"
+    };
+
     format!(
-        "http://{}/{}",
+        "{}://{}/{}",
+        protocol,
         env::var("SERVER_ADDR").unwrap_or(crate::defaults::SERVER_ADDR.to_string()),
         s.into()
     )

@@ -192,7 +192,7 @@ async fn pack_files_in_directory(
                     let logger = UI.get().unwrap();
 
                     logger.progress_increment_failed();
-                    logger.log(format!("error trying to discover files: {e}, continuing",));
+                    logger.log(format!("error trying to discover files: {e}, continuing"));
                 }
             }
         }
@@ -253,9 +253,9 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
 
         let chunker = FastCDC::new(
             &mmap,
-            BLOB_MINIMUM_TARGET_SIZE as u32,
-            BLOB_DESIRED_TARGET_SIZE as u32,
-            BLOB_MAX_UNCOMPRESSED_SIZE as u32,
+            cast::u32(BLOB_MINIMUM_TARGET_SIZE).unwrap(),
+            cast::u32(BLOB_DESIRED_TARGET_SIZE).unwrap(),
+            cast::u32(BLOB_MAX_UNCOMPRESSED_SIZE).unwrap(),
         );
 
         for chunk in chunker {
@@ -268,7 +268,6 @@ async fn process_file(path: PathBuf, packer: packfile::Manager) -> anyhow::Resul
         let blob = fs::read(path.clone())?;
 
         let hash = add_file_blob(&packer, &blob).await?;
-
         file_tree.children.push(hash);
     }
 
@@ -368,6 +367,7 @@ async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> an
     let tree_blobs = split_serialize_tree(dir_tree)?;
     let first_blob_hash = tree_blobs[0].hash;
 
+    // add all blobs to the packfile
     for blob in tree_blobs {
         match packer.add_blob(blob).await {
             Ok(written) => {
@@ -378,6 +378,7 @@ async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> an
                         .update_packfile_bytes_written(bytes);
                 }
             }
+            // if we exceed the local limit, pause and wait
             Err(PackfileError::ExceededBufferLimit) => {
                 block_if_paused!();
             }
@@ -392,6 +393,7 @@ async fn add_tree_to_blobs(packer: packfile::Manager, dir_tree: &mut Tree) -> an
 fn get_metadata(path: &PathBuf) -> anyhow::Result<TreeMetadata> {
     let metadata = path.metadata()?;
 
+    // if the Unix timestamp is negative, we're unable to save it
     Ok(TreeMetadata {
         size: Some(metadata.len()),
         mtime: match metadata.modified().map(|t| FileTime::from(t).unix_seconds()) {
@@ -412,11 +414,13 @@ fn get_node_path(root_path: &PathBuf, mut node: FsNodePtr) -> PathBuf {
     let mut components = Vec::new();
     let mut path = root_path.clone();
 
+    // traverse up the tree until we reach the root node
     while node.is_some() {
         components.push(node.as_ref().as_ref().unwrap().name.clone());
         node = node.as_ref().as_ref().unwrap().parent.clone();
     }
 
+    // add the components in reverse order to the path
     for str in components.iter().rev() {
         path.push(str);
     }
