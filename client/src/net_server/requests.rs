@@ -12,8 +12,7 @@ use shared::{
     types::{BlobHash, ChallengeNonce, ClientId, SessionToken, TransportSessionNonce},
 };
 
-use crate::{identity, key_manager::Signature, CONFIG};
-use crate::config::Config;
+use crate::{config::Config, identity, key_manager::Signature, CONFIG};
 
 /// Request a challenge nonce as a first step in the registration process.
 pub async fn register_begin(pubkey: ClientId) -> anyhow::Result<ChallengeNonce> {
@@ -247,7 +246,7 @@ enum ResponseError {
 fn url(s: impl Into<String>) -> String {
     let protocol = match Config::use_tls() {
         true => "https",
-        false => "http"
+        false => "http",
     };
 
     format!(

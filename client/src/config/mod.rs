@@ -8,12 +8,16 @@ pub mod identity;
 pub mod log;
 pub mod peers;
 
-use std::{env, fs, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    env, fs,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use sqlx::{
-    Error,
-    sqlite::{SqlitePoolOptions, SqliteQueryResult}, Sqlite, SqlitePool,
+    sqlite::{SqlitePoolOptions, SqliteQueryResult},
+    Error, Sqlite, SqlitePool,
 };
+
 use crate::defaults::SERVER_USE_TLS;
 
 #[derive(Clone, Debug)]
@@ -73,7 +77,7 @@ impl Config {
         match env::var("USE_TLS") {
             Ok(val) if val == "1" => true,
             Ok(val) if val == "0" => false,
-            _ => SERVER_USE_TLS
+            _ => SERVER_USE_TLS,
         }
     }
 

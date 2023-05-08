@@ -3,7 +3,7 @@
 This documentation will explain how to install and use the client application.
 
 ## Installation
-The package contains precompiled executables for Linux (built on Fedora Linux 37, it might not run on other distributions) and Windows (tested on Windows 10). When on supported systems, simply run the executable in a terminal, where a first start guide should be displayed. After setting up the application for the first time, the web user interface will be available.
+The package contains precompiled executables for Linux (built on Fedora Linux 37, it might not run on other distributions) and Windows (tested on Windows 10).  The executables are self-contained, only relying on standard system dynamically linked libraries. When on supported systems, simply run the executable in a terminal, where a first start guide should be displayed. After setting up the application for the first time, the web user interface will be available.
 
 ### Building from source
 The application can also be built from source. To build it, you will need the [Rust toolchain](https://www.rust-lang.org/tools/install). However, it's easy to install by following the link and running the provided command.

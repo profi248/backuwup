@@ -7,8 +7,7 @@ use shared::types::ClientId;
 use sqlx::Row;
 
 use super::{Config, Transaction};
-use crate::defaults;
-use crate::defaults::PEER_STORAGE_USAGE_SPREAD;
+use crate::{defaults, defaults::PEER_STORAGE_USAGE_SPREAD};
 
 pub struct PeerInfo {
     pub pubkey: ClientId,

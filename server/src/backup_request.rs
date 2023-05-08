@@ -26,7 +26,12 @@ pub struct Request {
 
 impl Debug for Request {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Request {{ storage_required: {}, client_id: {} }}", self.storage_required, hex::encode(self.client_id))
+        write!(
+            f,
+            "Request {{ storage_required: {}, client_id: {} }}",
+            self.storage_required,
+            hex::encode(self.client_id)
+        )
     }
 }
 
