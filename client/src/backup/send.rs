@@ -71,16 +71,6 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
             }
         }
 
-        println!("current_written: {current_written} last_written: {last_written} current_matched: {current_matched} last_matched: {last_matched}");
-        println!(
-            "current_written > last_written: {}, current_matched > last_matched: {}",
-            current_written > last_written,
-            current_matched > last_matched
-        );
-
-        println!("is_packing_completed: {}", orchestrator.is_packing_completed());
-        println!("available_packfile_bytes: {} B", orchestrator.available_packfile_bytes());
-
         if let Some(conn) = &mut connection {
             if ((current_written > last_written || current_matched > last_matched)
                 || orchestrator.is_packing_completed())

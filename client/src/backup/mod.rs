@@ -1,7 +1,7 @@
 //! Contains all the logic for creating and restoring backups, including sending and
 //! receiving files over the network and packing/unpacking them.
 
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use anyhow::{anyhow, bail};
 use backup_orchestrator::BackupOrchestrator;
@@ -64,11 +64,17 @@ pub async fn run() -> anyhow::Result<()> {
     let pack_result = tokio::spawn(dir_packer::pack(backup_path.clone().unwrap(), destination.clone()));
     let transport_result = tokio::spawn(send::send(destination));
 
+    // start a task for sending progress updates to the UI
+    let progress_sender = tokio::spawn(send_progress_updates());
+
     // unpack the inner result so it stops whenever one of the tasks returns an error
     let result = try_join!(pack_result.map(|r| r.unwrap()), transport_result.map(|r| r.unwrap()));
 
     // todo if packer fails, send might keep running
     BACKUP_ORCHESTRATOR.get().unwrap().set_backup_finished();
+
+    // stop sending progress updates
+    progress_sender.abort();
 
     match result {
         Ok((hash, _)) => {
@@ -98,6 +104,14 @@ pub async fn run() -> anyhow::Result<()> {
     };
 
     Ok(())
+}
+
+/// Ensure to periodically send progress updates to the UI.
+async fn send_progress_updates() {
+    loop {
+        UI.get().unwrap().send_progress();
+        tokio::time::sleep(Duration::from_millis(400)).await;
+    }
 }
 
 /// Initialize the restore process, requesting files from peers and unpacking them.
@@ -204,10 +218,10 @@ async fn estimate_size(backup_path: &PathBuf) {
                 .await;
 
             let estimate = match difference {
-                Ok(Some(0)) => 0,                                          // no difference
-                Ok(Some(..=0)) => new_size,                                // new backup is smaller, we can't estimate
+                Ok(Some(0)) => 0, // no difference
+                Ok(Some(..=0)) => new_size, // new backup is smaller, we can't estimate
                 Ok(Some(size)) => u64::cast(size).expect("bad size"), // new backup is bigger, use the difference
-                _ => new_size,                                             // no valid previous backup, use the new size
+                _ => new_size, // no valid previous backup, use the new size
             };
 
             BACKUP_ORCHESTRATOR.get().unwrap().set_size_estimate(estimate);

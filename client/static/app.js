@@ -137,7 +137,7 @@ createApp({
                 if (message["type"] === "Progress") {
                     this.current = message["data"].current;
                     this.total = message["data"].total;
-                    this.curr_file = message["data"].file;
+                    if (message["data"].file) this.curr_file = message["data"].file;
                     this.failed = message["data"].failed;
 
                     this.size_estimate = message["data"].size_estimate;
