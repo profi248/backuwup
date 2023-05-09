@@ -158,7 +158,7 @@ pub async fn run_restore() -> anyhow::Result<()> {
         }
 
         // waiting is fine for now
-        sleep(std::time::Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1)).await;
     }
 
     UI.get().unwrap().set_pack_running(true);
@@ -176,6 +176,9 @@ pub async fn run_restore() -> anyhow::Result<()> {
     .await?;
 
     let packfile_size = get_size(config.get_restored_packfiles_folder()?)?;
+
+    log!("[restore] deleting temporary files...");
+    tokio::fs::remove_dir_all(config.get_restored_packfiles_folder()?).await?;
 
     orchestrator.set_finished(
         true,
