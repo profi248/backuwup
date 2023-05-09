@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use anyhow::bail;
 use shared::types::ClientId;
 use sqlx::Row;
 
@@ -20,25 +19,19 @@ pub struct PeerInfo {
 
 impl Config {
     pub fn get_received_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
-        // todo allow the user to change this path (save to config)
-        if let Some(mut directory) = dirs::data_local_dir() {
-            directory.push(defaults::APP_FOLDER_NAME);
-            directory.push(defaults::RECEIVED_PACKFILES_FOLDER);
-            Ok(directory)
-        } else {
-            bail!("Unable to find system user data folder")
-        }
+        let mut dir = Config::get_data_dir()?;
+        dir.push(defaults::APP_FOLDER_NAME);
+        dir.push(defaults::RECEIVED_PACKFILES_FOLDER);
+
+        Ok(dir)
     }
 
     pub fn get_restored_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
-        // todo allow the user to change this path (save to config)
-        if let Some(mut directory) = dirs::data_local_dir() {
-            directory.push(defaults::APP_FOLDER_NAME);
-            directory.push(defaults::RESTORE_BUFFER_FOLDER);
-            Ok(directory)
-        } else {
-            bail!("Unable to find system user data folder")
-        }
+        let mut dir = Config::get_data_dir()?;
+        dir.push(defaults::APP_FOLDER_NAME);
+        dir.push(defaults::RESTORE_BUFFER_FOLDER);
+
+        Ok(dir)
     }
 
     pub async fn add_or_increment_peer_storage(

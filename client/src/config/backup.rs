@@ -27,7 +27,7 @@ impl Config {
     }
 
     pub fn get_packfile_path(&self) -> anyhow::Result<PathBuf> {
-        let mut dir = dirs::data_local_dir().expect("Cannot find the system app data directory");
+        let mut dir = Config::get_data_dir()?;
         dir.push(APP_FOLDER_NAME);
         dir.push(BACKUP_BUFFER_FOLDER_NAME);
 

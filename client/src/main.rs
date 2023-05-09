@@ -9,7 +9,8 @@
     clippy::redundant_else,
     clippy::wrong_self_convention,
     clippy::manual_let_else,
-    clippy::doc_markdown
+    clippy::doc_markdown,
+    clippy::single_match_else
 )]
 
 use std::{env, panic, process, time::Duration};

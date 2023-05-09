@@ -12,6 +12,8 @@ use std::{
     env, fs,
     time::{SystemTime, UNIX_EPOCH},
 };
+use std::path::PathBuf;
+use anyhow::anyhow;
 
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
@@ -33,7 +35,7 @@ impl Config {
     pub async fn init() -> Self {
         let mut structure_initialized = true;
 
-        let mut config_file = dirs::config_local_dir().expect("Cannot find the system config directory");
+        let mut config_file = Config::get_config_dir().expect("Cannot find the system config directory");
         config_file.push(crate::defaults::APP_FOLDER_NAME);
 
         fs::create_dir_all(config_file.clone())
@@ -78,6 +80,22 @@ impl Config {
             Ok(val) if val == "1" => true,
             Ok(val) if val == "0" => false,
             _ => SERVER_USE_TLS,
+        }
+    }
+
+    /// Returns the path to the config directory, either from an environment variable or the OS default.
+    fn get_config_dir() -> anyhow::Result<PathBuf> {
+        match env::var("CONFIG_DIR") {
+            Ok(path) => Ok(PathBuf::from(path)),
+            Err(_) => dirs::config_local_dir().ok_or(anyhow!("Cannot find the system config directory"))
+        }
+    }
+
+    /// Returns the path to the local data directory, either from an environment variable or the OS default.
+    fn get_data_dir() -> anyhow::Result<PathBuf> {
+        match env::var("DATA_DIR") {
+            Ok(path) => Ok(PathBuf::from(path)),
+            Err(_) => dirs::data_local_dir().ok_or(anyhow!("Cannot find the system app data directory"))
         }
     }
 

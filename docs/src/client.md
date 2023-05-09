@@ -6,7 +6,7 @@ This documentation will explain how to install and use the client application.
 The package contains precompiled executables for Linux (built on Fedora Linux 37, it might not run on other distributions) and Windows (tested on Windows 10).  The executables are self-contained, only relying on standard system dynamically linked libraries. When on supported systems, simply run the executable in a terminal, where a first start guide should be displayed. After setting up the application for the first time, the web user interface will be available.
 
 ### Building from source
-The application can also be built from source. To build it, you will need the [Rust toolchain](https://www.rust-lang.org/tools/install). However, it's easy to install by following the link and running the provided command.
+The application can also be built from source. To build it, you will need the [Rust toolchain](https://www.rust-lang.org/tools/install). However, it's easy to install by clicking the link and following the guide.
 
 After installing the Rust toolchain, the application (including all Rust libraries) automatically be built and started by running the following command. Make sure that you are in the `client` folder.
 
@@ -14,9 +14,8 @@ After installing the Rust toolchain, the application (including all Rust librari
 cargo run --release
 ```
 
-The client application relies on SQLite. If you don't have the library installed already, the build might fail, and it will be necessary to get it manually. On Linux it should be sufficient to install packages from the repository, usually named `libsqlite3-dev` and `libsqlite3` for Debian-based distributions or `sqlite-devel` and `sqlite` for Red Hat-based distributions. On Windows, try following [this guide](https://github.com/rusqlite/rusqlite#notes-on-building-rusqlite-and-libsqlite3-sys).
+Compile-time configuration constants can be changed in the `defaults.rs` file.
 
-Configuration constants can be changed in the `defaults.rs` file.
 ## Usage
 The client application needs to connect to a server. The default server address is `127.0.0.1:9999`, but it can be overridden with the environment variable `SERVER_ADDR`.
 
@@ -54,9 +53,9 @@ Triggering a backup restore will first request and retrieve all files from all c
 Currently, when restoring a backup, backuwup will attempt to contact **all** peers with any negotiated storage, no matter how many files were saved to that peer. For that reason, a client needs to be able to connect to all previously used peers to successfully restore a backup.
 
 ## Notes
-Application data is stored in the following paths:
+Application data is stored in the paths shown in the following table. These paths can be overridden by setting the respective environment variables.
 
-|Type|Linux|Windows|
-|----|-----|--------|
-|Configuration files|`$XDG_CONFIG_HOME/backuwup` or `$HOME/.config/backuwup`|`%LocalAppData%/backuwup`|
-|Data from other clients and temporary backup/restore files|`$XDG_DATA_HOME/backuwup` or `$HOME/.local/share/backuwup`|`%LocalAppData%/backuwup`|
+|Type|Linux|Windows|Override|
+|----|-----|-------|-----------------------------|
+|Configuration files|`$XDG_CONFIG_HOME/backuwup` or `$HOME/.config/backuwup`|`%LocalAppData%/backuwup`|`CONFIG_DIR`
+|Data from other clients and temporary backup/restore files|`$XDG_DATA_HOME/backuwup` or `$HOME/.local/share/backuwup`|`%LocalAppData%/backuwup`|`DATA_DIR`
