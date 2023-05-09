@@ -78,7 +78,7 @@ pub async fn send(output_folder: PathBuf) -> anyhow::Result<()> {
             {
                 let send_result = send_packfiles_from_folder(&pack_folder, conn.0, &mut conn.1).await;
 
-                // todo distinguish between send errors and filesystem errors
+                // ideally distinguish between send errors and filesystem errors
                 match send_result {
                     Ok(_) => {
                         last_matched = current_matched;
@@ -236,7 +236,7 @@ async fn get_peer_connection() -> anyhow::Result<(ClientId, BackupTransportManag
         }
 
         // wait for a while for the connection to establish
-        // todo ideally replace by a channel subscription
+        // better to replace by a channel subscription
         tokio::time::sleep(Duration::from_secs(3)).await;
         if let Some(transport) = orchestrator.active_transport_sessions.lock().await.remove(peer) {
             return Ok((*peer, transport));

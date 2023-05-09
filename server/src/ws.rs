@@ -44,7 +44,7 @@ pub async fn handler(ws: WebSocket, request: &Request) -> impl IntoResponse {
 
         // if the same client connects again, the old connection is removed from the map
         // automatically, but the old connection is still listening for incoming
-        // messages todo maybe send a message to the old connection to close it?
+        // messages, maybe send a message to the old connection to close it?
         CONNECTIONS.get().unwrap().new_connection(client_id, ws_send).await;
 
         println!("[ws] new connection: {}", hex::encode(client_id));

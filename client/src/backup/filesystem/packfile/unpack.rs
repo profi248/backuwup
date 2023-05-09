@@ -76,7 +76,7 @@ impl Manager {
 
             Err(PackfileError::IndexHeaderMismatch)
         } else {
-            // todo handle index not having the blob better
+            // ideally handle index not having the blob better
             println!("blob not found in index!!");
             Ok(None)
         }

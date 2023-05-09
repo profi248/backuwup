@@ -10,10 +10,7 @@ mod db;
 mod handlers;
 mod ws;
 
-use poem::{
-    listener::TcpListener,
-    Route, Server,
-};
+use poem::{listener::TcpListener, Route, Server};
 use tokio::sync::OnceCell;
 
 use crate::{

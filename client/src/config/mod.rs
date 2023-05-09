@@ -10,11 +10,11 @@ pub mod peers;
 
 use std::{
     env, fs,
+    path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::path::PathBuf;
-use anyhow::anyhow;
 
+use anyhow::anyhow;
 use sqlx::{
     sqlite::{SqlitePoolOptions, SqliteQueryResult},
     Error, Sqlite, SqlitePool,
@@ -87,7 +87,7 @@ impl Config {
     fn get_config_dir() -> anyhow::Result<PathBuf> {
         match env::var("CONFIG_DIR") {
             Ok(path) => Ok(PathBuf::from(path)),
-            Err(_) => dirs::config_local_dir().ok_or(anyhow!("Cannot find the system config directory"))
+            Err(_) => dirs::config_local_dir().ok_or(anyhow!("Cannot find the system config directory")),
         }
     }
 
@@ -95,7 +95,7 @@ impl Config {
     fn get_data_dir() -> anyhow::Result<PathBuf> {
         match env::var("DATA_DIR") {
             Ok(path) => Ok(PathBuf::from(path)),
-            Err(_) => dirs::data_local_dir().ok_or(anyhow!("Cannot find the system app data directory"))
+            Err(_) => dirs::data_local_dir().ok_or(anyhow!("Cannot find the system app data directory")),
         }
     }
 

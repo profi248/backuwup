@@ -69,7 +69,6 @@ impl BlobIndex {
 
         let mut max_num = 0;
         while let Some(entry) = index_files.next().await {
-            // todo: entry may be a directory
             // ignore files that don't match our pattern
             max_num = max_num.max(
                 (entry?
@@ -170,7 +169,6 @@ impl BlobIndex {
 
         while let Some(entry) = index_files.next().await {
             let entry = entry?;
-            // todo: ignore directories
             // ignore files that don't match our pattern
             let file_num = (entry
                 .file_name()
@@ -187,7 +185,7 @@ impl BlobIndex {
                 let nonce_bytes = self.counter_to_nonce(file_num);
                 let nonce = Nonce::from_slice(&nonce_bytes);
 
-                // todo: associated data, read flush function for details
+                // associated data could be used
                 cipher.decrypt_in_place(nonce, b"", &mut buf)?;
 
                 let mut items: Entry = bincode::options().with_varint_encoding().deserialize(&buf)?;
@@ -215,7 +213,7 @@ impl BlobIndex {
         let nonce_bytes = self.counter_to_nonce(new_file_num);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
-        // todo: add associated data (to make sure we're decrypting a index so "index" could work)
+        // associated data could be used (to make sure we're decrypting a index so "index" could work)
         cipher.encrypt_in_place(nonce, b"", &mut buf)?;
 
         let file_name = format!("{new_file_num:0>10}");
