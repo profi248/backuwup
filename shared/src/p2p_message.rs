@@ -1,4 +1,4 @@
-//! Rypes of messages that are sent between peers.
+//! Messages that are sent between peers.
 
 use serde::{Deserialize, Serialize};
 

@@ -35,7 +35,7 @@ mod ui;
 static P2P_CONN_REQUESTS: OnceCell<P2PConnectionManager> = OnceCell::const_new();
 /// Provides access to the global application configuration, which is used by many parts of the application.
 static CONFIG: OnceCell<Config> = OnceCell::const_new();
-/// Allows many parts different of the application to update state of the UI or send log messages.
+/// Allows many different parts of the application to update state of the UI or send log messages.
 static UI: OnceCell<Messenger> = OnceCell::const_new();
 /// Generates and manages the secrets, all keys are derived from the root secret on startup.
 static KEYS: OnceCell<KeyManager> = OnceCell::const_new();
