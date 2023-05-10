@@ -49,6 +49,7 @@ impl PeerDataReceiver {
         Ok(Self { file_path, peer_id, obfuscation_key })
     }
 
+    /// Saves a file to disk.
     pub async fn save_file(&self, path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
         if path.try_exists()? {
             bail!("file name collision at path {path:?}")
@@ -71,6 +72,7 @@ impl PeerDataReceiver {
         }
     }
 
+    /// Obfuscates the data using the obfuscation key.
     pub fn obfuscate_data<'a>(&self, data: &'a mut [u8]) -> &'a [u8] {
         obfuscate_data_impl(data, self.obfuscation_key)
     }

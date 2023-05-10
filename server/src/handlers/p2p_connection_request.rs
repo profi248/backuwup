@@ -15,6 +15,7 @@ use crate::{
     AUTH_MANAGER, CONNECTIONS, DB,
 };
 
+/// Handler for the P2P connection begin request.
 #[handler]
 pub async fn p2p_connection_begin(
     Json(request): Json<BeginP2PConnectionRequest>,
@@ -47,6 +48,7 @@ pub async fn p2p_connection_begin(
     Ok(Json(ServerMessage::Ok))
 }
 
+/// Handler for the P2P connection confirm request.
 #[handler]
 pub async fn p2p_connection_confirm(
     Json(request): Json<ConfirmP2PConnectionRequest>,

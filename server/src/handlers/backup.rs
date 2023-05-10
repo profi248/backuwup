@@ -8,6 +8,7 @@ use shared::{
 
 use crate::{handlers::Error, AUTH_MANAGER, DB};
 
+/// Handler for the backup done request.
 #[handler]
 pub async fn backup_done(Json(request): Json<BackupDone>) -> poem::Result<Json<ServerMessage>> {
     let source_client_id = AUTH_MANAGER
@@ -24,6 +25,7 @@ pub async fn backup_done(Json(request): Json<BackupDone>) -> poem::Result<Json<S
     Ok(Json(ServerMessage::Ok))
 }
 
+/// Handler for the backup restore request.
 #[handler]
 pub async fn backup_restore(Json(request): Json<BackupRestoreRequest>) -> poem::Result<Json<ServerMessage>> {
     let source_client_id = AUTH_MANAGER

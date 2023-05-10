@@ -8,6 +8,7 @@ use sqlx::Row;
 use super::{Config, Transaction};
 use crate::{defaults, defaults::PEER_STORAGE_USAGE_SPREAD};
 
+/// Struct containing information about a peer.
 pub struct PeerInfo {
     pub pubkey: ClientId,
     pub bytes_transmitted: i64,
@@ -18,6 +19,7 @@ pub struct PeerInfo {
 }
 
 impl Config {
+    /// Gets the directory where received packfiles are stored.
     pub fn get_received_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
         let mut dir = Config::get_data_dir()?;
         dir.push(defaults::APP_FOLDER_NAME);
@@ -26,6 +28,7 @@ impl Config {
         Ok(dir)
     }
 
+    /// Gets the directory where temporary restore packfiles are stored.
     pub fn get_restored_packfiles_folder(&self) -> anyhow::Result<PathBuf> {
         let mut dir = Config::get_data_dir()?;
         dir.push(defaults::APP_FOLDER_NAME);
@@ -34,6 +37,7 @@ impl Config {
         Ok(dir)
     }
 
+    /// Adds a peer or increments the peer's negotiated storage.
     pub async fn add_or_increment_peer_storage(
         &self,
         peer_id: ClientId,
@@ -46,6 +50,7 @@ impl Config {
         Ok(())
     }
 
+    /// Get complete information about a peer.
     pub async fn get_peer_info(&self, peer_id: ClientId) -> anyhow::Result<Option<PeerInfo>> {
         let mut transaction = self.transaction().await?;
         let peer = transaction.get_peer_info(peer_id).await?;
@@ -54,6 +59,7 @@ impl Config {
         Ok(peer)
     }
 
+    /// Increment peer's transmitted bytes.
     pub async fn peer_increment_transmitted(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_increment_transmitted(peer_id, amount).await?;
@@ -62,6 +68,7 @@ impl Config {
         Ok(())
     }
 
+    /// Increment peer's received bytes.
     pub async fn peer_increment_received(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_increment_received(peer_id, amount).await?;
@@ -70,22 +77,7 @@ impl Config {
         Ok(())
     }
 
-    pub async fn peer_get_negotiated_storage(&self, peer_id: ClientId) -> anyhow::Result<u64> {
-        let mut transaction = self.transaction().await?;
-        let amount = transaction.peer_get_negotiated_storage(peer_id).await?;
-        transaction.commit().await?;
-
-        Ok(amount)
-    }
-
-    pub async fn peer_set_negotiated_storage(&self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
-        let mut transaction = self.transaction().await?;
-        transaction.peer_set_negotiated_storage(peer_id, amount).await?;
-        transaction.commit().await?;
-
-        Ok(())
-    }
-
+    /// Get peers that have negotiated storage available.
     pub async fn find_peers_with_storage(&self) -> anyhow::Result<Vec<ClientId>> {
         let mut transaction = self.transaction().await?;
         let peers = transaction.find_peers_with_storage().await?;
@@ -94,6 +86,7 @@ impl Config {
         Ok(peers)
     }
 
+    /// Get all peers with, optionally, last seen time within the given limit.
     pub async fn get_peers(&self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
         let mut transaction = self.transaction().await?;
         let peers = transaction.get_peers(last_seen_limit_seconds).await?;
@@ -102,6 +95,7 @@ impl Config {
         Ok(peers)
     }
 
+    /// Update peer's last seen time.
     pub async fn peer_update_last_seen(&self, peer_id: ClientId) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         transaction.peer_update_last_seen(peer_id).await?;
@@ -112,6 +106,7 @@ impl Config {
 }
 
 impl Transaction<'_> {
+    /// Adds a peer or increments the peer's negotiated storage.
     pub async fn add_or_increment_peer(&mut self, peer_id: ClientId, negotiated: u64) -> anyhow::Result<()> {
         sqlx::query(
             "insert into peers (pubkey, bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen)
@@ -127,6 +122,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Get complete information about a peer.
     pub async fn get_peer_info(&mut self, peer_id: ClientId) -> anyhow::Result<Option<PeerInfo>> {
         let peer = sqlx::query(
             "select bytes_transmitted, bytes_received, bytes_negotiated, first_seen, last_seen from peers where pubkey = $1",
@@ -148,6 +144,7 @@ impl Transaction<'_> {
         }
     }
 
+    /// Increment peer's transmitted bytes.
     pub async fn peer_increment_transmitted(&mut self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         sqlx::query(
             "update peers set bytes_transmitted = bytes_transmitted + $1, last_seen = $2 where pubkey = $3",
@@ -161,6 +158,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Increment peer's received bytes.
     pub async fn peer_increment_received(&mut self, peer_id: ClientId, amount: u64) -> anyhow::Result<()> {
         sqlx::query(
             "update peers set bytes_received = bytes_received + $1, last_seen = $2 where pubkey = $3",
@@ -174,29 +172,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
-    pub async fn peer_get_negotiated_storage(&mut self, peer_id: ClientId) -> anyhow::Result<u64> {
-        Ok(sqlx::query("select bytes_negotiated from peers where pubkey = $1")
-            .bind(&peer_id[..])
-            .fetch_one(&mut self.transaction)
-            .await?
-            .try_get(0)
-            .map(|val: i64| val as u64)?)
-    }
-
-    pub async fn peer_set_negotiated_storage(
-        &mut self,
-        peer_id: ClientId,
-        amount: u64,
-    ) -> anyhow::Result<()> {
-        sqlx::query("update peers set bytes_negotiated = $1 where pubkey = $2")
-            .bind(amount as i64)
-            .bind(&peer_id[..])
-            .execute(&mut self.transaction)
-            .await?;
-
-        Ok(())
-    }
-
+    /// Get peers that have negotiated storage available.
     pub async fn find_peers_with_storage(&mut self) -> anyhow::Result<Vec<ClientId>> {
         let rows = sqlx::query(
             "select pubkey, (bytes_negotiated - bytes_transmitted) as free_storage \
@@ -216,6 +192,7 @@ impl Transaction<'_> {
         Ok(peers)
     }
 
+    /// Get all peers with, optionally, last seen time within the given limit.
     pub async fn get_peers(&mut self, last_seen_limit_seconds: Option<u64>) -> anyhow::Result<Vec<PeerInfo>> {
         let oldest_timestamp = match last_seen_limit_seconds {
             Some(seconds) => Config::get_unix_timestamp() - (seconds as i64),
@@ -248,6 +225,7 @@ impl Transaction<'_> {
         Ok(peers)
     }
 
+    /// Update peer's last seen time.
     pub async fn peer_update_last_seen(&mut self, peer_id: ClientId) -> anyhow::Result<()> {
         sqlx::query("update peers set last_seen = $1 where pubkey = $2")
             .bind(Config::get_unix_timestamp())

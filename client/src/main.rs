@@ -72,10 +72,13 @@ async fn main() {
     let (log_sender, _) = channel(1000);
     UI.set(Messenger::new(log_sender.clone())).unwrap();
 
+    // initialize P2P connection manager
     P2P_CONN_REQUESTS.set(P2PConnectionManager::new()).unwrap();
 
+    // allow to override the default UI bind address
     let ui_bind_addr = env::var("UI_BIND_ADDR").unwrap_or(defaults::UI_BIND_ADDR.to_string());
 
+    // start the UI and the server WebSocket connection
     let tasks = vec![tokio::spawn(net_server::connect_ws()), tokio::spawn(ui::run(ui_bind_addr))];
 
     future::join_all(tasks).await;

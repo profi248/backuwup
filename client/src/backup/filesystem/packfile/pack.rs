@@ -7,7 +7,7 @@ use std::{
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
-use shared::types::{BlobNonce, PackfileId, NONCE_SIZE};
+use shared::types::{BlobNonce, PackfileId, BLOB_NONCE_SIZE};
 use tokio::{
     fs::{self, OpenOptions},
     io::AsyncWriteExt,
@@ -141,7 +141,7 @@ impl Manager {
                     length: blob.data.len() as u64,
                 });
 
-                bytes_written += blob.data.len() + NONCE_SIZE;
+                bytes_written += blob.data.len() + BLOB_NONCE_SIZE;
 
                 // write blob to packfile buffer, as nonce[NONCE_SIZE] || encrypted_data[length]
                 data.append(&mut blob.nonce.to_vec());
@@ -278,7 +278,10 @@ mod tests {
         // worst case scenario with maximum amount of blobs, target size reached and
         // a maximum size blob added over the target size
         assert!(
-            PACKFILE_TARGET_SIZE + BLOB_MAX_UNCOMPRESSED_SIZE + (entry_len * PACKFILE_MAX_BLOBS) + NONCE_SIZE
+            PACKFILE_TARGET_SIZE
+                + BLOB_MAX_UNCOMPRESSED_SIZE
+                + (entry_len * PACKFILE_MAX_BLOBS)
+                + BLOB_NONCE_SIZE
                 <= PACKFILE_MAX_SIZE
         );
     }

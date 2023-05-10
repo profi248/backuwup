@@ -19,11 +19,11 @@ Compile-time configuration constants can be changed in the `defaults.rs` file.
 ## Usage
 The client application needs to connect to a server. The default server address is `127.0.0.1:9999`, but it can be overridden with the environment variable `SERVER_ADDR`.
 
-By default, for testing purposes, the precompiled clients use unencrypted HTTP/WebSocket by for communication with the server. This can be overridden by setting the `USE_TLS` environment variable to `1`. **Important**: TLS is disabled strictly for the ease of testing, it's necessary to use TLS with a valid certificate in production environments! 
+By default, the clients enforce TLS on HTTPS/WebSocket connections with the server. This can be overridden by setting the `USE_TLS` environment variable to `0`. **Important**: TLS is only designed to be disabled for testing purposes. It's mandatory to use TLS in production. 
 
 Backuwup client expects to run in a terminal environment and with ANSI color escapes supported (works on common Linux and modern Windows versions). When the application is started for the first time, a command line first start guide will show up. The user can choose to either set up the application from scratch (when creating a new backup) or from an existing mnemonic (for restoring an existing backup). When starting from scratch, it's necessary to save the displayed mnemonic to be able to perform a restore later if the application data is destroyed.
 
-After the first setup guide is completed, a web user interface is started. To access it, simply open the displayed link in a browser. The default address of the web user interface is `http://127.0.0.1:3000` (and is accessible only on the local computer). This can be overridden by the environment variable `UI_BIND_ADDR`. For example, setting it to `0.0.0.0:3001` will change the port to `3001` and will allow access not only from the local computer.
+After the first setup guide is completed, a web user interface is started. To access it, simply open the displayed link in a browser. The default address of the web user interface is `http://127.0.0.1:3000` (and is accessible only on the local computer). This can be overridden by the environment variable `UI_BIND_ADDR`. For example, setting it to `0.0.0.0:3001` will change the port to `3001` and allow access from outside the local computer.
 
 The web user interface offers easy access to main functions with buttons at the top and displays basic progress graphically. Below the panel at the top, there's a window that shows logs. The terminal window where the application is running will show even more detailed logs.
 
@@ -41,6 +41,8 @@ The client will send a storage request to the server right after a backup starts
 > **Note for testing**
 > 
 > For creating backups, it's easiest to have two clients which have data of about the same size in their backup path. After starting a backup on one client, one can see that files start getting packaged and then the backup pauses. Starting a backup on the second client will then send another storage request to the server, they will get matched, and both clients will be able to complete the backup and successfully transport data to the other peer.
+> 
+> Having datasets with sizes that differ too much will result in the backup never being completed due to not having a storage partner. The matching system is based on a one-to-one storage ratio (with a certain buffer).
 
 After a backup is completed, the snapshot ID of the completed backup will be sent to the server.
 

@@ -9,6 +9,7 @@ use super::{Config, Transaction};
 use crate::key_manager::RootSecret;
 
 impl Config {
+    /// Returns whether the client has been initialized.
     pub async fn is_initialized(&self) -> anyhow::Result<bool> {
         let mut transaction = self.transaction().await?;
         let result = transaction.is_initialized().await;
@@ -17,6 +18,7 @@ impl Config {
         result
     }
 
+    /// Sets the client as initialized.
     pub async fn set_initialized(&self) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.set_initialized().await;
@@ -25,6 +27,7 @@ impl Config {
         result
     }
 
+    /// Saves the root secret.
     pub async fn save_root_secret(&self, secret: RootSecret) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.save_root_secret(secret).await;
@@ -33,6 +36,7 @@ impl Config {
         result
     }
 
+    /// Loads the root secret.
     pub async fn load_root_secret(&self) -> anyhow::Result<RootSecret> {
         let mut transaction = self.transaction().await?;
         let result = transaction.load_root_secret().await;
@@ -41,6 +45,7 @@ impl Config {
         result
     }
 
+    /// Saves the session token.
     pub async fn save_auth_token(&self, token: Option<SessionToken>) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.save_auth_token(token).await;
@@ -49,6 +54,7 @@ impl Config {
         result
     }
 
+    /// Loads the session token.
     pub async fn load_auth_token(&self) -> anyhow::Result<Option<SessionToken>> {
         let mut transaction = self.transaction().await?;
         let result = transaction.load_auth_token().await;
@@ -57,6 +63,7 @@ impl Config {
         result
     }
 
+    /// Saves the obfuscation key.
     pub async fn save_obfuscation_key(&self, key: u32) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.save_obfuscation_key(key).await;
@@ -65,6 +72,7 @@ impl Config {
         result
     }
 
+    /// Loads the obfuscation key.
     pub async fn get_obfuscation_key(&self) -> anyhow::Result<u32> {
         let mut transaction = self.transaction().await?;
         let result = transaction.get_obfuscation_key().await;
@@ -75,6 +83,7 @@ impl Config {
 }
 
 impl Transaction<'_> {
+    /// Returns whether the client has been initialized.
     pub async fn is_initialized(&mut self) -> anyhow::Result<bool> {
         let initialized = sqlx::query("select value from config where key = 'initialized'")
             .fetch_optional(&mut self.transaction)
@@ -84,6 +93,7 @@ impl Transaction<'_> {
         Ok(initialized)
     }
 
+    /// Sets the client as initialized.
     pub async fn set_initialized(&mut self) -> anyhow::Result<()> {
         sqlx::query("insert into config (key, value) values ('initialized', 1)")
             .execute(&mut self.transaction)
@@ -91,6 +101,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Saves the root secret.
     pub async fn save_root_secret(&mut self, secret: RootSecret) -> anyhow::Result<()> {
         sqlx::query("insert into config (key, value) values ('root_secret', $1)")
             .bind(Vec::from(secret))
@@ -99,6 +110,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Loads the root secret.
     pub async fn load_root_secret(&mut self) -> anyhow::Result<RootSecret> {
         let secret: Vec<u8> = sqlx::query("select value from config where key = 'root_secret'")
             .fetch_one(&mut self.transaction)
@@ -111,6 +123,7 @@ impl Transaction<'_> {
         }
     }
 
+    /// Saves the session token.
     pub async fn save_auth_token(&mut self, token: Option<SessionToken>) -> anyhow::Result<()> {
         if let Some(token) = token {
             sqlx::query("insert or replace into config (key, value) values ('auth_token', $1)")
@@ -126,6 +139,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Loads the session token.
     pub async fn load_auth_token(&mut self) -> anyhow::Result<Option<SessionToken>> {
         let token = sqlx::query("select value from config where key = 'auth_token'")
             .fetch_optional(&mut self.transaction)
@@ -143,6 +157,7 @@ impl Transaction<'_> {
         }
     }
 
+    /// Saves the obfuscation key.
     pub async fn save_obfuscation_key(&mut self, key: u32) -> anyhow::Result<()> {
         sqlx::query("insert into config (key, value) values ('obfuscation_key', $1)")
             .bind(Vec::from(key.to_le_bytes()))
@@ -152,6 +167,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Loads the obfuscation key.
     pub async fn get_obfuscation_key(&mut self) -> anyhow::Result<u32> {
         let key: Vec<u8> = sqlx::query("select value from config where key = 'obfuscation_key'")
             .fetch_one(&mut self.transaction)

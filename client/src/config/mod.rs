@@ -23,15 +23,18 @@ use sqlx::{
 use crate::defaults::SERVER_USE_TLS;
 
 #[derive(Clone, Debug)]
+/// Manages storing and retrieving data from the local database.
 pub struct Config {
     db_pool: SqlitePool,
 }
 
+/// Represents a database transaction, can be used for data consistency.
 pub struct Transaction<'a> {
     transaction: sqlx::Transaction<'a, Sqlite>,
 }
 
 impl Config {
+    /// Initializes the config database, creating the necessary tables if they don't exist.
     pub async fn init() -> Self {
         let mut structure_initialized = true;
 
@@ -99,6 +102,7 @@ impl Config {
         }
     }
 
+    /// Creates the necessary tables in the database.
     async fn create_db_structure(pool: &SqlitePool) -> Result<SqliteQueryResult, Error> {
         sqlx::query(
             "create table if not exists config
@@ -133,12 +137,14 @@ impl Config {
         .await
     }
 
+    /// Creates a new transaction.
     pub async fn transaction(&self) -> anyhow::Result<Transaction> {
         let transaction = self.db_pool.begin().await?;
 
         Ok(Transaction { transaction })
     }
 
+    /// Returns the current time as Unix timestamp in seconds.
     pub fn get_unix_timestamp() -> i64 {
         cast::i64(
             SystemTime::now()
@@ -151,11 +157,13 @@ impl Config {
 }
 
 impl Transaction<'_> {
+    /// Commits the transaction.
     pub async fn commit(self) -> anyhow::Result<()> {
         self.transaction.commit().await?;
         Ok(())
     }
 
+    /// Rolls back the transaction.
     pub async fn rollback(self) -> anyhow::Result<()> {
         self.transaction.rollback().await?;
         Ok(())

@@ -9,6 +9,7 @@ use shared::{
 
 use crate::{handlers::Error, AUTH_MANAGER, DB};
 
+/// Handler for the client registration begin request.
 #[handler]
 pub async fn register_begin(
     Json(request): Json<ClientRegistrationRequest>,
@@ -23,6 +24,7 @@ pub async fn register_begin(
     Ok(Json(ServerMessage::ClientRegistrationChallenge(ClientRegistrationChallenge { server_challenge })))
 }
 
+/// Handler for the client registration complete request.
 #[handler]
 pub async fn register_complete(
     Json(request): Json<ClientRegistrationAuth>,

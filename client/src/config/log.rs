@@ -7,6 +7,7 @@ use sqlx::Row;
 
 use crate::config::{Config, Transaction};
 
+/// The type of event.
 enum EventType {
     RestoreRequest = 0,
     Backup = 1,
@@ -26,11 +27,13 @@ impl EventType {
     }
 }
 
+/// Data for a restore request event.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RestoreRequestEvent {
     peer_id: ClientId,
 }
 
+/// Data for a backup event.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct BackupEvent {
     size: i64,
@@ -38,6 +41,7 @@ struct BackupEvent {
 }
 
 impl Config {
+    /// Logs a peer restore request.
     pub async fn log_peer_restore_request(&self, peer_id: ClientId) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.log_peer_restore_request(peer_id).await;
@@ -46,6 +50,7 @@ impl Config {
         result
     }
 
+    /// Gets the timestamp of the last peer restore request.
     pub async fn get_last_peer_restore_request(&self, peer_id: ClientId) -> anyhow::Result<Option<i64>> {
         let mut transaction = self.transaction().await?;
         let result = transaction.get_last_peer_restore_request(peer_id).await;
@@ -54,6 +59,7 @@ impl Config {
         result
     }
 
+    /// Logs a backup.
     pub async fn log_backup(&self, size: i64, path: &PathBuf) -> anyhow::Result<()> {
         let mut transaction = self.transaction().await?;
         let result = transaction.log_backup(size, path).await;
@@ -62,6 +68,7 @@ impl Config {
         result
     }
 
+    /// Gets the size difference from the last performed backup on the same path.
     pub async fn get_backup_size_difference(&self, size: i64, path: &PathBuf) -> anyhow::Result<Option<i64>> {
         let mut transaction = self.transaction().await?;
         let result = transaction.get_backup_size_difference(size, path).await;
@@ -72,6 +79,7 @@ impl Config {
 }
 
 impl Transaction<'_> {
+    /// Logs a peer restore request.
     pub async fn log_peer_restore_request(&mut self, peer_id: ClientId) -> anyhow::Result<()> {
         let event = serde_json::to_string(&RestoreRequestEvent { peer_id })?;
         let event_type = EventType::RestoreRequest.to_id();
@@ -86,6 +94,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Gets the timestamp of the last peer restore request.
     pub async fn get_last_peer_restore_request(&mut self, peer_id: ClientId) -> anyhow::Result<Option<i64>> {
         let event_type = EventType::RestoreRequest.to_id();
 
@@ -104,6 +113,7 @@ impl Transaction<'_> {
         }
     }
 
+    /// Logs a backup.
     pub async fn log_backup(&mut self, size: i64, path: &PathBuf) -> anyhow::Result<()> {
         let event = serde_json::to_string(&BackupEvent { size, path: path.clone() })?;
         let event_type = EventType::Backup.to_id();
@@ -118,6 +128,7 @@ impl Transaction<'_> {
         Ok(())
     }
 
+    /// Gets the size difference from the last performed backup on the same path.
     pub async fn get_backup_size_difference(
         &mut self,
         size: i64,

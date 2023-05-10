@@ -46,6 +46,7 @@ impl RestoreReceiver {
         Ok(Self { file_path, peer_id })
     }
 
+    /// Saves a file to disk.
     pub fn save_file(path: PathBuf, data: &mut [u8]) -> anyhow::Result<()> {
         fs::write(path, data)?;
 

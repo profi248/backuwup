@@ -4,7 +4,7 @@
 pub const SERVER_ADDR: &str = "127.0.0.1:9999";
 
 /// Toggles whether the client uses TLS and certificate validation for communicating with the server.
-pub const SERVER_USE_TLS: bool = false;
+pub const SERVER_USE_TLS: bool = true;
 
 /// The address of the user interface server.
 pub const UI_BIND_ADDR: &str = "127.0.0.1:3000";

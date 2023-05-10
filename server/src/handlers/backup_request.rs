@@ -5,6 +5,7 @@ use shared::{client_message::BackupRequest, server_message::ServerMessage};
 
 use crate::{backup_request::Request, handlers::Error, AUTH_MANAGER, BACKUP_REQUESTS};
 
+/// Handler for the storage request.
 #[handler]
 pub async fn make_backup_request(Json(request): Json<BackupRequest>) -> poem::Result<Json<ServerMessage>> {
     let client_id = AUTH_MANAGER

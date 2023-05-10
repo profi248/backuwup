@@ -9,6 +9,7 @@ use shared::{
 
 use crate::{handlers, AUTH_MANAGER, DB};
 
+/// Handler for the login begin request.
 #[handler]
 pub async fn login_begin(Json(request): Json<ClientLoginRequest>) -> poem::Result<Json<ServerMessage>> {
     if !DB.get().unwrap().client_exists(request.client_id).await? {
@@ -21,6 +22,7 @@ pub async fn login_begin(Json(request): Json<ClientLoginRequest>) -> poem::Resul
     Ok(Json(ServerMessage::ClientLoginChallenge(ClientLoginChallenge { server_challenge })))
 }
 
+/// Handler for the login complete request.
 #[handler]
 pub async fn login_complete(Json(request): Json<ClientLoginAuth>) -> poem::Result<Json<ServerMessage>> {
     // the response is passed in as Vec

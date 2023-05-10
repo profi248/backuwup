@@ -25,6 +25,7 @@ use crate::{
 };
 
 #[derive(Debug)]
+/// Handles the protocol for sending files over the P2P transport.
 pub struct BackupTransportManager {
     tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     msg_counter: u64,
@@ -52,6 +53,7 @@ impl BackupTransportManager {
         }
     }
 
+    /// Checks an incoming acknowledgement message, related to a sent file.
     pub fn parse_incoming_ack(
         data: &[u8],
         nonce: TransportSessionNonce,
@@ -77,6 +79,7 @@ impl BackupTransportManager {
         Ok(body.acknowledged_sequence_number)
     }
 
+    /// Processes and dispatches incoming acknowledge messages.
     pub async fn process_acks(
         mut stream: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
         notifier: broadcast::Sender<u64>,
@@ -104,6 +107,7 @@ impl BackupTransportManager {
         }
     }
 
+    /// Sends a file and waits for an acknowledgement, or times out.
     pub async fn send_data(&mut self, data: Vec<u8>, file_info: FileInfo) -> anyhow::Result<()> {
         let body = EncapsulatedFileBody {
             header: Header {
@@ -127,6 +131,7 @@ impl BackupTransportManager {
         Ok(())
     }
 
+    /// Waits for an acknowledgement for a specific sequence number.
     pub async fn wait_for_ack(&mut self, sequence_number: u64) -> anyhow::Result<()> {
         let mut receiver = self.ack_notifier.subscribe();
 
@@ -139,6 +144,7 @@ impl BackupTransportManager {
         bail!("Peer disconnected");
     }
 
+    /// Closes the connection.
     pub async fn done(mut self) {
         // try to close gracefully or ignore the error
         self.tx.close().await.ok();

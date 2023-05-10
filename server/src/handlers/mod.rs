@@ -15,6 +15,7 @@ use shared::{
 
 use crate::AUTH_MANAGER;
 
+/// Error type for handlers.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Not authorized")]
@@ -45,6 +46,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
+/// Convert an `Error` to a `Response`.
 #[allow(clippy::match_same_arms)]
 impl ResponseError for Error {
     fn status(&self) -> StatusCode {
@@ -88,6 +90,7 @@ impl ResponseError for Error {
     }
 }
 
+/// Check if a request is authorized.
 pub fn check_token_header(request: &Request) -> Result<ClientId, Error> {
     let token = request
         .headers()
@@ -99,6 +102,7 @@ pub fn check_token_header(request: &Request) -> Result<ClientId, Error> {
     check_token(token).map_err(|_| Error::Unauthorized)
 }
 
+/// Check if a token is valid.
 pub fn check_token(token: impl Into<String>) -> Result<ClientId, anyhow::Error> {
     let token: SessionToken = hex::decode(token.into())?
         .try_into()

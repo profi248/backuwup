@@ -1,4 +1,3 @@
 /target
 /.git
 .vscode
-client/perf.data*

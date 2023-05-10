@@ -70,7 +70,6 @@ pub async fn run() -> anyhow::Result<()> {
     // unpack the inner result so it stops whenever one of the tasks returns an error
     let result = try_join!(pack_result.map(|r| r.unwrap()), transport_result.map(|r| r.unwrap()));
 
-    // todo if packer fails, send might keep running
     BACKUP_ORCHESTRATOR.get().unwrap().set_backup_finished();
 
     // stop sending progress updates

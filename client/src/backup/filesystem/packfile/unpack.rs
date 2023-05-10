@@ -2,7 +2,7 @@
 
 use aes_gcm::{AeadInPlace, Aes256Gcm, KeyInit, Nonce};
 use bincode::Options;
-use shared::types::{BlobHash, NONCE_SIZE};
+use shared::types::{BlobHash, BLOB_NONCE_SIZE};
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncSeekExt},
@@ -49,7 +49,7 @@ impl Manager {
 
             for blob_metadata in header {
                 if blob_metadata.hash == *blob_hash {
-                    let mut blob_nonce = [0; NONCE_SIZE];
+                    let mut blob_nonce = [0; BLOB_NONCE_SIZE];
                     let mut blob_buf = vec![0; blob_metadata.length as usize];
                     packfile
                         .seek(std::io::SeekFrom::Current(blob_metadata.offset as i64))
