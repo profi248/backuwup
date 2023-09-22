@@ -9,7 +9,7 @@ edition = "2021"
 shared = { path = "../shared" }
 
 # Crypto
-aes-gcm = { version = "0.10.1", features = ["std"] }
+aes-gcm = { version = "0.10.3", features = ["std"] }
 ed25519-dalek = "1.0.1"
 rand_chacha = "0.3.1"
 getrandom = "0.2.8"
